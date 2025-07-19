@@ -1,0 +1,98 @@
+{
+  "project_info": {
+    "project_number": "796490347198",
+    "project_id": "sporticturfs",
+    "storage_bucket": "sporticturfs.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:796490347198:android:eae3be2da137b691aca4ef",
+        "android_client_info": {
+          "package_name": "com.sport.sports"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "796490347198-k3kt61ksvi50fo1orl2pdcsoaafiqomi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sport.sports",
+            "certificate_hash": "b2676d7651f622c6792603eef6e9ab69139f97b2"
+          }
+        },
+        {
+          "client_id": "796490347198-c6ib3dmnmpemrkvj57c953t301ut1ssr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOWveCTbmB2aRcB-uqnOsIocZv7xqce4U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "796490347198-c6ib3dmnmpemrkvj57c953t301ut1ssr.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "796490347198-5aue58g2k7ajqua7b1uukb1cns1k25d9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.sport.sports"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:796490347198:android:8abbd812b4ab5b74aca4ef",
+        "android_client_info": {
+          "package_name": "com.sporticadmin.sporticadmin"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "796490347198-v6u0jcakahj7dk4qnil39pvg2vhc92o2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sporticadmin.sporticadmin",
+            "certificate_hash": "bf5d695e3a020554b0ab79df807336c89d0a2782"
+          }
+        },
+        {
+          "client_id": "796490347198-c6ib3dmnmpemrkvj57c953t301ut1ssr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOWveCTbmB2aRcB-uqnOsIocZv7xqce4U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "796490347198-c6ib3dmnmpemrkvj57c953t301ut1ssr.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "796490347198-5aue58g2k7ajqua7b1uukb1cns1k25d9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.sport.sports"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
