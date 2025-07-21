@@ -100,6 +100,8 @@ flutter:
   assets:
     - assets/
     - assets/images/football_pic.png
+    - assets/images/badminton.png
+    - assets/images/pickleball.png
     - assets/images/cricket_pic.png
     - assets/images/tennis_pic.png
     - assets/images/sportsman.png

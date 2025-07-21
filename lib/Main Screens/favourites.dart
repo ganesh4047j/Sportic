@@ -64,7 +64,7 @@ class _FollowingScreenState extends ConsumerState<FollowingScreen> {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'Following',
+                      'Favourites',
                       style: GoogleFonts.robotoSlab(
                         color: Colors.white,
                         fontSize: 22,

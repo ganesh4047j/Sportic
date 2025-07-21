@@ -1,22 +1,27 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// 🌍 User Location Provider
 final userLocationProvider = StateProvider<String?>((ref) => null);
 
-/// Selected sport filter (like All Sports, Cricket, etc.)
+/// 🏷️ Selected sport filter (like All Sports, Cricket, etc.)
 final selectedFilterProvider = StateProvider<String>((ref) => 'All Sports');
 
-/// Currently selected user location (default is 'Trichy')
-//final userLocationProvider = StateProvider<String?>((ref) => 'Trichy');
+/// 🔍 Search query
+final searchTurfProvider = StateProvider<String>((ref) => '');
 
-/// Bottom navigation bar index for Turf screen
+/// 🔽 Bottom navigation index for Turf screen
 final turfNavIndexProvider = StateProvider<int>((ref) => 1);
 
-/// Turf model representing each turf card
+/// 🏟️ Turf Model
 class TurfModel {
   final String id;
   final String name;
   final String imageUrl;
   final List<String> sports;
+  final String startTime;
+  final String endTime;
   final bool isFavorite;
 
   TurfModel({
@@ -24,49 +29,93 @@ class TurfModel {
     required this.name,
     required this.imageUrl,
     required this.sports,
+    required this.startTime,
+    required this.endTime,
     this.isFavorite = false,
   });
 
-  /// Clone turf with updated favorite status
   TurfModel copyWith({bool? isFavorite}) {
     return TurfModel(
       id: id,
       name: name,
       imageUrl: imageUrl,
       sports: sports,
+      startTime: startTime,
+      endTime: endTime,
       isFavorite: isFavorite ?? this.isFavorite,
     );
   }
 }
 
-/// StateNotifier to manage the list of turfs
+/// 🧠 Turf List Notifier
 class TurfListNotifier extends StateNotifier<List<TurfModel>> {
-  TurfListNotifier()
-    : super([
-        TurfModel(
-          id: '1',
-          name: 'Turf name 1',
-          imageUrl:
-              'https://static.vecteezy.com/system/resources/previews/044/547/673/non_2x/lawn-on-a-football-field-photo.jpeg',
-          sports: ['Badminton', 'Box Cricket', 'Cricket', 'Football', 'Tennis'],
-        ),
-        TurfModel(
-          id: '2',
-          name: 'Turf name 2',
-          imageUrl:
-              'https://static.vecteezy.com/system/resources/previews/044/547/673/non_2x/lawn-on-a-football-field-photo.jpeg',
-          sports: ['Badminton', 'Box Cricket', 'Cricket', 'Football', 'Tennis'],
-        ),
-        TurfModel(
-          id: '3',
-          name: 'Turf name 3',
-          imageUrl:
-              'https://static.vecteezy.com/system/resources/previews/044/547/673/non_2x/lawn-on-a-football-field-photo.jpeg',
-          sports: ['Badminton', 'Box Cricket', 'Cricket', 'Football', 'Tennis'],
-        ),
-      ]);
+  TurfListNotifier() : super([]);
 
-  /// Toggle favorite status for a turf
+  /// 🚀 Fetch turf data from Firestore
+  Future<void> fetchTurfs() async {
+    List<TurfModel> allTurfs = [];
+
+    final firestore = FirebaseFirestore.instance;
+
+    print('Fetching Single Variant turfs...');
+    final singleSnapshot = await firestore.collection('single_variant').get();
+    for (var doc in singleSnapshot.docs) {
+      final data = doc.data();
+      debugPrint('Single Turf Found: ${data['turf_name']}');
+
+      final turf = TurfModel(
+        id: 'single_${doc.id}',
+        name: data['turf_name'] ?? '',
+        imageUrl: (data['images'] as List?)?.first ?? '',
+        sports: [data['sport'] ?? ''],
+        startTime: data['start_time'] ?? '',
+        endTime: data['end_time'] ?? '',
+      );
+      allTurfs.add(turf);
+    }
+
+    debugPrint('Fetching Multi Variant turfs...');
+    final multiSnapshot = await firestore.collection('multi_variant').get();
+    for (var ownerDoc in multiSnapshot.docs) {
+      final turfNames = List<String>.from(ownerDoc.data()['turf_names'] ?? []);
+      debugPrint('Multi Variant Owner: ${ownerDoc.id}, Turf Names: $turfNames');
+
+      for (final turfName in turfNames) {
+        final detailsSnap = await firestore
+            .collection('multi_variant')
+            .doc(ownerDoc.id)
+            .collection(turfName)
+            .doc('details')
+            .get();
+
+        if (detailsSnap.exists) {
+          final data = detailsSnap.data()!;
+          debugPrint('Multi Turf Found: ${data['turf_name']}');
+
+          final turf = TurfModel(
+            id: 'multi_${ownerDoc.id}_$turfName',
+            name: data['turf_name'] ?? '',
+            imageUrl: (data['images'] as List?)?.first ?? '',
+            sports: [data['sport'] ?? ''],
+            startTime: data['start_time'] ?? '',
+            endTime: data['end_time'] ?? '',
+          );
+          allTurfs.add(turf);
+        }
+      }
+    }
+
+    debugPrint('✅ Total turfs loaded: ${allTurfs.length}');
+    for (var turf in allTurfs) {
+      print(
+        '🏟️ Turf: ${turf.name}, Sport: ${turf.sports}, Start: ${turf.startTime}',
+      );
+    }
+
+    state = allTurfs;
+  }
+
+  /// ⭐ Toggle favorite status
   void toggleFavorite(String id) {
     state = [
       for (final turf in state)
@@ -78,125 +127,8 @@ class TurfListNotifier extends StateNotifier<List<TurfModel>> {
   }
 }
 
-/// Provider to expose the list of turfs
+/// 🌐 Expose Turf List Provider
 final turfListProvider =
     StateNotifierProvider<TurfListNotifier, List<TurfModel>>((ref) {
       return TurfListNotifier();
     });
-// import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:shared_preferences/shared_preferences.dart';
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
-//
-// /// 🌍 Persistent User Location Provider
-// final userLocationProvider =
-// StateNotifierProvider<UserLocationNotifier, String?>((ref) {
-//   return UserLocationNotifier();
-// });
-//
-// class UserLocationNotifier extends StateNotifier<String?> {
-//   UserLocationNotifier() : super(null) {
-//     _loadInitialLocation();
-//   }
-//
-//   Future<void> _loadInitialLocation() async {
-//     final prefs = await SharedPreferences.getInstance();
-//     final uid = FirebaseAuth.instance.currentUser?.uid;
-//
-//     if (uid != null) {
-//       final snapshot = await FirebaseFirestore.instance
-//           .collection('user_details_phone')
-//           .doc(uid)
-//           .get();
-//
-//       final locationFromFirestore = snapshot.data()?['location'] as String?;
-//       state = locationFromFirestore ?? 'Unknown';
-//       await prefs.setString('user_location', state!);
-//     } else {
-//       state = prefs.getString('user_location') ?? 'Unknown';
-//     }
-//   }
-//
-//   Future<void> setLocation(String newLocation) async {
-//     final prefs = await SharedPreferences.getInstance();
-//     state = newLocation;
-//     await prefs.setString('user_location', newLocation);
-//
-//     final uid = FirebaseAuth.instance.currentUser?.uid;
-//     if (uid != null) {
-//       await FirebaseFirestore.instance
-//           .collection('user_details_phone')
-//           .doc(uid)
-//           .update({'location': newLocation});
-//     }
-//   }
-// }
-//
-// /// Selected sport filter
-// final selectedFilterProvider = StateProvider<String>((ref) => 'All Sports');
-//
-// /// Bottom nav index
-// final turfNavIndexProvider = StateProvider<int>((ref) => 1);
-//
-// /// Turf model
-// class TurfModel {
-//   final String id;
-//   final String name;
-//   final String imageUrl;
-//   final List<String> sports;
-//   final bool isFavorite;
-//
-//   TurfModel({
-//     required this.id,
-//     required this.name,
-//     required this.imageUrl,
-//     required this.sports,
-//     this.isFavorite = false,
-//   });
-//
-//   TurfModel copyWith({bool? isFavorite}) {
-//     return TurfModel(
-//       id: id,
-//       name: name,
-//       imageUrl: imageUrl,
-//       sports: sports,
-//       isFavorite: isFavorite ?? this.isFavorite,
-//     );
-//   }
-// }
-//
-// /// Turf list notifier
-// class TurfListNotifier extends StateNotifier<List<TurfModel>> {
-//   TurfListNotifier()
-//       : super([
-//     TurfModel(
-//       id: '1',
-//       name: 'Turf name 1',
-//       imageUrl:
-//       'https://static.vecteezy.com/system/resources/previews/044/547/673/non_2x/lawn-on-a-football-field-photo.jpeg',
-//       sports: ['Cricket', 'Football', 'Tennis'],
-//     ),
-//     TurfModel(
-//       id: '2',
-//       name: 'Turf name 2',
-//       imageUrl:
-//       'https://static.vecteezy.com/system/resources/previews/044/547/673/non_2x/lawn-on-a-football-field-photo.jpeg',
-//       sports: ['Badminton', 'Football'],
-//     ),
-//   ]);
-//
-//   void toggleFavorite(String id) {
-//     state = [
-//       for (final turf in state)
-//         if (turf.id == id)
-//           turf.copyWith(isFavorite: !turf.isFavorite)
-//         else
-//           turf,
-//     ];
-//   }
-// }
-//
-// final turfListProvider =
-// StateNotifierProvider<TurfListNotifier, List<TurfModel>>((ref) {
-//   return TurfListNotifier();
-// });

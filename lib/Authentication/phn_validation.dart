@@ -394,7 +394,13 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen>
                   ElevatedButton(
                     // onPressed: signInWithGoogle,
                     onPressed: () {
-                      signInWithGoogle();
+                      // signInWithGoogle();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HomeScreen(),
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,

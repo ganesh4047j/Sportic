@@ -17,6 +17,7 @@ class _MvpPageState extends State<MvpPage> {
     text: 'Sportic',
   );
   String? selectedGame;
+  String? selectedCategory;
   String? selectedPosition;
 
   final List<String> games = [
@@ -25,6 +26,13 @@ class _MvpPageState extends State<MvpPage> {
     'Badminton',
     'Volleyball',
     'Basketball',
+  ];
+
+  final List<String> category = [
+    'BEGINNER',
+    'INTERMEDIATE',
+    'ADVANCED',
+    'PROFESSIONAL',
   ];
 
   final List<String> positions = [
@@ -180,29 +188,22 @@ class _MvpPageState extends State<MvpPage> {
                             ),
                           ],
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 18),
                         Expanded(
                           child: Center(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  "Get MVP points",
+                                  "Get MVP Points To Play & ",
                                   style: GoogleFonts.poppins(
                                     color: Colors.white,
                                     fontSize: 20,
                                   ),
                                 ),
+                                // SizedBox(width: 10),
                                 Text(
-                                  "    to play &",
+                                  'Vote Teammate',
                                   style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                  ),
-                                ),
-                                Text(
-                                  "vote teammate",
-                                  style: GoogleFonts.cutive(
                                     color: Colors.white,
                                     fontSize: 20,
                                   ),
@@ -487,6 +488,38 @@ class _MvpPageState extends State<MvpPage> {
                         ),
 
                         const SizedBox(height: 20),
+
+                        DropdownButtonFormField<String>(
+                          value: selectedGame ?? 'BEGINNER',
+                          dropdownColor: const Color(0xFF3A1C4D),
+                          decoration: InputDecoration(
+                            labelText: 'Category',
+                            labelStyle: GoogleFonts.poppins(
+                              color: Colors.white,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFF3A1C4D),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          iconEnabledColor: Colors.white,
+                          style: GoogleFonts.poppins(color: Colors.white),
+                          items: category.map((String category) {
+                            return DropdownMenuItem<String>(
+                              value: category,
+                              child: Text(category),
+                            );
+                          }).toList(),
+                          onChanged: (String? value) {
+                            setState(() {
+                              selectedCategory = value;
+                            });
+                          },
+                        ),
+
+                        const SizedBox(height: 15),
 
                         /// Turf Rating Row
                         Row(

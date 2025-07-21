@@ -76,142 +76,161 @@ class LocationInputScreen extends ConsumerWidget {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Stack(
-          children: [
-            Lottie.asset(
-              'assets/location.json',
-              fit: BoxFit.fill,
-              height: double.infinity,
-              width: double.infinity,
-              repeat: true,
-            ),
-            SafeArea(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Animate(
-                    effects: [
-                      FadeEffect(duration: 500.ms),
-                      SlideEffect(duration: 500.ms),
-                    ],
-                    child: Card(
-                      elevation: 20,
-                      color: Colors.white.withOpacity(0.7),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              "📍 Select Your Location",
-                              style: GoogleFonts.poppins(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.deepPurple,
-                              ),
-                            ).animate().fadeIn().slideY(),
-                            const SizedBox(height: 20),
-                            DropdownButtonFormField<String>(
-                              value:
-                                  (currentLocation != null &&
-                                      currentLocation.isNotEmpty)
-                                  ? currentLocation
-                                  : null,
-                              items: trichyLocations.map((location) {
-                                return DropdownMenuItem(
-                                  value: location,
-                                  child: Text(
-                                    location,
-                                    style: GoogleFonts.cutive(),
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  ref
-                                          .read(userLocationProvider.notifier)
-                                          .state =
-                                      value;
-                                }
-                              },
-                              decoration: InputDecoration(
-                                labelText: "Choose Area",
-                                labelStyle: GoogleFonts.cutive(),
-                                filled: true,
-                                fillColor: Colors.white,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(15),
+      body: Container(
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF452152),
+              Color(0xFF3D1A4A),
+              Color(0xFF200D28),
+              Color(0xFF1B0723),
+            ],
+          ),
+        ),
+        child: Center(
+          child: Stack(
+            children: [
+              Lottie.asset(
+                'assets/Globe.json',
+                fit: BoxFit.contain,
+                height: MediaQuery.sizeOf(context).height,
+                width: MediaQuery.sizeOf(context).width,
+                repeat: true,
+              ),
+              SafeArea(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Animate(
+                      effects: [
+                        FadeEffect(duration: 500.ms),
+                        SlideEffect(duration: 500.ms),
+                      ],
+                      child: Card(
+                        elevation: 20,
+                        color: Colors.white.withOpacity(0.7),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "📍 Select Your Location",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepPurple,
                                 ),
-                              ),
-                            ).animate().fadeIn(duration: 600.ms),
-                            const SizedBox(height: 24),
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final selected = ref.read(userLocationProvider);
-                                if (selected != null && selected.isNotEmpty) {
-                                  await _updateLocationToFirestore(selected);
-
-                                  // ✅ Update global location provider
-                                  ref
-                                          .read(userLocationProvider.notifier)
-                                          .state =
-                                      selected;
-
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        "Location saved: $selected",
-                                      ),
-                                      backgroundColor: Colors.green,
+                              ).animate().fadeIn().slideY(),
+                              const SizedBox(height: 20),
+                              DropdownButtonFormField<String>(
+                                value:
+                                    (currentLocation != null &&
+                                        currentLocation.isNotEmpty)
+                                    ? currentLocation
+                                    : null,
+                                items: trichyLocations.map((location) {
+                                  return DropdownMenuItem(
+                                    value: location,
+                                    child: Text(
+                                      location,
+                                      style: GoogleFonts.cutive(),
                                     ),
                                   );
-
-                                  if (shouldRedirectToHome) {
-                                    Navigator.pushAndRemoveUntil(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const HomeScreen(),
-                                      ),
-                                      (route) => false,
-                                    );
-                                  } else {
-                                    Navigator.pop(context);
+                                }).toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    ref
+                                            .read(userLocationProvider.notifier)
+                                            .state =
+                                        value;
                                   }
-                                }
-                              },
-                              icon: const Icon(Icons.save, color: Colors.white),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.deepPurple,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 32,
-                                  vertical: 12,
+                                },
+                                decoration: InputDecoration(
+                                  labelText: "Choose Area",
+                                  labelStyle: GoogleFonts.cutive(),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              label: Text(
-                                "Save Location",
-                                style: GoogleFonts.nunito(
-                                  fontSize: 16,
+                              ).animate().fadeIn(duration: 600.ms),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final selected = ref.read(
+                                    userLocationProvider,
+                                  );
+                                  if (selected != null && selected.isNotEmpty) {
+                                    await _updateLocationToFirestore(selected);
+
+                                    // ✅ Update global location provider
+                                    ref
+                                            .read(userLocationProvider.notifier)
+                                            .state =
+                                        selected;
+
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          "Location saved: $selected",
+                                        ),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+
+                                    if (shouldRedirectToHome) {
+                                      Navigator.pushAndRemoveUntil(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const HomeScreen(),
+                                        ),
+                                        (route) => false,
+                                      );
+                                    } else {
+                                      Navigator.pop(context);
+                                    }
+                                  }
+                                },
+                                icon: const Icon(
+                                  Icons.save,
                                   color: Colors.white,
                                 ),
-                              ),
-                            ).animate().fadeIn(duration: 700.ms),
-                          ],
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.deepPurple,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 32,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                label: Text(
+                                  "Save Location",
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ).animate().fadeIn(duration: 700.ms),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

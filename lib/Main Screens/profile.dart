@@ -19,11 +19,10 @@ Future<Map<String, dynamic>> getUserProfile() async {
   final firebaseUser = FirebaseAuth.instance.currentUser;
 
   if (firebaseUser != null) {
-    final emailDoc =
-        await FirebaseFirestore.instance
-            .collection('user_details_email')
-            .doc(firebaseUser.uid)
-            .get();
+    final emailDoc = await FirebaseFirestore.instance
+        .collection('user_details_email')
+        .doc(firebaseUser.uid)
+        .get();
 
     if (emailDoc.exists) {
       final profile = emailDoc.data()!;
@@ -43,11 +42,10 @@ Future<Map<String, dynamic>> getUserProfile() async {
   final customUid = await secureStorage.read(key: 'custom_uid');
 
   if (customUid != null) {
-    final phoneDoc =
-        await FirebaseFirestore.instance
-            .collection('user_details_phone')
-            .doc(customUid)
-            .get();
+    final phoneDoc = await FirebaseFirestore.instance
+        .collection('user_details_phone')
+        .doc(customUid)
+        .get();
 
     if (phoneDoc.exists) {
       final profile = phoneDoc.data()!;
@@ -140,15 +138,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         child: SafeArea(
           child: StreamBuilder<DocumentSnapshot>(
-            stream:
-                FirebaseFirestore.instance
-                    .collection(
-                      loginType == 'email'
-                          ? 'user_details_email'
-                          : 'user_details_phone',
-                    )
-                    .doc(userId)
-                    .snapshots(),
+            stream: FirebaseFirestore.instance
+                .collection(
+                  loginType == 'email'
+                      ? 'user_details_email'
+                      : 'user_details_phone',
+                )
+                .doc(userId)
+                .snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return Center(
@@ -174,7 +171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 child: SingleChildScrollView(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 20),
                       Row(
@@ -184,7 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             icon: const Icon(
                               Icons.arrow_back,
                               color: Colors.white,
-                              size: 25,
+                              size: 20,
                             ),
                           ),
                           Text(
@@ -254,8 +251,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder:
-                                          (context) => const EditProfilePage(),
+                                      builder: (context) =>
+                                          const EditProfilePage(),
                                     ),
                                   );
                                 },
@@ -329,7 +326,7 @@ class _ProfileTile extends StatelessWidget {
         title,
         style: GoogleFonts.poppins(
           color: Colors.white,
-          fontSize: 22,
+          fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
       ),

@@ -1,6 +1,7 @@
 // ignore_for_file: unused_import, avoid_web_libraries_in_flutter, no_leading_underscores_for_local_identifiers, non_constant_identifier_names, avoid_print
 
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -26,6 +27,8 @@ final sportsProvider = FutureProvider<List<Map<String, String>>>((ref) async {
     {'image': 'assets/images/football_pic.png', 'text': 'Football'},
     {'image': 'assets/images/cricket_pic.png', 'text': 'Cricket'},
     {'image': 'assets/images/tennis_pic.png', 'text': 'Tennis'},
+    {'image': '/images/badminton.png', 'text': 'Badminton'},
+    {'image': '/images/pickleball.png', 'text': 'Pickle Ball'},
   ];
 });
 
@@ -458,123 +461,147 @@ class HomeScreen extends ConsumerWidget {
                       Text(
                         'Sports',
                         style: GoogleFonts.poppins(
-                          fontSize: 30,
+                          fontSize: 20,
                           fontWeight: FontWeight.w600,
                           color: Color(0xffffffff),
                         ),
                       ),
                       const SizedBox(height: 16),
-                      _buildSportsCards(sportsAsync),
+                      _buildSportsCards(sportsAsync, context),
                       const SizedBox(height: 20),
                       _buildStartPlayingCard(context),
                       const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          SizedBox(
-                            height: 180,
-                            width: 150,
-                            child: Stack(
-                              alignment: Alignment.topCenter,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: Image.network(
-                                    'https://th.bing.com/th/id/OIP.jWV8UcJ8QTKvgJabvhwnDQHaE8?w=281&h=188&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-                                    height: 80,
-                                    width: 150,
-                                    fit: BoxFit.cover,
-                                  ),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const HomePage(),
                                 ),
-                                Positioned(
-                                  top: 60, // Slightly below the image
-                                  child: Container(
-                                    height: 120,
-                                    width: 150,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xff400d53),
-                                      borderRadius: BorderRadius.circular(20.0),
+                              );
+                            },
+                            child: SizedBox(
+                              height: 180,
+                              width: 150,
+                              child: Stack(
+                                alignment: Alignment.topCenter,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Image.network(
+                                      'https://th.bing.com/th/id/OIP.jWV8UcJ8QTKvgJabvhwnDQHaE8?w=281&h=188&c=7&r=0&o=5&dpr=1.3&pid=1.7',
+                                      height: 80,
+                                      width: 150,
+                                      fit: BoxFit.cover,
                                     ),
-                                    child: Padding(
-                                      padding: EdgeInsets.all(12.0),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Play',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 16,
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
+                                  ),
+                                  Positioned(
+                                    top: 60, // Slightly below the image
+                                    child: Container(
+                                      height: 120,
+                                      width: 150,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xff400d53),
+                                        borderRadius: BorderRadius.circular(
+                                          20.0,
+                                        ),
+                                      ),
+                                      child: Padding(
+                                        padding: EdgeInsets.all(12.0),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Play',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 16,
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            'Discover players and join their games',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              color: Color(0xffb1b1b1),
+                                            Text(
+                                              'Discover players and join their games',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 12,
+                                                color: Color(0xffb1b1b1),
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                          SizedBox(
-                            height: 180,
-                            width: 150,
-                            child: Stack(
-                              alignment: Alignment.topCenter,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: Image.network(
-                                    'https://th.bing.com/th/id/OIP.jWV8UcJ8QTKvgJabvhwnDQHaE8?w=281&h=188&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-                                    height: 80,
-                                    width: 150,
-                                    fit: BoxFit.cover,
-                                  ),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const TurfHomeScreen(),
                                 ),
-                                Positioned(
-                                  top: 60, // Slightly below the image
-                                  child: Container(
-                                    height: 120,
-                                    width: 150,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xff400d53),
-                                      borderRadius: BorderRadius.circular(20.0),
+                              );
+                            },
+                            child: SizedBox(
+                              height: 180,
+                              width: 150,
+                              child: Stack(
+                                alignment: Alignment.topCenter,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Image.network(
+                                      'https://th.bing.com/th/id/OIP.jWV8UcJ8QTKvgJabvhwnDQHaE8?w=281&h=188&c=7&r=0&o=5&dpr=1.3&pid=1.7',
+                                      height: 80,
+                                      width: 150,
+                                      fit: BoxFit.cover,
                                     ),
-                                    child: Padding(
-                                      padding: EdgeInsets.all(12.0),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Book',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 16,
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
+                                  ),
+                                  Positioned(
+                                    top: 60, // Slightly below the image
+                                    child: Container(
+                                      height: 120,
+                                      width: 150,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xff400d53),
+                                        borderRadius: BorderRadius.circular(
+                                          20.0,
+                                        ),
+                                      ),
+                                      child: Padding(
+                                        padding: EdgeInsets.all(12.0),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Book',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 16,
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            'Book your slots in venues nearby you',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              color: Color(0xffb1b1b1),
+                                            Text(
+                                              'Book your slots in venues nearby you',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 12,
+                                                color: Color(0xffb1b1b1),
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -860,7 +887,10 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSportsCards(AsyncValue<List<Map<String, String>>> sportsAsync) {
+  Widget _buildSportsCards(
+    AsyncValue<List<Map<String, String>>> sportsAsync,
+    BuildContext context,
+  ) {
     final List<Color> cardColors = [
       const Color(0xffd9bce1),
       const Color(0xfff7c59f),
@@ -874,46 +904,63 @@ class HomeScreen extends ConsumerWidget {
       child: sportsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
-        data: (sports) => ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: sports.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (context, index) {
-            return SizedBox(
-              width: 140,
-              child: InkWell(
-                onTap: () {},
-                child: Card(
-                  color: cardColors[index % cardColors.length],
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      Text(
-                        sports[index]['text']!,
-                        style: GoogleFonts.poppins(
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 25,
+        data: (sports) {
+          double cardWidth =
+              MediaQuery.of(context).size.width / 3; // 3 cards per view
+
+          return SizedBox(
+            height: 150,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: sports.length,
+              itemBuilder: (context, index) {
+                return Container(
+                  width: cardWidth,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HomePage(),
                         ),
+                      );
+                    },
+                    child: Card(
+                      color: cardColors[index % cardColors.length],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      Image.asset(
-                        sports[index]['image']!,
-                        height: 80,
-                        width: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Center(child: Icon(Icons.error)),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            sports[index]['text']!,
+                            style: GoogleFonts.poppins(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Image.asset(
+                            sports[index]['image']!,
+                            height: 70,
+                            width: 70,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.error),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            );
-          },
-        ),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }

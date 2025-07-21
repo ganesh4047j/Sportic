@@ -38,21 +38,22 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF43325C), Colors.black, Color(0xFF43325C)],
-          ),
-        ),
+        // decoration: const BoxDecoration(
+        //   gradient: LinearGradient(
+        //     begin: Alignment.topLeft,
+        //     end: Alignment.bottomRight,
+        //     colors: [Color(0xFF43325C), Colors.black, Color(0xFF43325C)],
+        //   ),
+        // ),
         child: Center(
           child: Image.asset(
             'assets/SPORTIC_grad.gif',
-            width: MediaQuery.sizeOf(context).width,
-            height: double.infinity,
+            width: 400,
+            height: 500,
             fit: BoxFit.cover,
             gaplessPlayback: true,
           ),

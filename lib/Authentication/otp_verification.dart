@@ -112,16 +112,12 @@ class _PinCodeVerificationScreenState
             const SnackBar(content: Text("OTP Verified Successfully!!")),
           );
 
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CollectUserDetailsPage(),
-                ),
-              );
-            }
-          });
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CollectUserDetailsPage(),
+            ),
+          );
         }
       } else {
         if (mounted) {
