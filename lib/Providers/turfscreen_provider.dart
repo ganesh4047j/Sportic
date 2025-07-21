@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -54,65 +53,61 @@ class TurfListNotifier extends StateNotifier<List<TurfModel>> {
   /// 🚀 Fetch turf data from Firestore
   Future<void> fetchTurfs() async {
     List<TurfModel> allTurfs = [];
-
     final firestore = FirebaseFirestore.instance;
 
-    print('Fetching Single Variant turfs...');
-    final singleSnapshot = await firestore.collection('single_variant').get();
-    for (var doc in singleSnapshot.docs) {
-      final data = doc.data();
-      debugPrint('Single Turf Found: ${data['turf_name']}');
+    try {
+      // ➕ Fetch Single Variant Turfs
+      final singleSnapshot = await firestore.collection('single_variant').get();
+      for (var doc in singleSnapshot.docs) {
+        final data = doc.data();
+        final turf = TurfModel(
+          id: 'single_${doc.id}',
+          name: data['turf_name'] ?? '',
+          imageUrl: (data['images'] as List?)?.first ?? '',
+          sports: [data['sport'] ?? ''],
+          startTime: data['start_time'] ?? '',
+          endTime: data['end_time'] ?? '',
+        );
+        allTurfs.add(turf);
+      }
 
-      final turf = TurfModel(
-        id: 'single_${doc.id}',
-        name: data['turf_name'] ?? '',
-        imageUrl: (data['images'] as List?)?.first ?? '',
-        sports: [data['sport'] ?? ''],
-        startTime: data['start_time'] ?? '',
-        endTime: data['end_time'] ?? '',
-      );
-      allTurfs.add(turf);
-    }
+      // ➕ Fetch Multi Variant Turfs using turf_names array
+      final multiSnapshot = await firestore.collection('multi_variant').get();
 
-    debugPrint('Fetching Multi Variant turfs...');
-    final multiSnapshot = await firestore.collection('multi_variant').get();
-    for (var ownerDoc in multiSnapshot.docs) {
-      final turfNames = List<String>.from(ownerDoc.data()['turf_names'] ?? []);
-      debugPrint('Multi Variant Owner: ${ownerDoc.id}, Turf Names: $turfNames');
+      for (var ownerDoc in multiSnapshot.docs) {
+        final ownerId = ownerDoc.id;
+        final ownerData = ownerDoc.data();
 
-      for (final turfName in turfNames) {
-        final detailsSnap = await firestore
-            .collection('multi_variant')
-            .doc(ownerDoc.id)
-            .collection(turfName)
-            .doc('details')
-            .get();
+        final turfNames = List<String>.from(ownerData['turf_names'] ?? []);
 
-        if (detailsSnap.exists) {
-          final data = detailsSnap.data()!;
-          debugPrint('Multi Turf Found: ${data['turf_name']}');
+        for (final turfName in turfNames) {
+          final detailSnap = await firestore
+              .collection('multi_variant')
+              .doc(ownerId)
+              .collection(turfName)
+              .doc('details')
+              .get();
 
-          final turf = TurfModel(
-            id: 'multi_${ownerDoc.id}_$turfName',
-            name: data['turf_name'] ?? '',
-            imageUrl: (data['images'] as List?)?.first ?? '',
-            sports: [data['sport'] ?? ''],
-            startTime: data['start_time'] ?? '',
-            endTime: data['end_time'] ?? '',
-          );
-          allTurfs.add(turf);
+          if (detailSnap.exists) {
+            final data = detailSnap.data()!;
+            final turf = TurfModel(
+              id: 'multi_${ownerId}_$turfName',
+              name: data['turf_name'] ?? '',
+              imageUrl: (data['images'] as List?)?.first ?? '',
+              sports: [data['sport'] ?? ''],
+              startTime: data['start_time'] ?? '',
+              endTime: data['end_time'] ?? '',
+            );
+            allTurfs.add(turf);
+          }
         }
       }
-    }
 
-    debugPrint('✅ Total turfs loaded: ${allTurfs.length}');
-    for (var turf in allTurfs) {
-      print(
-        '🏟️ Turf: ${turf.name}, Sport: ${turf.sports}, Start: ${turf.startTime}',
-      );
+      state = allTurfs;
+    } catch (e) {
+      print('🔥 Error fetching turfs: $e');
+      state = []; // fallback to empty list
     }
-
-    state = allTurfs;
   }
 
   /// ⭐ Toggle favorite status
