@@ -37,7 +37,9 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final turfList = ref.watch(turfListProvider);
+    // final turfList = ref.watch(turfListProvider);
+    final turfList = ref.watch(filteredTurfListProvider);
+
     final navIndex = ref.watch(turfNavIndexProvider);
     final query = ref.watch(searchTurfProvider).toLowerCase();
 
@@ -46,6 +48,29 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
         : turfList
               .where((turf) => turf.name.toLowerCase().contains(query))
               .toList();
+    // final turfListState = ref.watch(filteredTurfListProvider);
+    // final selectedFilter = ref.watch(selectedFilterProvider);
+    // final query = ref.watch(searchTurfProvider);
+    //
+    // final filteredTurfs = turfListState.when(
+    //   data: (turfs) {
+    //     final queryLower = query.trim().toLowerCase();
+    //     final filterLower = selectedFilter.trim().toLowerCase();
+    //
+    //     return turfs.where((turf) {
+    //       final matchesFilter = filterLower == 'all sports' ||
+    //           turf.sports.any((sport) => sport.toLowerCase() == filterLower);
+    //
+    //       final matchesSearch = turf.name.toLowerCase().contains(queryLower);
+    //
+    //       return matchesFilter && matchesSearch;
+    //     }).toList();
+    //   },
+    //   loading: () => [],
+    //   error: (_, __) => [],
+    // );
+    //
+
 
     return Scaffold(
       body: Container(
@@ -286,7 +311,7 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
                               'Cricket',
                               'Football',
                               'Tennis',
-                              'Badmitton',
+                              'Badminton',
                             ])
                               Padding(
                                 padding: const EdgeInsets.only(right: 8.0),
@@ -439,7 +464,7 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        turf.sports.join(', '),
+                                        turf.sport,
                                         style: GoogleFonts.cutive(
                                           color: Colors.white70,
                                           fontSize: 10,
