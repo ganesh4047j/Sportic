@@ -8,6 +8,8 @@ import 'package:lottie/lottie.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:sports/Main%20Screens/home.dart';
 import 'package:sports/Providers/turfscreen_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // 👈 Add this
+
 
 class LocationInputScreen extends ConsumerWidget {
   final bool shouldRedirectToHome;
@@ -165,23 +167,20 @@ class LocationInputScreen extends ConsumerWidget {
                               const SizedBox(height: 24),
                               ElevatedButton.icon(
                                 onPressed: () async {
-                                  final selected = ref.read(
-                                    userLocationProvider,
-                                  );
+                                  final selected = ref.read(userLocationProvider);
                                   if (selected != null && selected.isNotEmpty) {
                                     await _updateLocationToFirestore(selected);
 
+                                    // ✅ Save to SharedPreferences
+                                    final prefs = await SharedPreferences.getInstance();
+                                    await prefs.setString('user_location', selected);
+
                                     // ✅ Update global location provider
-                                    ref
-                                            .read(userLocationProvider.notifier)
-                                            .state =
-                                        selected;
+                                    ref.read(userLocationProvider.notifier).state = selected;
 
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(
-                                          "Location saved: $selected",
-                                        ),
+                                        content: Text("Location saved: $selected"),
                                         backgroundColor: Colors.green,
                                       ),
                                     );
@@ -189,10 +188,8 @@ class LocationInputScreen extends ConsumerWidget {
                                     if (shouldRedirectToHome) {
                                       Navigator.pushAndRemoveUntil(
                                         context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const HomeScreen(),
-                                        ),
-                                        (route) => false,
+                                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                                            (route) => false,
                                       );
                                     } else {
                                       Navigator.pop(context);
@@ -205,10 +202,7 @@ class LocationInputScreen extends ConsumerWidget {
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.deepPurple,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 32,
-                                    vertical: 12,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
@@ -221,6 +215,65 @@ class LocationInputScreen extends ConsumerWidget {
                                   ),
                                 ),
                               ).animate().fadeIn(duration: 700.ms),
+
+                              // ElevatedButton.icon(
+                              //   onPressed: () async {
+                              //     final selected = ref.read(
+                              //       userLocationProvider,
+                              //     );
+                              //     if (selected != null && selected.isNotEmpty) {
+                              //       await _updateLocationToFirestore(selected);
+                              //
+                              //       // ✅ Update global location provider
+                              //       ref
+                              //               .read(userLocationProvider.notifier)
+                              //               .state =
+                              //           selected;
+                              //
+                              //       ScaffoldMessenger.of(context).showSnackBar(
+                              //         SnackBar(
+                              //           content: Text(
+                              //             "Location saved: $selected",
+                              //           ),
+                              //           backgroundColor: Colors.green,
+                              //         ),
+                              //       );
+                              //
+                              //       if (shouldRedirectToHome) {
+                              //         Navigator.pushAndRemoveUntil(
+                              //           context,
+                              //           MaterialPageRoute(
+                              //             builder: (_) => const HomeScreen(),
+                              //           ),
+                              //           (route) => false,
+                              //         );
+                              //       } else {
+                              //         Navigator.pop(context);
+                              //       }
+                              //     }
+                              //   },
+                              //   icon: const Icon(
+                              //     Icons.save,
+                              //     color: Colors.white,
+                              //   ),
+                              //   style: ElevatedButton.styleFrom(
+                              //     backgroundColor: Colors.deepPurple,
+                              //     padding: const EdgeInsets.symmetric(
+                              //       horizontal: 32,
+                              //       vertical: 12,
+                              //     ),
+                              //     shape: RoundedRectangleBorder(
+                              //       borderRadius: BorderRadius.circular(10),
+                              //     ),
+                              //   ),
+                              //   label: Text(
+                              //     "Save Location",
+                              //     style: GoogleFonts.nunito(
+                              //       fontSize: 16,
+                              //       color: Colors.white,
+                              //     ),
+                              //   ),
+                              // ).animate().fadeIn(duration: 700.ms),
                             ],
                           ),
                         ),

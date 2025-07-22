@@ -37,7 +37,7 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // final turfList = ref.watch(turfListProvider);
+    //final turfList = ref.watch(turfListProvider);
     final turfList = ref.watch(filteredTurfListProvider);
 
     final navIndex = ref.watch(turfNavIndexProvider);
@@ -389,7 +389,9 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const BookingPage(),
+                                    builder: (context) =>  BookingPage(turfImages: turf.imageUrl, // Ensure this is a List<String>
+                                      turfName: turf.name,
+                                      location: turf.location,),
                                   ),
                                 );
                               },

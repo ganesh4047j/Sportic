@@ -261,10 +261,14 @@ class CreateTeamScreen extends ConsumerWidget {
     return Center(
       child: ElevatedButton(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const BookingPage()),
-          );
+         // Navigator.push(
+            //context,
+            // MaterialPageRoute(
+            //   builder: (context) =>  BookingPage(turfImage: turf.imageUrl, // Ensure this is a List<String>
+            //     turfName: turf.name,
+            //     location: turf.location,),
+            // ),
+          //);
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.pink,

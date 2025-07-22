@@ -27,20 +27,30 @@ class Comment {
 }
 
 class BookingPage extends StatefulWidget {
-  const BookingPage({super.key});
+  final String turfImages;
+  final String turfName;
+  final String location;
+
+  const BookingPage({
+    super.key,
+    required this.turfImages,
+    required this.turfName,
+    required this.location,
+  });
 
   @override
   State<BookingPage> createState() => _BookingPageState();
 }
-
 class _BookingPageState extends State<BookingPage> {
   final PageController _pageController = PageController();
 
-  final List<String> turfImages = [
-    'https://th.bing.com/th/id/OIP.IIfvWqSDnPM1m8m1d7A8yAHaFC?w=268&h=183&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-    'https://th.bing.com/th/id/OIP.IIfvWqSDnPM1m8m1d7A8yAHaFC?w=268&h=183&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-    'https://th.bing.com/th/id/OIP.IIfvWqSDnPM1m8m1d7A8yAHaFC?w=268&h=183&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-  ];
+
+
+  // final List<String> turfImages = [
+  //   'https://th.bing.com/th/id/OIP.IIfvWqSDnPM1m8m1d7A8yAHaFC?w=268&h=183&c=7&r=0&o=5&dpr=1.3&pid=1.7',
+  //   'https://th.bing.com/th/id/OIP.IIfvWqSDnPM1m8m1d7A8yAHaFC?w=268&h=183&c=7&r=0&o=5&dpr=1.3&pid=1.7',
+  //   'https://th.bing.com/th/id/OIP.IIfvWqSDnPM1m8m1d7A8yAHaFC?w=268&h=183&c=7&r=0&o=5&dpr=1.3&pid=1.7',
+  // ];
   final List<String> sports = [
     'Cricket',
     'Football',
@@ -229,6 +239,7 @@ class _BookingPageState extends State<BookingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final List<String> limitedImages = [widget.turfImages];
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -258,7 +269,7 @@ class _BookingPageState extends State<BookingPage> {
                           width: double.infinity,
                           child: PageView.builder(
                             controller: _pageController,
-                            itemCount: turfImages.length,
+                            itemCount: widget.turfImages.length,
                             itemBuilder: (context, index) {
                               return ClipRRect(
                                 borderRadius: const BorderRadius.only(
@@ -266,11 +277,12 @@ class _BookingPageState extends State<BookingPage> {
                                   bottomRight: Radius.circular(25),
                                 ),
                                 child: Image.network(
-                                  turfImages[index],
+                                  widget.turfImages[index],
                                   fit: BoxFit.cover,
                                 ),
                               );
                             },
+
                           ),
                         ),
                         Positioned(
@@ -299,7 +311,8 @@ class _BookingPageState extends State<BookingPage> {
                           child: Center(
                             child: SmoothPageIndicator(
                               controller: _pageController,
-                              count: turfImages.length,
+                              // count: widget.turfImage.length,
+                              count: limitedImages.length,
                               effect: const WormEffect(
                                 dotColor: Colors.white54,
                                 activeDotColor: Colors.white,
@@ -317,7 +330,7 @@ class _BookingPageState extends State<BookingPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "TURF NAME 1",
+                            widget.turfName,
                             style: GoogleFonts.robotoSlab(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -326,7 +339,7 @@ class _BookingPageState extends State<BookingPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            "Location",
+                            widget.location,
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               color: Colors.grey,
