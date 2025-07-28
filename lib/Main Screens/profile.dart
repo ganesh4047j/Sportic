@@ -9,8 +9,8 @@ import 'package:lottie/lottie.dart';
 import 'package:sports/Main%20Screens/connections.dart';
 import 'package:sports/Main%20Screens/request_view.dart';
 import 'package:sports/Main%20Screens/search_friends.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../Authentication/phn_validation.dart';
+import '../Services/support_chat_dialog.dart';
 import 'edit_profile.dart';
 
 final FlutterSecureStorage secureStorage = FlutterSecureStorage();
@@ -19,10 +19,11 @@ Future<Map<String, dynamic>> getUserProfile() async {
   final firebaseUser = FirebaseAuth.instance.currentUser;
 
   if (firebaseUser != null) {
-    final emailDoc = await FirebaseFirestore.instance
-        .collection('user_details_email')
-        .doc(firebaseUser.uid)
-        .get();
+    final emailDoc =
+        await FirebaseFirestore.instance
+            .collection('user_details_email')
+            .doc(firebaseUser.uid)
+            .get();
 
     if (emailDoc.exists) {
       final profile = emailDoc.data()!;
@@ -42,10 +43,11 @@ Future<Map<String, dynamic>> getUserProfile() async {
   final customUid = await secureStorage.read(key: 'custom_uid');
 
   if (customUid != null) {
-    final phoneDoc = await FirebaseFirestore.instance
-        .collection('user_details_phone')
-        .doc(customUid)
-        .get();
+    final phoneDoc =
+        await FirebaseFirestore.instance
+            .collection('user_details_phone')
+            .doc(customUid)
+            .get();
 
     if (phoneDoc.exists) {
       final profile = phoneDoc.data()!;
@@ -138,14 +140,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         child: SafeArea(
           child: StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection(
-                  loginType == 'email'
-                      ? 'user_details_email'
-                      : 'user_details_phone',
-                )
-                .doc(userId)
-                .snapshots(),
+            stream:
+                FirebaseFirestore.instance
+                    .collection(
+                      loginType == 'email'
+                          ? 'user_details_email'
+                          : 'user_details_phone',
+                    )
+                    .doc(userId)
+                    .snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return Center(
@@ -251,8 +254,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) =>
-                                          const EditProfilePage(),
+                                      builder:
+                                          (context) => const EditProfilePage(),
                                     ),
                                   );
                                 },
@@ -401,16 +404,26 @@ class _ProfileTile extends StatelessWidget {
             MaterialPageRoute(builder: (_) => const FriendRequestsScreen()),
           );
         } else if (title == 'Support') {
-          final Uri whatsappUrl = Uri.parse("https://wa.me/918072043663");
-
-          launchUrl(
-            whatsappUrl,
-            mode: LaunchMode.externalApplication,
-          ).catchError((e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Unable to open WhatsApp")),
-            );
-          });
+          showGeneralDialog(
+            context: context,
+            barrierDismissible: true,
+            barrierLabel:
+                MaterialLocalizations.of(context).modalBarrierDismissLabel,
+            barrierColor: Colors.black.withOpacity(0.5), // Background overlay
+            transitionDuration: const Duration(milliseconds: 300),
+            pageBuilder: (context, animation, secondaryAnimation) {
+              return const SizedBox.shrink(); // Required but unused
+            },
+            transitionBuilder: (context, animation, secondaryAnimation, child) {
+              return Transform.scale(
+                scale: animation.value,
+                child: Opacity(
+                  opacity: animation.value,
+                  child: Center(child: const SupportChatDialog()),
+                ),
+              );
+            },
+          );
         }
       },
     );

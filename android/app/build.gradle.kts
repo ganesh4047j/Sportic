@@ -1,3 +1,4 @@
+import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -14,8 +15,11 @@ android {
     ndkVersion = "27.0.12077973"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+
+        // ✅ Enable core library desugaring
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -29,7 +33,7 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
-        versionCode = 3
+        versionCode = 1
         versionName = flutter.versionName
     }
 
@@ -49,4 +53,10 @@ android {
 
 flutter {
     source = "../.."
+}
+
+
+// ✅ Add this at the end of the file
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }

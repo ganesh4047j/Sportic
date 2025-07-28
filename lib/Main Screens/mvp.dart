@@ -167,52 +167,28 @@ class _MvpPageState extends State<MvpPage> {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(10),
-                    child: Row(
-                      children: [
-                        Column(
+                    child: Expanded(
+                      child: Center(
+                        child: Column(
                           children: [
-                            const Icon(
-                              Icons.emoji_events,
-                              color: Colors.amber,
-                              size: 28,
+                            Text(
+                              "Get MVP Points To Play And",
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 20,
+                              ),
                             ),
-                            const SizedBox(height: 8),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Image.network(
-                                'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-                                height: 24,
-                                width: 20,
-                                fit: BoxFit.cover,
+                            // SizedBox(width: 10),
+                            Text(
+                              'Vote Teammate',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 20,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(width: 18),
-                        Expanded(
-                          child: Center(
-                            child: Column(
-                              children: [
-                                Text(
-                                  "Get MVP Points To Play & ",
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                  ),
-                                ),
-                                // SizedBox(width: 10),
-                                Text(
-                                  'Vote Teammate',
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -225,9 +201,10 @@ class _MvpPageState extends State<MvpPage> {
                   children: [
                     TextButton(
                       style: TextButton.styleFrom(
-                        backgroundColor: selectedTab == 'recent'
-                            ? Color(0xff8a23ea)
-                            : Colors.transparent,
+                        backgroundColor:
+                            selectedTab == 'recent'
+                                ? Color(0xff8a23ea)
+                                : Colors.transparent,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(6),
                         ),
@@ -248,9 +225,10 @@ class _MvpPageState extends State<MvpPage> {
                     const SizedBox(width: 12),
                     TextButton(
                       style: TextButton.styleFrom(
-                        backgroundColor: selectedTab == 'previous'
-                            ? Color(0xff8a23ea)
-                            : Colors.transparent,
+                        backgroundColor:
+                            selectedTab == 'previous'
+                                ? Color(0xff8a23ea)
+                                : Colors.transparent,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(6),
                         ),
@@ -443,12 +421,13 @@ class _MvpPageState extends State<MvpPage> {
                           ),
                           iconEnabledColor: Colors.white,
                           style: GoogleFonts.poppins(color: Colors.white),
-                          items: games.map((String game) {
-                            return DropdownMenuItem<String>(
-                              value: game,
-                              child: Text(game),
-                            );
-                          }).toList(),
+                          items:
+                              games.map((String game) {
+                                return DropdownMenuItem<String>(
+                                  value: game,
+                                  child: Text(game),
+                                );
+                              }).toList(),
                           onChanged: (String? value) {
                             setState(() {
                               selectedGame = value;
@@ -474,12 +453,13 @@ class _MvpPageState extends State<MvpPage> {
                           ),
                           iconEnabledColor: Colors.white,
                           style: const TextStyle(color: Colors.white),
-                          items: positions.map((String pos) {
-                            return DropdownMenuItem<String>(
-                              value: pos,
-                              child: Text(pos),
-                            );
-                          }).toList(),
+                          items:
+                              positions.map((String pos) {
+                                return DropdownMenuItem<String>(
+                                  value: pos,
+                                  child: Text(pos),
+                                );
+                              }).toList(),
                           onChanged: (String? value) {
                             setState(() {
                               selectedPosition = value;
@@ -506,12 +486,13 @@ class _MvpPageState extends State<MvpPage> {
                           ),
                           iconEnabledColor: Colors.white,
                           style: GoogleFonts.poppins(color: Colors.white),
-                          items: category.map((String category) {
-                            return DropdownMenuItem<String>(
-                              value: category,
-                              child: Text(category),
-                            );
-                          }).toList(),
+                          items:
+                              category.map((String category) {
+                                return DropdownMenuItem<String>(
+                                  value: category,
+                                  child: Text(category),
+                                );
+                              }).toList(),
                           onChanged: (String? value) {
                             setState(() {
                               selectedCategory = value;

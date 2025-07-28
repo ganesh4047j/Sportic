@@ -19,8 +19,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 100),
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              const PhoneLoginScreen(),
+          pageBuilder:
+              (context, animation, secondaryAnimation) =>
+                  const PhoneLoginScreen(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return SlideTransition(
               position: Tween<Offset>(

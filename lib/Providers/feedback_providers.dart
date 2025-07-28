@@ -1,14 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final feedbackProvider = StateNotifierProvider<FeedbackNotifier, FeedbackState>(
-      (ref) => FeedbackNotifier(),
-);
-
+// Feedback State Model
 class FeedbackState {
-  final int selectedEmoji;
+  final int? selectedEmoji;
   final String? selectedOption;
 
-  FeedbackState({this.selectedEmoji = -1, this.selectedOption});
+  FeedbackState({this.selectedEmoji, this.selectedOption});
 
   FeedbackState copyWith({int? selectedEmoji, String? selectedOption}) {
     return FeedbackState(
@@ -18,6 +15,7 @@ class FeedbackState {
   }
 }
 
+// Feedback Notifier
 class FeedbackNotifier extends StateNotifier<FeedbackState> {
   FeedbackNotifier() : super(FeedbackState());
 
@@ -29,6 +27,18 @@ class FeedbackNotifier extends StateNotifier<FeedbackState> {
     state = state.copyWith(selectedOption: option);
   }
 
-  bool get isComplete =>
-      state.selectedEmoji != -1 && state.selectedOption != null;
+  void reset() {
+    state = FeedbackState();
+  }
+
+  bool get isComplete {
+    return state.selectedEmoji != null &&
+        state.selectedOption != null &&
+        state.selectedOption != "Select topic";
+  }
 }
+
+// Provider
+final feedbackProvider = StateNotifierProvider<FeedbackNotifier, FeedbackState>(
+  (ref) => FeedbackNotifier(),
+);

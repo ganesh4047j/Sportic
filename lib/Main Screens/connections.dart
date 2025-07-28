@@ -1,4 +1,4 @@
-import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -121,10 +121,8 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
                             final location = user['location'] ?? '';
 
                             final chat = chatMap[peerId];
-                            final chatId = chat != null ? chat['chatId'] : null;
-                            final unread = chat != null
-                                ? (chat['unread'] ?? 0)
-                                : 0;
+                            // final chatId = chat != null ? chat['chatId'] : null;
+                            // final unread = chat != null ? (chat['unread'] ?? 0) : 0;
                             final lastMsg = chat != null
                                 ? (chat['lastMsg'] ?? '')
                                 : '';
@@ -160,15 +158,13 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
                                 ),
                                 onPressed: () async {
                                   try {
-                                    final fbUser =
-                                        FirebaseAuth.instance.currentUser;
+                                    // final fbUser = FirebaseAuth.instance.currentUser;
                                     final currentUserUid = await ref.read(
                                       currentUserIdProvider.future,
                                     );
                                     final peerUid = user['uid'];
 
-                                    if (currentUserUid == null ||
-                                        peerUid == null) {
+                                    if (peerUid == null) {
                                       throw Exception('Missing user IDs');
                                     }
 

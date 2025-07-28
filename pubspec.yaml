@@ -63,10 +63,8 @@ dependencies:
   firebase_messaging: ^15.2.9
   googleapis_auth: ^2.0.0
   http: ^1.4.0
-  iconify_flutter: ^0.0.7
   icons_plus: ^5.0.0
   amicons: ^1.0.1
-  whatsapp_chatbot: ^1.0.0
   url_launcher: ^6.3.2
   avatar_plus: ^0.0.5
   google_fonts: ^6.2.1
@@ -75,10 +73,24 @@ dependencies:
   flutter_html: ^3.0.0
   image_sequence_animator: ^2.0.0
   shared_preferences: ^2.2.2
+  iconify_flutter_plus: ^1.0.4
+  flutter_phone_direct_caller: ^2.2.1
+  direct_call_plus: ^1.0.4
+  flutter_launcher_icons: ^0.14.4
+  pdf: ^3.11.3
+  share_plus: ^11.0.0
+  path_provider: ^2.1.5
+  printing: ^5.14.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/app_logo/logo_1.png" # <== Use your transparent image
+  remove_alpha_ios: true
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -101,14 +113,13 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/
+    - assets/SPORTIC_grad.gif
     - assets/images/football_pic.png
-    - assets/images/badminton.png
-    - assets/images/pickleball.png
     - assets/images/cricket_pic.png
     - assets/images/tennis_pic.png
+    - assets/images/badminton.png
+    - assets/images/pickleball.png
     - assets/images/sportsman.png
-    - assets/images/app_logo.jpg
-    - assets/sportic_frames/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

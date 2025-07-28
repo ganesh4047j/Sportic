@@ -8,11 +8,6 @@ final connectionsProvider = FutureProvider<List<Map<String, dynamic>>>((
   final firestore = FirebaseFirestore.instance;
   final userId = await ref.watch(currentUserIdProvider.future);
 
-  if (userId == null) {
-    print('[connectionsProvider] No current user ID found.');
-    return [];
-  }
-
   // Fetch friend UIDs from connections
   final friendRefs =
       await firestore

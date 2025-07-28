@@ -43,11 +43,12 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
     final navIndex = ref.watch(turfNavIndexProvider);
     final query = ref.watch(searchTurfProvider).toLowerCase();
 
-    final filteredTurfs = query.isEmpty
-        ? turfList
-        : turfList
-              .where((turf) => turf.name.toLowerCase().contains(query))
-              .toList();
+    final filteredTurfs =
+        query.isEmpty
+            ? turfList
+            : turfList
+                .where((turf) => turf.name.toLowerCase().contains(query))
+                .toList();
     // final turfListState = ref.watch(filteredTurfListProvider);
     // final selectedFilter = ref.watch(selectedFilterProvider);
     // final query = ref.watch(searchTurfProvider);
@@ -70,7 +71,6 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
     //   error: (_, __) => [],
     // );
     //
-
 
     return Scaffold(
       body: Container(
@@ -125,10 +125,11 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
                                       await Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) =>
-                                              const LocationInputScreen(
-                                                shouldRedirectToHome: false,
-                                              ),
+                                          builder:
+                                              (context) =>
+                                                  const LocationInputScreen(
+                                                    shouldRedirectToHome: false,
+                                                  ),
                                         ),
                                       );
                                     },
@@ -157,8 +158,9 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) =>
-                                              const ProfileScreen(),
+                                          builder:
+                                              (context) =>
+                                                  const ProfileScreen(),
                                         ),
                                       );
                                     },
@@ -262,8 +264,9 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
                                             DateTime.now().year + 10,
                                           ),
                                           locale: const Locale('en'),
-                                          onDateTimeChanged: (date) =>
-                                              selectedDate.value = date,
+                                          onDateTimeChanged:
+                                              (date) =>
+                                                  selectedDate.value = date,
                                         ),
                                       ),
                                       TextButton(
@@ -321,22 +324,22 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
                                     style: TextStyle(
                                       color:
                                           ref.watch(selectedFilterProvider) ==
-                                              label
-                                          ? Colors.white
-                                          : Colors.black,
+                                                  label
+                                              ? Colors.white
+                                              : Colors.black,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   selected:
                                       ref.watch(selectedFilterProvider) ==
                                       label,
-                                  onSelected: (_) =>
-                                      ref
+                                  onSelected:
+                                      (_) =>
+                                          ref
                                               .read(
                                                 selectedFilterProvider.notifier,
                                               )
-                                              .state =
-                                          label,
+                                              .state = label,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20),
                                   ),
@@ -357,132 +360,145 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
 
                 // Turf list
                 Expanded(
-                  child: filteredTurfs.isEmpty
-                      ? Center(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              children: [
-                                Lottie.asset(
-                                  'assets/empty.json',
-                                  height: 300,
-                                  width: 300,
-                                ),
-                                SizedBox(height: 10),
-                                Text(
-                                  'No turfs found for your search.',
-                                  style: GoogleFonts.roboto(
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : ListView.separated(
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 16),
-                          itemCount: filteredTurfs.length,
-                          itemBuilder: (context, index) {
-                            final turf = filteredTurfs[index];
-                            return InkWell(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>  BookingPage(turfImages: turf.imageUrl, // Ensure this is a List<String>
-                                      turfName: turf.name,
-                                      location: turf.location,),
-                                  ),
-                                );
-                              },
+                  child:
+                      filteredTurfs.isEmpty
+                          ? Center(
+                            child: SingleChildScrollView(
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        turf.name,
-                                        style: GoogleFonts.robotoSlab(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const Row(
-                                        children: [
-                                          Icon(
-                                            Icons.star,
-                                            color: Colors.yellow,
-                                            size: 20,
-                                          ),
-                                          Text(
-                                            '4.8',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          Text(
-                                            '[4]',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                  Lottie.asset(
+                                    'assets/empty.json',
+                                    height: 300,
+                                    width: 300,
                                   ),
-                                  const SizedBox(height: 5),
-                                  Stack(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(16),
-                                        child: Image.network(
-                                          turf.imageUrl,
-                                          width: double.infinity,
-                                          height: 120,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                      Positioned(
-                                        top: 8,
-                                        right: 8,
-                                        child: IconButton(
-                                          icon: Icon(
-                                            turf.isFavorite
-                                                ? Icons.favorite
-                                                : Icons.favorite_border,
-                                            color: Colors.red,
-                                          ),
-                                          onPressed: () => ref
-                                              .read(turfListProvider.notifier)
-                                              .toggleFavorite(turf.id),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        turf.sport,
-                                        style: GoogleFonts.cutive(
-                                          color: Colors.white70,
-                                          fontSize: 10,
-                                        ),
-                                      ),
-                                      const Icon(
-                                        Icons.local_offer_outlined,
-                                        color: Colors.white,
-                                      ),
-                                    ],
+                                  SizedBox(height: 10),
+                                  Text(
+                                    'No turfs found for your search.',
+                                    style: GoogleFonts.roboto(
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ],
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          )
+                          : ListView.separated(
+                            separatorBuilder:
+                                (_, __) => const SizedBox(height: 16),
+                            itemCount: filteredTurfs.length,
+                            itemBuilder: (context, index) {
+                              final turf = filteredTurfs[index];
+                              return InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => BookingPage(
+                                            turfImages:
+                                                turf.imageUrl, // Ensure this is a List<String>
+                                            turfName: turf.name,
+                                            location: turf.location,
+                                            owner_id: turf.ownerId,
+                                          ),
+                                    ),
+                                  );
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          turf.name,
+                                          style: GoogleFonts.robotoSlab(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const Row(
+                                          children: [
+                                            Icon(
+                                              Icons.star,
+                                              color: Colors.yellow,
+                                              size: 20,
+                                            ),
+                                            Text(
+                                              '4.8',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            Text(
+                                              '[4]',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          child: Image.network(
+                                            turf.imageUrl.isNotEmpty
+                                                ? turf.imageUrl
+                                                : 'https://th.bing.com/th/id/OIP.QcSOTe7jIu4fP31CaetEUQHaDa?w=332&h=161&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3',
+                                            width: double.infinity,
+                                            height: 120,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: IconButton(
+                                            icon: Icon(
+                                              turf.isFavorite
+                                                  ? Icons.favorite
+                                                  : Icons.favorite_border,
+                                              color: Colors.red,
+                                            ),
+                                            onPressed:
+                                                () => ref
+                                                    .read(
+                                                      turfListProvider.notifier,
+                                                    )
+                                                    .toggleFavorite(turf.id),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          turf.sport,
+                                          style: GoogleFonts.cutive(
+                                            color: Colors.white70,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                        const Icon(
+                                          Icons.local_offer_outlined,
+                                          color: Colors.white,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
                 ),
               ],
             ),
@@ -503,8 +519,8 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
           backgroundColor: Colors.transparent,
           type: BottomNavigationBarType.shifting,
           currentIndex: navIndex,
-          onTap: (index) =>
-              ref.read(turfNavIndexProvider.notifier).state = index,
+          onTap:
+              (index) => ref.read(turfNavIndexProvider.notifier).state = index,
           selectedItemColor: Colors.pink,
           unselectedItemColor: Colors.white,
           selectedLabelStyle: GoogleFonts.outfit(
@@ -518,13 +534,42 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
           items: [
             BottomNavigationBarItem(
               icon: IconButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomeScreen()),
-                ),
+                onPressed:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const HomeScreen(),
+                      ),
+                    ),
                 icon: const Icon(Icons.home),
               ),
               label: 'Home',
+              backgroundColor: const Color(0xff22012c),
+            ),
+            BottomNavigationBarItem(
+              icon: IconButton(
+                onPressed:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const HomePage()),
+                    ),
+                icon: const Icon(Icons.videogame_asset),
+              ),
+              label: 'Games',
+              backgroundColor: const Color(0xff22012c),
+            ),
+            BottomNavigationBarItem(
+              icon: IconButton(
+                onPressed:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CenterLottieScreen(),
+                      ),
+                    ),
+                icon: const Icon(Icons.live_tv),
+              ),
+              label: 'Live',
               backgroundColor: const Color(0xff22012c),
             ),
             BottomNavigationBarItem(
@@ -534,36 +579,13 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen> {
             ),
             BottomNavigationBarItem(
               icon: IconButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CenterLottieScreen(),
-                  ),
-                ),
-                icon: const Icon(Icons.live_tv),
-              ),
-              label: 'Live',
-              backgroundColor: const Color(0xff22012c),
-            ),
-            BottomNavigationBarItem(
-              icon: IconButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomePage()),
-                ),
-                icon: const Icon(Icons.videogame_asset),
-              ),
-              label: 'Games',
-              backgroundColor: const Color(0xff22012c),
-            ),
-            BottomNavigationBarItem(
-              icon: IconButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const FollowingScreen(),
-                  ),
-                ),
+                onPressed:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const FollowingScreen(),
+                      ),
+                    ),
                 icon: const Icon(Icons.favorite),
               ),
               label: 'Fav',

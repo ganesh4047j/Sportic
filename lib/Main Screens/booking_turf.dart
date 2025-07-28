@@ -1,8 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:iconify_flutter_plus/icons/zondicons.dart';
+import 'package:lottie/lottie.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-
+import 'package:iconify_flutter_plus/iconify_flutter_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'booking_slot.dart'; // adjust the path if needed
+import 'package:direct_call_plus/direct_call_plus.dart';
 
 class Comment {
   String username;
@@ -30,35 +35,23 @@ class BookingPage extends StatefulWidget {
   final String turfImages;
   final String turfName;
   final String location;
+  final String owner_id;
 
   const BookingPage({
     super.key,
     required this.turfImages,
     required this.turfName,
     required this.location,
+    required this.owner_id,
   });
 
   @override
   State<BookingPage> createState() => _BookingPageState();
 }
+
 class _BookingPageState extends State<BookingPage> {
   final PageController _pageController = PageController();
 
-
-
-  // final List<String> turfImages = [
-  //   'https://th.bing.com/th/id/OIP.IIfvWqSDnPM1m8m1d7A8yAHaFC?w=268&h=183&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-  //   'https://th.bing.com/th/id/OIP.IIfvWqSDnPM1m8m1d7A8yAHaFC?w=268&h=183&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-  //   'https://th.bing.com/th/id/OIP.IIfvWqSDnPM1m8m1d7A8yAHaFC?w=268&h=183&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-  // ];
-  final List<String> sports = [
-    'Cricket',
-    'Football',
-    'Badminton',
-    'Tennis',
-    'Basketball',
-  ];
-  int selectedCardIndex = -1;
   List<Comment> comments = [
     Comment(
       username: "@godwinjeraldwilliam",
@@ -67,6 +60,93 @@ class _BookingPageState extends State<BookingPage> {
     ),
     Comment(username: "@anotheruser", text: "Great turf quality", likes: 45),
   ];
+
+  Map<String, String>? contactInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchOwnerContact(widget.owner_id);
+  }
+
+  Future<void> fetchOwnerContact(String ownerId) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      print('🔍 Searching for ownerId: $ownerId');
+
+      // Check admin_details_phone
+      final phoneDoc = await firestore
+          .collection('admin_details_phone')
+          .doc(ownerId)
+          .get()
+          .timeout(const Duration(seconds: 10)); // Add timeout
+
+      if (phoneDoc.exists) {
+        print('✅ Found in admin_details_phone');
+        final data = phoneDoc.data();
+        if (mounted) {
+          // Check if widget is still mounted
+          setState(() {
+            contactInfo = {
+              'phone_number': data?['phone_number']?.toString() ?? '',
+              'alternative_phone_number':
+                  data?['alternative_phone_number']?.toString() ?? '',
+              'login_type': 'phone',
+            };
+          });
+        }
+        return;
+      }
+
+      // Check admin_details_email
+      final emailDoc = await firestore
+          .collection('admin_details_email')
+          .doc(ownerId)
+          .get()
+          .timeout(const Duration(seconds: 10)); // Add timeout
+
+      if (emailDoc.exists) {
+        print('✅ Found in admin_details_email');
+        final data = emailDoc.data();
+        if (mounted) {
+          // Check if widget is still mounted
+          setState(() {
+            contactInfo = {
+              'phone_number': data?['phone_number']?.toString() ?? '',
+              'alternative_phone_number':
+                  data?['alternative_phone_number']?.toString() ?? '',
+              'login_type': 'email',
+            };
+          });
+        }
+        return;
+      }
+
+      print('❌ Owner ID not found in any collection');
+      if (mounted) {
+        // Check if widget is still mounted
+        setState(() {
+          contactInfo = {
+            'phone_number': '',
+            'alternative_phone_number': '',
+            'login_type': 'unknown',
+          };
+        });
+      }
+    } catch (e) {
+      print('❌ Error fetching owner contact: $e');
+      if (mounted) {
+        // Check if widget is still mounted
+        setState(() {
+          contactInfo = {
+            'phone_number': '',
+            'alternative_phone_number': '',
+            'login_type': 'error',
+          };
+        });
+      }
+    }
+  }
 
   Widget _buildCommentTile(Comment comment, {int indentLevel = 0}) {
     return Padding(
@@ -239,7 +319,49 @@ class _BookingPageState extends State<BookingPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (contactInfo == null) {
+      return Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF452152),
+                Color(0xFF3D1A4A),
+                Color(0xFF200D28),
+                Color(0xFF1B0723),
+              ],
+            ),
+          ),
+          child: Center(
+            child: Lottie.asset(
+              'assets/loading_spinner.json',
+              height: 300,
+              width: 300,
+            ),
+          ),
+        ),
+      );
+    }
+
     final List<String> limitedImages = [widget.turfImages];
+    final String phoneNumber = contactInfo?['phone_number'] ?? '';
+    final String whatsappNumber =
+        phoneNumber.isNotEmpty ? '91$phoneNumber' : '';
+    final String message = 'Hi, I need some help regarding your turf.';
+
+    _callNumber() async {
+      final number =
+          '${contactInfo!['alternative_phone_number'] ?? ''}'; //set the number here
+      // print('Alt num ==> $number');
+      bool? res = await DirectCallPlus.makeCall(number);
+    }
+
+    if (contactInfo == null) {
+      print("⏳ Waiting for contactInfo to load...");
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -277,12 +399,11 @@ class _BookingPageState extends State<BookingPage> {
                                   bottomRight: Radius.circular(25),
                                 ),
                                 child: Image.network(
-                                  widget.turfImages[index],
+                                  'https://th.bing.com/th/id/OIP.QcSOTe7jIu4fP31CaetEUQHaDa?w=332&h=161&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3',
                                   fit: BoxFit.cover,
                                 ),
                               );
                             },
-
                           ),
                         ),
                         Positioned(
@@ -403,9 +524,20 @@ class _BookingPageState extends State<BookingPage> {
                           const SizedBox(height: 20),
                           Row(
                             children: [
-                              GestureDetector(
-                                onTap: () {
-                                  print("Contact card tapped!");
+                              InkWell(
+                                onTap: () async {
+                                  final whatsappUrl = Uri.parse(
+                                    "https://wa.me/$whatsappNumber?text=${Uri.encodeComponent(message)}",
+                                  );
+
+                                  if (await canLaunchUrl(whatsappUrl)) {
+                                    await launchUrl(
+                                      whatsappUrl,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  } else {
+                                    print("❌ Could not launch WhatsApp");
+                                  }
                                 },
                                 child: Container(
                                   width: 150,
@@ -417,13 +549,24 @@ class _BookingPageState extends State<BookingPage> {
                                     color: const Color(0xf4fb965b),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Text(
-                                    "Contact",
-                                    style: GoogleFonts.inter(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Contact",
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Iconify(
+                                        Zondicons.phone,
+                                        color: Colors.green,
+                                        size: 15,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -442,9 +585,7 @@ class _BookingPageState extends State<BookingPage> {
                                     color: Colors.white,
                                     size: 20,
                                   ),
-                                  onPressed: () {
-                                    print("Calling...");
-                                  },
+                                  onPressed: _callNumber,
                                 ),
                               ),
                             ],
@@ -506,63 +647,7 @@ class _BookingPageState extends State<BookingPage> {
                               }),
                             ),
                           ),
-                          const SizedBox(height: 15),
-                          Text(
-                            "Available Sports",
-                            style: GoogleFonts.poppins(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
                           const SizedBox(height: 20),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: List.generate(5, (index) {
-                                bool isSelected = selectedCardIndex == index;
-                                return GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      selectedCardIndex = index;
-                                    });
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.only(right: 12),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          isSelected
-                                              ? Colors.green
-                                              : Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Colors.black12,
-                                          blurRadius: 4,
-                                          offset: Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Text(
-                                      sports[index],
-                                      style: GoogleFonts.cutive(
-                                        color:
-                                            isSelected
-                                                ? Colors.white
-                                                : Colors.black,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ),
-                          ),
-                          const SizedBox(height: 15),
                           Text(
                             "Venue info",
                             style: GoogleFonts.poppins(
@@ -827,7 +912,14 @@ class _BookingPageState extends State<BookingPage> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const TimingPage()),
+                    MaterialPageRoute(
+                      builder:
+                          (context) => TimingPage(
+                            owner_id: widget.owner_id,
+                            location: widget.location,
+                            turfName: widget.turfName,
+                          ),
+                    ),
                   );
                 },
                 child: Text(

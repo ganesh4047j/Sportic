@@ -26,11 +26,12 @@ class _FollowingScreenState extends ConsumerState<FollowingScreen> {
   Widget build(BuildContext context) {
     final turfs = ref.watch(turfProvider);
     final query = ref.watch(searchQueryProvider).toLowerCase();
-    final filteredTurfs = query.isEmpty
-        ? turfs
-        : turfs
-              .where((turf) => turf.name.toLowerCase().contains(query))
-              .toList();
+    final filteredTurfs =
+        query.isEmpty
+            ? turfs
+            : turfs
+                .where((turf) => turf.name.toLowerCase().contains(query))
+                .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFF2C003E),
@@ -186,8 +187,10 @@ class _FollowingScreenState extends ConsumerState<FollowingScreen> {
                               ),
                             ),
                             GestureDetector(
-                              onTap: () =>
-                                  debugPrint("Tapped chat with ${turf.name}"),
+                              onTap:
+                                  () => debugPrint(
+                                    "Tapped chat with ${turf.name}",
+                                  ),
                               child: const AnimatedScale(
                                 scale: 1.1,
                                 duration: Duration(milliseconds: 200),
@@ -218,8 +221,9 @@ class _FollowingScreenState extends ConsumerState<FollowingScreen> {
                   backgroundColor: Colors.transparent,
                   type: BottomNavigationBarType.shifting,
                   currentIndex: ref.watch(navIndexProvider),
-                  onTap: (index) =>
-                      ref.read(navIndexProvider.notifier).state = index,
+                  onTap:
+                      (index) =>
+                          ref.read(navIndexProvider.notifier).state = index,
                   selectedItemColor: Colors.pink,
                   unselectedItemColor: Colors.white,
 
@@ -251,16 +255,17 @@ class _FollowingScreenState extends ConsumerState<FollowingScreen> {
                     BottomNavigationBarItem(
                       icon: IconButton(
                         onPressed: () {
+                          print('Games button clicked');
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const TurfHomeScreen(),
+                              builder: (context) => const HomePage(),
                             ),
                           );
                         },
-                        icon: const Icon(Icons.sports_soccer),
+                        icon: const Icon(Icons.videogame_asset),
                       ),
-                      label: 'Turf',
+                      label: 'Games',
                       backgroundColor: const Color(0xff22012c),
                     ),
                     BottomNavigationBarItem(
@@ -282,29 +287,22 @@ class _FollowingScreenState extends ConsumerState<FollowingScreen> {
                     BottomNavigationBarItem(
                       icon: IconButton(
                         onPressed: () {
-                          print('Games button clicked');
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const HomePage(),
+                              builder: (context) => const TurfHomeScreen(),
                             ),
                           );
                         },
-                        icon: const Icon(Icons.videogame_asset),
+                        icon: const Icon(Icons.sports_soccer),
                       ),
-                      label: 'Games',
+                      label: 'Turf',
                       backgroundColor: const Color(0xff22012c),
                     ),
                     BottomNavigationBarItem(
                       icon: IconButton(
                         onPressed: () {
                           print('Fav button clicked');
-                          //Navigator.push(
-                          // context,
-                          //  MaterialPageRoute(
-                          //   builder: (context) => const FollowingScreen(),
-                          //  ),
-                          // );
                         },
                         icon: const Icon(Icons.favorite),
                       ),

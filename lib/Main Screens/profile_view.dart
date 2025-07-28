@@ -170,9 +170,9 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                                             setState(
                                               () => _isEditingBio = false,
                                             );
-                                            ref.refresh(
-                                              userProfileProvider(user.uid),
-                                            );
+                                            // ref.refresh(
+                                            //   userProfileProvider(user.uid),
+                                            // );
                                           },
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.green,

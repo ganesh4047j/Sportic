@@ -7,19 +7,18 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart';
 import 'package:sports/Main%20Screens/booking_turf.dart';
-import 'package:sports/Main%20Screens/create_team.dart';
 import 'package:sports/Main%20Screens/location.dart';
 import 'package:sports/Main%20Screens/profile.dart';
 import 'package:sports/Main%20Screens/turfscreen.dart';
 import 'package:sports/Providers/mvp_providers.dart';
 import 'package:sports/Providers/turfscreen_provider.dart';
+import '../Create Team/create_team.dart';
 import '../Services/privacy_policy_service.dart';
 import 'category.dart';
 import 'favourites.dart';
 import 'live_screen.dart';
 import 'mvp.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -29,8 +28,8 @@ final sportsProvider = FutureProvider<List<Map<String, String>>>((ref) async {
     {'image': 'assets/images/football_pic.png', 'text': 'Football'},
     {'image': 'assets/images/cricket_pic.png', 'text': 'Cricket'},
     {'image': 'assets/images/tennis_pic.png', 'text': 'Tennis'},
-    {'image': '/images/badminton.png', 'text': 'Badminton'},
-    {'image': '/images/pickleball.png', 'text': 'Pickle Ball'},
+    {'image': 'assets/images/badminton.png', 'text': 'Badminton'},
+    {'image': 'assets/images/pickleball.png', 'text': 'Pickle Ball'},
   ];
 });
 
@@ -41,7 +40,6 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sportsAsync = ref.watch(sportsProvider);
     final turfAsync = ref.watch(turfListProvider);
-    final nearestTurfs = ref.watch(nearestTurfProvider);
 
     const mainImage =
         'https://static.vecteezy.com/system/resources/previews/044/547/673/non_2x/lawn-on-a-football-field-photo.jpeg';
@@ -53,141 +51,11 @@ class HomeScreen extends ConsumerWidget {
       }
     });
 
-    // Widget _buildSection_recent(
-    //   String title,
-    //   AsyncValue<List<Map<String, String>>> sportsAsync,
-    //   Color titleColor,
-    // ) {
-    //   return Column(
-    //     crossAxisAlignment: CrossAxisAlignment.start,
-    //     children: [
-    //       Padding(
-    //         padding: const EdgeInsets.all(16.0),
-    //         child: Text(
-    //           title,
-    //           style: GoogleFonts.robotoSlab(
-    //             fontSize: 20,
-    //             fontWeight: FontWeight.w500,
-    //             color: titleColor,
-    //           ),
-    //         ),
-    //       ),
-    //       SizedBox(
-    //         height: 320,
-    //         child: sportsAsync.when(
-    //           loading: () => const Center(child: CircularProgressIndicator()),
-    //           error: (error, stack) => Center(child: Text('Error: $error')),
-    //           data: (sports) => ListView.separated(
-    //             scrollDirection: Axis.horizontal,
-    //             itemCount: sports.length,
-    //             separatorBuilder: (_, __) => const SizedBox(width: 12),
-    //             itemBuilder: (context, index) {
-    //               return Container(
-    //                 decoration: BoxDecoration(
-    //                   border: Border.all(
-    //                     color: const Color(0xff979698), // border color
-    //                     width: 3.5, // border width
-    //                   ),
-    //                   borderRadius: BorderRadius.circular(30), // optional
-    //                 ),
-    //                 child: SizedBox(
-    //                   width: 320,
-    //                   child: Center(
-    //                     child: Padding(
-    //                       padding: const EdgeInsets.all(28.0),
-    //                       child: Column(
-    //                         children: [
-    //                           Image.network(
-    //                             'https://th.bing.com/th/id/OIP.aas8P8RzXE8VGyo-cHSuNwHaEK?w=316&h=180&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-    //                             height: 150,
-    //                             width: 260,
-    //                           ),
-    //                           const SizedBox(height: 10),
-    //                           Row(
-    //                             mainAxisAlignment:
-    //                                 MainAxisAlignment.spaceBetween,
-    //                             children: [
-    //                               Text(
-    //                                 'Turf 1',
-    //                                 style: GoogleFonts.robotoSlab(
-    //                                   color: Colors.white,
-    //                                   fontSize: 20,
-    //                                 ),
-    //                               ),
-    //                               Row(
-    //                                 children: [
-    //                                   Icon(
-    //                                     Icons.star,
-    //                                     color: Colors.yellow,
-    //                                     size: 20,
-    //                                   ),
-    //                                   Text(
-    //                                     '4.8',
-    //                                     style: GoogleFonts.robotoSlab(
-    //                                       color: Colors.white,
-    //                                       fontSize: 20,
-    //                                     ),
-    //                                   ),
-    //                                   Text(
-    //                                     '(30)',
-    //                                     style: GoogleFonts.robotoSlab(
-    //                                       color: Colors.white,
-    //                                       fontSize: 20,
-    //                                     ),
-    //                                   ),
-    //                                 ],
-    //                               ),
-    //                             ],
-    //                           ),
-    //                           const SizedBox(height: 10),
-    //                           Row(
-    //                             children: [
-    //                               IconButton(
-    //                                 onPressed: () {},
-    //                                 icon: const Icon(
-    //                                   Icons.location_on_outlined,
-    //                                 ),
-    //                                 color: Colors.white,
-    //                                 iconSize: 30,
-    //                               ),
-    //                               const SizedBox(width: 10),
-    //                               OutlinedButton(
-    //                                 onPressed: () {},
-    //                                 child: Padding(
-    //                                   padding: EdgeInsets.only(
-    //                                     top: 5,
-    //                                     bottom: 5,
-    //                                   ),
-    //                                   child: Text(
-    //                                     '2/11, Madurai \n main road, Lalgudi',
-    //                                     style: GoogleFonts.robotoSlab(
-    //                                       color: Colors.white,
-    //                                       fontWeight: FontWeight.bold,
-    //                                     ),
-    //                                   ),
-    //                                 ),
-    //                               ),
-    //                             ],
-    //                           ),
-    //                         ],
-    //                       ),
-    //                     ),
-    //                   ),
-    //                 ),
-    //               );
-    //             },
-    //           ),
-    //         ),
-    //       ),
-    //     ],
-    //   );
-    // }
-    //
     Widget _buildSection_recent(
-        String title,
-        List<TurfModel> turfList,
-        Color titleColor,
-        ) {
+      String title,
+      List<TurfModel> turfList,
+      Color titleColor,
+    ) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -215,9 +83,14 @@ class HomeScreen extends ConsumerWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>  BookingPage(turfImages: turf.imageUrl, // Ensure this is a List<String>
-                          turfName: turf.name,
-                          location: turf.location,),
+                        builder:
+                            (context) => BookingPage(
+                              turfImages:
+                                  turf.imageUrl, // Ensure this is a List<String>
+                              turfName: turf.name,
+                              location: turf.location,
+                              owner_id: turf.ownerId,
+                            ),
                       ),
                     );
                   },
@@ -237,14 +110,17 @@ class HomeScreen extends ConsumerWidget {
                           child: Column(
                             children: [
                               Image.network(
-                                turf.imageUrl,
+                                turf.imageUrl.isNotEmpty
+                                    ? turf.imageUrl
+                                    : 'https://th.bing.com/th/id/OIP.QcSOTe7jIu4fP31CaetEUQHaDa?w=332&h=161&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3',
                                 height: 150,
                                 width: 260,
                                 fit: BoxFit.cover,
                               ),
                               const SizedBox(height: 10),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     turf.name,
@@ -255,7 +131,11 @@ class HomeScreen extends ConsumerWidget {
                                   ),
                                   Row(
                                     children: [
-                                      const Icon(Icons.star, color: Colors.yellow, size: 20),
+                                      const Icon(
+                                        Icons.star,
+                                        color: Colors.yellow,
+                                        size: 20,
+                                      ),
                                       Text(
                                         '4.8',
                                         style: GoogleFonts.robotoSlab(
@@ -279,7 +159,9 @@ class HomeScreen extends ConsumerWidget {
                                 children: [
                                   IconButton(
                                     onPressed: () {},
-                                    icon: const Icon(Icons.location_on_outlined),
+                                    icon: const Icon(
+                                      Icons.location_on_outlined,
+                                    ),
                                     color: Colors.white,
                                     iconSize: 30,
                                   ),
@@ -287,7 +169,9 @@ class HomeScreen extends ConsumerWidget {
                                   OutlinedButton(
                                     onPressed: () {},
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 5),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 5,
+                                      ),
                                       child: Text(
                                         turf.location,
                                         style: GoogleFonts.robotoSlab(
@@ -312,14 +196,12 @@ class HomeScreen extends ConsumerWidget {
         ],
       );
     }
-
 
     Widget _buildSection_top_rating_turf(
-
-        String title,
-        List<TurfModel> turfList,
-        Color titleColor,
-        ) {
+      String title,
+      List<TurfModel> turfList,
+      Color titleColor,
+    ) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -347,9 +229,14 @@ class HomeScreen extends ConsumerWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>  BookingPage(turfImages: turf.imageUrl, // Ensure this is a List<String>
-                          turfName: turf.name,
-                          location: turf.location,),
+                        builder:
+                            (context) => BookingPage(
+                              turfImages:
+                                  turf.imageUrl, // Ensure this is a List<String>
+                              turfName: turf.name,
+                              location: turf.location,
+                              owner_id: turf.ownerId,
+                            ),
                       ),
                     );
                   },
@@ -369,14 +256,17 @@ class HomeScreen extends ConsumerWidget {
                           child: Column(
                             children: [
                               Image.network(
-                                turf.imageUrl,
+                                turf.imageUrl.isNotEmpty
+                                    ? turf.imageUrl
+                                    : 'https://th.bing.com/th/id/OIP.QcSOTe7jIu4fP31CaetEUQHaDa?w=332&h=161&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3',
                                 height: 150,
                                 width: 260,
                                 fit: BoxFit.cover,
                               ),
                               const SizedBox(height: 10),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     turf.name,
@@ -387,7 +277,11 @@ class HomeScreen extends ConsumerWidget {
                                   ),
                                   Row(
                                     children: [
-                                      const Icon(Icons.star, color: Colors.yellow, size: 20),
+                                      const Icon(
+                                        Icons.star,
+                                        color: Colors.yellow,
+                                        size: 20,
+                                      ),
                                       Text(
                                         '4.8',
                                         style: GoogleFonts.robotoSlab(
@@ -411,7 +305,9 @@ class HomeScreen extends ConsumerWidget {
                                 children: [
                                   IconButton(
                                     onPressed: () {},
-                                    icon: const Icon(Icons.location_on_outlined),
+                                    icon: const Icon(
+                                      Icons.location_on_outlined,
+                                    ),
                                     color: Colors.white,
                                     iconSize: 30,
                                   ),
@@ -419,7 +315,9 @@ class HomeScreen extends ConsumerWidget {
                                   OutlinedButton(
                                     onPressed: () {},
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 5),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 5,
+                                      ),
                                       child: Text(
                                         turf.location,
                                         style: GoogleFonts.robotoSlab(
@@ -444,243 +342,12 @@ class HomeScreen extends ConsumerWidget {
         ],
       );
     }
-    //   String title,
-    //   AsyncValue<List<Map<String, String>>> sportsAsync,
-    //   Color titleColor,
-    // ) {
-    //   return Column(
-    //     crossAxisAlignment: CrossAxisAlignment.start,
-    //     children: [
-    //       Padding(
-    //         padding: const EdgeInsets.all(16.0),
-    //         child: Text(
-    //           title,
-    //           style: GoogleFonts.robotoSlab(
-    //             fontSize: 20,
-    //             fontWeight: FontWeight.w500,
-    //             color: titleColor,
-    //           ),
-    //         ),
-    //       ),
-    //       SizedBox(
-    //         height: 320,
-    //         child: sportsAsync.when(
-    //           loading: () => const Center(child: CircularProgressIndicator()),
-    //           error: (error, stack) => Center(child: Text('Error: $error')),
-    //           data: (sports) => ListView.separated(
-    //             scrollDirection: Axis.horizontal,
-    //             itemCount: sports.length,
-    //             separatorBuilder: (_, __) => const SizedBox(width: 12),
-    //             itemBuilder: (context, index) {
-    //               return Container(
-    //                 decoration: BoxDecoration(
-    //                   border: Border.all(
-    //                     color: const Color(0xff979698), // border color
-    //                     width: 3.5, // border width
-    //                   ),
-    //                   borderRadius: BorderRadius.circular(30), // optional
-    //                 ),
-    //                 child: SizedBox(
-    //                   width: 320,
-    //                   child: Center(
-    //                     child: Padding(
-    //                       padding: const EdgeInsets.all(28.0),
-    //                       child: Column(
-    //                         children: [
-    //                           Image.network(
-    //                             'https://th.bing.com/th/id/OIP.aas8P8RzXE8VGyo-cHSuNwHaEK?w=316&h=180&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-    //                             height: 150,
-    //                             width: 260,
-    //                           ),
-    //                           const SizedBox(height: 10),
-    //                           Row(
-    //                             mainAxisAlignment:
-    //                                 MainAxisAlignment.spaceBetween,
-    //                             children: [
-    //                               Text(
-    //                                 'Turf 2',
-    //                                 style: GoogleFonts.robotoSlab(
-    //                                   color: Colors.white,
-    //                                   fontSize: 20,
-    //                                 ),
-    //                               ),
-    //                               Row(
-    //                                 children: [
-    //                                   Icon(
-    //                                     Icons.star,
-    //                                     color: Colors.yellow,
-    //                                     size: 20,
-    //                                   ),
-    //                                   Text(
-    //                                     '4.8',
-    //                                     style: GoogleFonts.robotoSlab(
-    //                                       color: Colors.white,
-    //                                       fontSize: 20,
-    //                                     ),
-    //                                   ),
-    //                                   Text(
-    //                                     '(30)',
-    //                                     style: GoogleFonts.robotoSlab(
-    //                                       color: Colors.white,
-    //                                       fontSize: 20,
-    //                                     ),
-    //                                   ),
-    //                                 ],
-    //                               ),
-    //                             ],
-    //                           ),
-    //                           const SizedBox(height: 10),
-    //                           Row(
-    //                             children: [
-    //                               IconButton(
-    //                                 onPressed: () {},
-    //                                 icon: const Icon(
-    //                                   Icons.location_on_outlined,
-    //                                 ),
-    //                                 color: Colors.white,
-    //                                 iconSize: 30,
-    //                               ),
-    //                               const SizedBox(width: 10),
-    //                               OutlinedButton(
-    //                                 onPressed: () {},
-    //                                 child: Padding(
-    //                                   padding: EdgeInsets.only(
-    //                                     top: 5,
-    //                                     bottom: 5,
-    //                                   ),
-    //                                   child: Text(
-    //                                     '2/11, Madurai \n main road, Lalgudi',
-    //                                     style: GoogleFonts.robotoSlab(
-    //                                       color: Colors.white,
-    //                                       fontWeight: FontWeight.bold,
-    //                                     ),
-    //                                   ),
-    //                                 ),
-    //                               ),
-    //                             ],
-    //                           ),
-    //                         ],
-    //                       ),
-    //                     ),
-    //                   ),
-    //                 ),
-    //               );
-    //             },
-    //           ),
-    //         ),
-    //       ),
-    //     ],
-    //   );
-    // }
 
-
-
-
-            //   data: (sports) => ListView.separated(
-            //     scrollDirection: Axis.horizontal,
-            //     itemCount: sports.length,
-            //     separatorBuilder: (_, __) => const SizedBox(width: 12),
-            //     itemBuilder: (context, index) {
-            //       return Container(
-            //         decoration: BoxDecoration(
-            //           border: Border.all(
-            //             color: const Color(0xff979698), // border color
-            //             width: 3.5, // border width
-            //           ),
-            //           borderRadius: BorderRadius.circular(30), // optional
-            //         ),
-            //         child: SizedBox(
-            //           width: 320,
-            //           child: Center(
-            //             child: Padding(
-            //               padding: const EdgeInsets.all(28.0),
-            //               child: Column(
-            //                 children: [
-            //                   Image.network(
-            //                     'https://th.bing.com/th/id/OIP.aas8P8RzXE8VGyo-cHSuNwHaEK?w=316&h=180&c=7&r=0&o=5&dpr=1.3&pid=1.7',
-            //                     height: 150,
-            //                     width: 260,
-            //                   ),
-            //                   const SizedBox(height: 10),
-            //                   Row(
-            //                     mainAxisAlignment:
-            //                         MainAxisAlignment.spaceBetween,
-            //                     children: [
-            //                       Text(
-            //                         'Turf 3',
-            //                         style: GoogleFonts.robotoSlab(
-            //                           color: Colors.white,
-            //                           fontSize: 20,
-            //                         ),
-            //                       ),
-            //                       Row(
-            //                         children: [
-            //                           Icon(
-            //                             Icons.star,
-            //                             color: Colors.yellow,
-            //                             size: 20,
-            //                           ),
-            //                           Text(
-            //                             '4.8',
-            //                             style: GoogleFonts.robotoSlab(
-            //                               color: Colors.white,
-            //                               fontSize: 20,
-            //                             ),
-            //                           ),
-            //                           Text(
-            //                             '(30)',
-            //                             style: GoogleFonts.robotoSlab(
-            //                               color: Colors.white,
-            //                               fontSize: 20,
-            //                             ),
-            //                           ),
-            //                         ],
-            //                       ),
-            //                     ],
-            //                   ),
-            //                   const SizedBox(height: 10),
-            //                   Row(
-            //                     children: [
-            //                       IconButton(
-            //                         onPressed: () {},
-            //                         icon: const Icon(
-            //                           Icons.location_on_outlined,
-            //                         ),
-            //                         color: Colors.white,
-            //                         iconSize: 30,
-            //                       ),
-            //                       const SizedBox(width: 10),
-            //                       OutlinedButton(
-            //                         onPressed: () {},
-            //                         child: Padding(
-            //                           padding: EdgeInsets.only(
-            //                             top: 5,
-            //                             bottom: 5,
-            //                           ),
-            //                           child: Text(
-            //                             '2/11, Madurai \n main road, Lalgudi',
-            //                             style: GoogleFonts.robotoSlab(
-            //                               color: Colors.white,
-            //                               fontWeight: FontWeight.bold,
-            //                             ),
-            //                           ),
-            //                         ),
-            //                       ),
-            //                     ],
-            //                   ),
-            //                 ],
-            //               ),
-            //             ),
-            //           ),
-            //         ),
-            //       );
-            //     },
-            //   ),
     Widget _buildSection_nearest_turf(
-        String title,
-        AsyncValue<List<Map<String, String>>> sportsAsync,
-        Color titleColor,
-        ) {
+      String title,
+      AsyncValue<List<Map<String, String>>> sportsAsync,
+      Color titleColor,
+    ) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -698,44 +365,65 @@ class HomeScreen extends ConsumerWidget {
           SizedBox(
             height: 320,
             child: sportsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(child: Text('Error: $error')),
-                data: (sports) {
-                  if (sports.isEmpty) {
-                    return Center(
-                      child: Card(
-                        color: Colors.grey[800],
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20)),
-                        margin: const EdgeInsets.all(20),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Text(
-                            '❌ No nearest turf available for your location.',
-                            style: GoogleFonts.robotoSlab(
-                                color: Colors.white, fontSize: 18),
-                            textAlign: TextAlign.center,
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('Error: $error')),
+              data: (sports) {
+                if (sports.isEmpty) {
+                  return Center(
+                    child: Card(
+                      color: Colors.grey[800],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      margin: const EdgeInsets.all(20),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Text(
+                          '❌ No nearest turf available for your location.',
+                          style: GoogleFonts.robotoSlab(
+                            color: Colors.white,
+                            fontSize: 18,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                    );
-                  }
+                    ),
+                  );
+                }
 
-                  return ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: sports.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final turf = sports[index];
-                      final name = turf['name'] ?? 'Turf';
-                      final imageUrl = turf['imageUrl'] ??
-                          'https://th.bing.com/th/id/OIP.aas8P8RzXE8VGyo-cHSuNwHaEK?w=316&h=180&c=7&r=0&o=5&dpr=1.3&pid=1.7';
-                      final location = turf['location'] ?? 'Unknown';
+                return ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: sports.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final turf = sports[index];
+                    final name = turf['name'] ?? 'Turf';
+                    final imageUrl =
+                        turf['imageUrl'] ??
+                        'https://th.bing.com/th/id/OIP.aas8P8RzXE8VGyo-cHSuNwHaEK?w=316&h=180&c=7&r=0&o=5&dpr=1.3&pid=1.7';
+                    final location = turf['location'] ?? 'Unknown';
 
-                      return Container(
+                    return InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => BookingPage(
+                                  turfImages: turf['imageUrl']!,
+                                  turfName: turf['name']!,
+                                  location: turf['location']!,
+                                  owner_id: turf['ownerId']!,
+                                ),
+                          ),
+                        );
+                      },
+                      child: Container(
                         decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xff979698),
-                              width: 3.5),
+                          border: Border.all(
+                            color: const Color(0xff979698),
+                            width: 3.5,
+                          ),
                           borderRadius: BorderRadius.circular(30),
                         ),
                         child: SizedBox(
@@ -745,29 +433,47 @@ class HomeScreen extends ConsumerWidget {
                               padding: const EdgeInsets.all(28.0),
                               child: Column(
                                 children: [
-                                  Image.network(imageUrl, height: 150,
-                                      width: 260,
-                                      fit: BoxFit.cover),
+                                  Image.network(
+                                    imageUrl.isNotEmpty
+                                        ? imageUrl
+                                        : 'https://th.bing.com/th/id/OIP.QcSOTe7jIu4fP31CaetEUQHaDa?w=332&h=161&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3',
+                                    height: 150,
+                                    width: 260,
+                                    fit: BoxFit.cover,
+                                  ),
                                   const SizedBox(height: 10),
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment
-                                        .spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(name, style: GoogleFonts.robotoSlab(
-                                          color: Colors.white, fontSize: 20)),
+                                      Text(
+                                        name,
+                                        style: GoogleFonts.robotoSlab(
+                                          color: Colors.white,
+                                          fontSize: 20,
+                                        ),
+                                      ),
                                       Row(
                                         children: [
                                           const Icon(
-                                              Icons.star, color: Colors.yellow,
-                                              size: 20),
-                                          Text('4.8',
-                                              style: GoogleFonts.robotoSlab(
-                                                  color: Colors.white,
-                                                  fontSize: 20)),
-                                          Text('(30)',
-                                              style: GoogleFonts.robotoSlab(
-                                                  color: Colors.white,
-                                                  fontSize: 20)),
+                                            Icons.star,
+                                            color: Colors.yellow,
+                                            size: 20,
+                                          ),
+                                          Text(
+                                            '4.8',
+                                            style: GoogleFonts.robotoSlab(
+                                              color: Colors.white,
+                                              fontSize: 20,
+                                            ),
+                                          ),
+                                          Text(
+                                            '(30)',
+                                            style: GoogleFonts.robotoSlab(
+                                              color: Colors.white,
+                                              fontSize: 20,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ],
@@ -775,15 +481,19 @@ class HomeScreen extends ConsumerWidget {
                                   const SizedBox(height: 10),
                                   Row(
                                     children: [
-                                      const Icon(Icons.location_on_outlined,
-                                          color: Colors.white, size: 30),
+                                      const Icon(
+                                        Icons.location_on_outlined,
+                                        color: Colors.white,
+                                        size: 30,
+                                      ),
                                       const SizedBox(width: 10),
                                       Flexible(
                                         child: Text(
                                           location,
                                           style: GoogleFonts.robotoSlab(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold),
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -793,18 +503,18 @@ class HomeScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
-                      );
-                    },
-                  );
-                }
-
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ),
         ],
       );
     }
 
-      return Scaffold(
+    return Scaffold(
       body: Column(
         children: [
           Expanded(
@@ -980,46 +690,47 @@ class HomeScreen extends ConsumerWidget {
                         ],
                       ),
 
+                      _buildSection_recent(
+                        'Recent',
+                        turfAsync,
+                        const Color(0xff9b9a9a),
+                      ),
+                      _buildSection_top_rating_turf(
+                        'Top Rating Turf',
+                        turfAsync,
+                        const Color(0xffadacac),
+                      ),
 
-                        _buildSection_recent('Recent', turfAsync, const Color(0xff9b9a9a)),
-                        _buildSection_top_rating_turf('Top Rating Turf', turfAsync, const Color(0xffadacac)),
-
-                        const SizedBox(height: 16),
-                      // GestureDetector(
-                      //   onTap: () {
-                      //     Navigator.push(
-                      //       context,
-                      //       MaterialPageRoute(
-                      //         builder: (context) => BookingPage(),
-                      //       ),
-                      //     );
-                      //   },
-                      //   child: _buildSection_nearest_turf(
-                      //     'Nearest Turf',
-                      //     sportsAsync,
-                      //     const Color(0xffb0aeae),
-                      //   ),
-                      // ),
+                      const SizedBox(height: 16),
                       Consumer(
                         builder: (context, ref, _) {
                           final nearestTurfs = ref.watch(nearestTurfProvider);
 
                           final asyncTurfs = AsyncValue.data(
-                            nearestTurfs.map((turf) => {
-                              'name': turf.name,
-                              'imageUrl': turf.imageUrl,
-                              'location': turf.location,
-                            }).toList(),
+                            nearestTurfs
+                                .map(
+                                  (turf) => {
+                                    'name': turf['name']!,
+                                    'imageUrl': turf['imageUrl']!,
+                                    'location': turf['location']!,
+                                    'ownerId': turf['ownerId']!,
+                                  },
+                                )
+                                .toList(),
                           );
 
                           return asyncTurfs.when(
-                            loading: () => const Center(child: CircularProgressIndicator()),
-                            error: (err, _) => Center(child: Text("Error: $err")),
+                            loading:
+                                () => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                            error:
+                                (err, _) => Center(child: Text("Error: $err")),
                             data: (sports) {
                               return GestureDetector(
                                 onTap: () {
                                   if (sports.isNotEmpty) {
-                                    final turf = sports[0]; // or whichever you want to navigate with
+                                    // final turf = sports[0]; // or whichever you want to navigate with
                                     // Navigator.push(
                                     //   context,
                                     //   MaterialPageRoute(
@@ -1027,11 +738,15 @@ class HomeScreen extends ConsumerWidget {
                                     //       turfName: turf.name,
                                     //       location: turf.location,),
                                     //   ),
-                                   // );
+                                    // );
                                   } else {
                                     // Don't navigate if empty
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text("No nearest turf to view.")),
+                                      const SnackBar(
+                                        content: Text(
+                                          "No nearest turf to view.",
+                                        ),
+                                      ),
                                     );
                                   }
                                 },
@@ -1045,7 +760,6 @@ class HomeScreen extends ConsumerWidget {
                           );
                         },
                       ),
-
 
                       const SizedBox(height: 16),
                       _buildFooter(context),
@@ -1067,8 +781,8 @@ class HomeScreen extends ConsumerWidget {
               backgroundColor: Colors.transparent,
               type: BottomNavigationBarType.shifting,
               currentIndex: ref.watch(navIndexProvider),
-              onTap: (index) =>
-                  ref.read(navIndexProvider.notifier).state = index,
+              onTap:
+                  (index) => ref.read(navIndexProvider.notifier).state = index,
               selectedItemColor: Colors.pink,
               unselectedItemColor: Colors.white,
 
@@ -1090,16 +804,17 @@ class HomeScreen extends ConsumerWidget {
                 BottomNavigationBarItem(
                   icon: IconButton(
                     onPressed: () {
+                      print('Games button clicked');
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const TurfHomeScreen(),
+                          builder: (context) => const HomePage(),
                         ),
                       );
                     },
-                    icon: const Icon(Icons.sports_soccer),
+                    icon: const Icon(Icons.videogame_asset),
                   ),
-                  label: 'Turf',
+                  label: 'Games',
                   backgroundColor: const Color(0xff22012c),
                 ),
                 BottomNavigationBarItem(
@@ -1121,17 +836,16 @@ class HomeScreen extends ConsumerWidget {
                 BottomNavigationBarItem(
                   icon: IconButton(
                     onPressed: () {
-                      print('Games button clicked');
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const HomePage(),
+                          builder: (context) => const TurfHomeScreen(),
                         ),
                       );
                     },
-                    icon: const Icon(Icons.videogame_asset),
+                    icon: const Icon(Icons.sports_soccer),
                   ),
-                  label: 'Games',
+                  label: 'Turf',
                   backgroundColor: const Color(0xff22012c),
                 ),
                 BottomNavigationBarItem(
@@ -1179,8 +893,10 @@ class HomeScreen extends ConsumerWidget {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        const LocationInputScreen(shouldRedirectToHome: true),
+                    builder:
+                        (context) => const LocationInputScreen(
+                          shouldRedirectToHome: true,
+                        ),
                   ),
                 );
               },
@@ -1299,7 +1015,7 @@ class HomeScreen extends ConsumerWidget {
         error: (error, stack) => Center(child: Text('Error: $error')),
         data: (sports) {
           double cardWidth =
-              MediaQuery.of(context).size.width / 3; // 3 cards per view
+              MediaQuery.of(context).size.width / 2.5; // 3 cards per view
 
           return SizedBox(
             height: 150,
@@ -1342,8 +1058,9 @@ class HomeScreen extends ConsumerWidget {
                             height: 70,
                             width: 70,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.error),
+                            errorBuilder:
+                                (context, error, stackTrace) =>
+                                    const Icon(Icons.error),
                           ),
                         ],
                       ),
@@ -1609,8 +1326,9 @@ class HomeScreen extends ConsumerWidget {
             'assets/images/sportsman.png',
             height: 180,
             width: 160,
-            errorBuilder: (context, error, stackTrace) =>
-                const Center(child: Icon(Icons.error)),
+            errorBuilder:
+                (context, error, stackTrace) =>
+                    const Center(child: Icon(Icons.error)),
           ),
         ),
         const SizedBox(height: 20),
