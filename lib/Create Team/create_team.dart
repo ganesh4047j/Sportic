@@ -179,10 +179,10 @@ class _CreateTeamScreenState extends ConsumerState<CreateTeamScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isTeamCreated = ref.watch(isTeamCreatedProvider);
-    final playerCount = ref.watch(playerCountProvider);
-    final totalPlayers = ref.watch(totalPlayersProvider);
-    final needPlayers = ref.watch(needPlayersProvider);
+    // final isTeamCreated = ref.watch(isTeamCreatedProvider);
+    // final playerCount = ref.watch(playerCountProvider);
+    // final totalPlayers = ref.watch(totalPlayersProvider);
+    // final needPlayers = ref.watch(needPlayersProvider);
 
     return Scaffold(
       body: Container(
@@ -699,7 +699,7 @@ class _CreateTeamScreenState extends ConsumerState<CreateTeamScreen>
                 // Define responsive values based on screen size
                 final isSmallScreen = screenWidth < 360;
                 final isMediumScreen = screenWidth >= 360 && screenWidth < 414;
-                final isLargeScreen = screenWidth >= 414;
+                // final isLargeScreen = screenWidth >= 414;
 
                 // Responsive dimensions
                 final buttonHeight =

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:scroll_date_picker/scroll_date_picker.dart';
@@ -2486,38 +2487,6 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildPopupDetailRow(String label, String value, bool isSmallScreen) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 6 : 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: isSmallScreen ? 90 : 110,
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: isSmallScreen ? 13 : 15,
-                fontWeight: FontWeight.w500,
-                color: Colors.white70,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: isSmallScreen ? 13 : 15,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     // Filter sports based on search text
@@ -2556,6 +2525,17 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(
+      DiagnosticsProperty<Animation<double>>(
+        '_scaleAnimation',
+        _scaleAnimation,
       ),
     );
   }

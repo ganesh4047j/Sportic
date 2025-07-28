@@ -1,5 +1,6 @@
 import 'dart:async'; // Add this import for StreamSubscription
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -319,8 +320,8 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
 
   // Calculate amount per player
   double get amountPerPlayer {
-    final totalAmount = (teamData?['amount'] as int?) ?? 1000;
-    final totalPlayers = (teamData?['total_players'] as int?) ?? 11;
+    final totalAmount = (teamData?['amount'] ?? 1000).toDouble();
+    final totalPlayers = (teamData?['total_players'] ?? 11).toInt();
     return totalAmount / totalPlayers;
   }
 
@@ -987,11 +988,11 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
               duration: const Duration(milliseconds: 800),
               builder: (context, value, child) {
                 return Transform.translate(
-                  offset: Offset(50 * (1 - value), 0),
+                  offset: Offset(50.0 * (1.0 - value), 0.0),
                   child: Opacity(
                     opacity: value,
                     child: Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16.0),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
@@ -1009,20 +1010,20 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
                                     const Color(0xFF3D1D48),
                                   ],
                         ),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(16.0),
                         border: Border.all(
                           color:
                               isCurrentUser
                                   ? Colors.yellow.withOpacity(0.5)
                                   : Colors.pink.withOpacity(0.3),
-                          width: isCurrentUser ? 2 : 1,
+                          width: isCurrentUser ? 2.0 : 1.0,
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: (isCurrentUser ? Colors.yellow : Colors.pink)
                                 .withOpacity(0.2),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
+                            blurRadius: 12.0,
+                            offset: const Offset(0.0, 6.0),
                           ),
                         ],
                       ),
@@ -1052,13 +1053,13 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
                                                 ? const Color(0xFFFFD700)
                                                 : Colors.pink)
                                             .withOpacity(0.4),
-                                        blurRadius: 8,
-                                        spreadRadius: 1,
+                                        blurRadius: 8.0,
+                                        spreadRadius: 1.0,
                                       ),
                                     ],
                                   ),
                                   child: CircleAvatar(
-                                    radius: 24,
+                                    radius: 24.0,
                                     backgroundColor: Colors.transparent,
                                     backgroundImage:
                                         player['avatar_url'] != null &&
@@ -1075,7 +1076,7 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
                                                   ? Icons.star
                                                   : Icons.person,
                                               color: Colors.white,
-                                              size: 20,
+                                              size: 20.0,
                                             )
                                             : null,
                                   ),
@@ -1161,7 +1162,7 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '₹${amountPerPlayer.round()} per player',
+                                  '₹${amountPerPlayer.toDouble()} per player',
                                   style: GoogleFonts.poppins(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -1244,7 +1245,7 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
               );
             }
 
-            final isUserInTeam = joinedPlayersList.any(
+            joinedPlayersList.any(
               (player) => player['user_id'] == currentUser['user_id'],
             );
             final hasUserPaid = joinedPlayersList.any(
@@ -1753,6 +1754,17 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
           ],
         );
       },
+    );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(
+      DiagnosticsProperty<Animation<double>>(
+        '_bounceAnimation',
+        _bounceAnimation,
+      ),
     );
   }
 }

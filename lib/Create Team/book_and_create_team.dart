@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:scroll_date_picker/scroll_date_picker.dart';
@@ -1550,13 +1551,13 @@ class _BookingPageState extends State<BookingPage>
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = MediaQuery.of(context).size.width;
-        final screenHeight = MediaQuery.of(context).size.height;
+        // final screenHeight = MediaQuery.of(context).size.height;
         final textScaleFactor = MediaQuery.of(context).textScaleFactor;
 
         // Device type detection
         final isSmallScreen = screenWidth < 360;
         final isMediumScreen = screenWidth >= 360 && screenWidth < 414;
-        final isLargeScreen = screenWidth >= 414;
+        // final isLargeScreen = screenWidth >= 414;
         final isTablet = screenWidth > 600;
 
         // Responsive dimensions
@@ -2047,13 +2048,13 @@ class _BookingPageState extends State<BookingPage>
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = MediaQuery.of(context).size.width;
-        final screenHeight = MediaQuery.of(context).size.height;
+        // final screenHeight = MediaQuery.of(context).size.height;
         final textScaleFactor = MediaQuery.of(context).textScaleFactor;
 
         // Device type detection
         final isSmallScreen = screenWidth < 360;
         final isMediumScreen = screenWidth >= 360 && screenWidth < 414;
-        final isLargeScreen = screenWidth >= 414;
+        // final isLargeScreen = screenWidth >= 414;
         final isTablet = screenWidth > 600;
 
         // Responsive dimensions
@@ -2366,5 +2367,11 @@ class _BookingPageState extends State<BookingPage>
         ],
       ),
     );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<Animation<double>>('_sparkleAnimation', _sparkleAnimation));
   }
 }
