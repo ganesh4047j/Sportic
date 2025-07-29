@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class SupportChatDialog extends StatefulWidget {
@@ -757,5 +758,13 @@ class _SupportChatDialogState extends State<SupportChatDialog>
     }
 
     return "I'm sorry, I didn't understand that. Can you please rephrase or ask a different question? 🤔";
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(
+      DiagnosticsProperty<Animation<double>>('_fadeAnimation', _fadeAnimation),
+    );
   }
 }
