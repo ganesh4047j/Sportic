@@ -149,11 +149,12 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen>
     }
 
     try {
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('user_details_phone')
-          .where('phone_number', isEqualTo: phone)
-          .limit(1)
-          .get();
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('user_details_phone')
+              .where('phone_number', isEqualTo: phone)
+              .limit(1)
+              .get();
 
       if (querySnapshot.docs.isNotEmpty) {
         final existingDoc = querySnapshot.docs.first;
@@ -194,10 +195,11 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen>
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => PinCodeVerificationScreen(
-              phoneNumber: phone,
-              requestId: _requestId,
-            ),
+            builder:
+                (context) => PinCodeVerificationScreen(
+                  phoneNumber: phone,
+                  requestId: _requestId,
+                ),
           ),
         );
       } else {
@@ -324,9 +326,10 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen>
                     children: [
                       Checkbox(
                         value: agreedToTerms,
-                        onChanged: (value) =>
-                            ref.read(agreedToTermsProvider.notifier).state =
-                                value ?? false,
+                        onChanged:
+                            (value) =>
+                                ref.read(agreedToTermsProvider.notifier).state =
+                                    value ?? false,
                         checkColor: Colors.white,
                         activeColor: Colors.pink,
                       ),

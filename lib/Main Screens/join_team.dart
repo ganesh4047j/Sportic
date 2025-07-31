@@ -685,276 +685,555 @@ class _JoinTeamPageState extends ConsumerState<JoinTeamPage>
   }
 
   Widget _buildTeamCard(Map<String, dynamic> team) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 800),
-      builder: (context, value, child) {
-        return Transform.translate(
-          offset: Offset(50 * (1 - value), 0),
-          child: Opacity(
-            opacity: value,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF5D2968),
-                    Color(0xFF4D2558),
-                    Color(0xFF3D1D48),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.pink.withOpacity(0.3),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.pink.withOpacity(0.2),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mediaQuery = MediaQuery.of(context);
+        final screenSize = mediaQuery.size;
+        final screenWidth = screenSize.width;
+        final textScaleFactor = mediaQuery.textScaleFactor;
+
+        // Define screen size categories
+        final isExtraSmall = screenWidth < 320;
+        final isSmall = screenWidth >= 320 && screenWidth < 375;
+        final isMedium = screenWidth >= 375 && screenWidth < 414;
+        final isLarge = screenWidth >= 414 && screenWidth < 480;
+        final isExtraLarge = screenWidth >= 480;
+
+        // Get responsive configuration
+        Map<String, dynamic> getResponsiveConfig() {
+          if (isExtraSmall) {
+            return {
+              'cardPadding': 12.0,
+              'avatarRadius': 22.0,
+              'avatarSpacing': 12.0,
+              'titleFontSize': 14.0,
+              'subtitleFontSize': 11.0,
+              'captionFontSize': 10.0,
+              'badgeFontSize': 9.0,
+              'badgePadding': const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 4,
               ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.0, end: 1.0),
-                        duration: const Duration(milliseconds: 800),
-                        builder: (context, animValue, child) {
-                          return Transform.scale(
-                            scale: animValue,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  colors: [Colors.pink, Colors.purple],
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.pink.withOpacity(0.4),
-                                    blurRadius: 10,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: CircleAvatar(
-                                radius: 30,
-                                backgroundColor: Colors.transparent,
-                                backgroundImage: NetworkImage(
-                                  "https://i.pravatar.cc/150?img=${team['creator_name'].hashCode % 50}",
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ShaderMask(
-                              shaderCallback:
-                                  (bounds) => LinearGradient(
-                                    colors: [
-                                      Colors.white,
-                                      Colors.pink.shade200,
-                                    ],
-                                  ).createShader(bounds),
-                              child: Text(
-                                "${team['creator_name']}'s Team",
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Captain: ${team['creator_name']}",
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            Text(
-                              "Sport: ${team['selected_sport']} • ${team['slot_time']}",
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.green.withOpacity(0.8),
-                              Colors.teal.withOpacity(0.8),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.green.withOpacity(0.3),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          "${team['need_players']} players needed",
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
+              'contentSpacing': 10.0,
+              'iconSize': 12.0,
+              'buttonHeight': 36.0,
+              'buttonFontSize': 13.0,
+              'borderRadius': 12.0,
+              'detailsCardPadding': 10.0,
+              'priceContainerPadding': const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 3,
+              ),
+              'priceFontSize': 11.0,
+            };
+          } else if (isSmall) {
+            return {
+              'cardPadding': 14.0,
+              'avatarRadius': 25.0,
+              'avatarSpacing': 14.0,
+              'titleFontSize': 15.0,
+              'subtitleFontSize': 12.0,
+              'captionFontSize': 11.0,
+              'badgeFontSize': 10.0,
+              'badgePadding': const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 5,
+              ),
+              'contentSpacing': 12.0,
+              'iconSize': 13.0,
+              'buttonHeight': 38.0,
+              'buttonFontSize': 14.0,
+              'borderRadius': 14.0,
+              'detailsCardPadding': 12.0,
+              'priceContainerPadding': const EdgeInsets.symmetric(
+                horizontal: 9,
+                vertical: 4,
+              ),
+              'priceFontSize': 12.0,
+            };
+          } else if (isMedium) {
+            return {
+              'cardPadding': 16.0,
+              'avatarRadius': 28.0,
+              'avatarSpacing': 16.0,
+              'titleFontSize': 16.0,
+              'subtitleFontSize': 13.0,
+              'captionFontSize': 12.0,
+              'badgeFontSize': 11.0,
+              'badgePadding': const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 6,
+              ),
+              'contentSpacing': 14.0,
+              'iconSize': 14.0,
+              'buttonHeight': 42.0,
+              'buttonFontSize': 15.0,
+              'borderRadius': 16.0,
+              'detailsCardPadding': 14.0,
+              'priceContainerPadding': const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 4,
+              ),
+              'priceFontSize': 13.0,
+            };
+          } else if (isLarge) {
+            return {
+              'cardPadding': 18.0,
+              'avatarRadius': 30.0,
+              'avatarSpacing': 18.0,
+              'titleFontSize': 17.0,
+              'subtitleFontSize': 14.0,
+              'captionFontSize': 12.0,
+              'badgeFontSize': 12.0,
+              'badgePadding': const EdgeInsets.symmetric(
+                horizontal: 11,
+                vertical: 7,
+              ),
+              'contentSpacing': 15.0,
+              'iconSize': 15.0,
+              'buttonHeight': 44.0,
+              'buttonFontSize': 15.0,
+              'borderRadius': 18.0,
+              'detailsCardPadding': 15.0,
+              'priceContainerPadding': const EdgeInsets.symmetric(
+                horizontal: 11,
+                vertical: 4,
+              ),
+              'priceFontSize': 13.0,
+            };
+          } else {
+            return {
+              'cardPadding': 20.0,
+              'avatarRadius': 32.0,
+              'avatarSpacing': 20.0,
+              'titleFontSize': 18.0,
+              'subtitleFontSize': 14.0,
+              'captionFontSize': 12.0,
+              'badgeFontSize': 12.0,
+              'badgePadding': const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              'contentSpacing': 16.0,
+              'iconSize': 16.0,
+              'buttonHeight': 46.0,
+              'buttonFontSize': 16.0,
+              'borderRadius': 20.0,
+              'detailsCardPadding': 16.0,
+              'priceContainerPadding': const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 4,
+              ),
+              'priceFontSize': 14.0,
+            };
+          }
+        }
+
+        final config = getResponsiveConfig();
+
+        // Adjust font sizes based on text scale factor
+        final adjustedTitleSize =
+            (config['titleFontSize'] as double) /
+            textScaleFactor.clamp(0.8, 1.3);
+        final adjustedSubtitleSize =
+            (config['subtitleFontSize'] as double) /
+            textScaleFactor.clamp(0.8, 1.3);
+        final adjustedCaptionSize =
+            (config['captionFontSize'] as double) /
+            textScaleFactor.clamp(0.8, 1.3);
+        final adjustedBadgeSize =
+            (config['badgeFontSize'] as double) /
+            textScaleFactor.clamp(0.8, 1.3);
+        final adjustedButtonSize =
+            (config['buttonFontSize'] as double) /
+            textScaleFactor.clamp(0.8, 1.3);
+        final adjustedPriceSize =
+            (config['priceFontSize'] as double) /
+            textScaleFactor.clamp(0.8, 1.3);
+
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 800),
+          builder: (context, value, child) {
+            return Transform.translate(
+              offset: Offset(50 * (1 - value), 0),
+              child: Opacity(
+                opacity: value,
+                child: Container(
+                  width: double.infinity,
+                  constraints: BoxConstraints(
+                    maxWidth: isExtraLarge ? 500 : double.infinity,
+                    minHeight: isExtraSmall ? 180 : 200,
+                  ),
+                  padding: EdgeInsets.all(config['cardPadding']),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF5D2968),
+                        Color(0xFF4D2558),
+                        Color(0xFF3D1D48),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(config['borderRadius']),
+                    border: Border.all(
+                      color: Colors.pink.withOpacity(0.3),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.pink.withOpacity(0.2),
+                        blurRadius: isExtraSmall ? 10 : 15,
+                        offset: Offset(0, isExtraSmall ? 4 : 8),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.black.withOpacity(0.2),
-                          Colors.black.withOpacity(0.1),
-                        ],
+                  child: Column(
+                    children: [
+                      // Header section with avatar and info
+                      _buildTeamHeader(
+                        team,
+                        config,
+                        adjustedTitleSize,
+                        adjustedSubtitleSize,
+                        adjustedCaptionSize,
+                        adjustedBadgeSize,
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.sports_soccer,
-                              color: Colors.pink,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                team['turf_name'],
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on,
-                              color: Colors.orange,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                team['turf_location'],
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_today,
-                              color: Colors.blue,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              team['slot_date'],
-                              style: GoogleFonts.poppins(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.pink.withOpacity(0.8),
-                                    Colors.purple.withOpacity(0.8),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                "₹${(team['amount'] / team['total_players']).round()}",
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+
+                      SizedBox(height: config['contentSpacing']),
+
+                      // Details section
+                      _buildTeamDetails(
+                        team,
+                        config,
+                        adjustedCaptionSize,
+                        adjustedPriceSize,
+                      ),
+
+                      SizedBox(height: config['contentSpacing']),
+
+                      // Join button
+                      _buildJoinButton(team, config, adjustedButtonSize),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => _joinTeam(team),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.pink.withOpacity(0.8),
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Join Team',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTeamHeader(
+    Map<String, dynamic> team,
+    Map<String, dynamic> config,
+    double titleSize,
+    double subtitleSize,
+    double captionSize,
+    double badgeSize,
+  ) {
+    return Row(
+      children: [
+        // Avatar
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 800),
+          builder: (context, animValue, child) {
+            return Transform.scale(
+              scale: animValue,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Colors.pink, Colors.purple],
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.pink.withOpacity(0.4),
+                      blurRadius: config['avatarRadius'] / 3,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: config['avatarRadius'],
+                  backgroundColor: Colors.transparent,
+                  backgroundImage: NetworkImage(
+                    "https://i.pravatar.cc/150?img=${team['creator_name'].hashCode % 50}",
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
+        SizedBox(width: config['avatarSpacing']),
+
+        // Team info
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Team name
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: ShaderMask(
+                  shaderCallback:
+                      (bounds) => LinearGradient(
+                        colors: [Colors.white, Colors.pink.shade200],
+                      ).createShader(bounds),
+                  child: Text(
+                    "${team['creator_name']}'s Team",
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: titleSize,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 2),
+
+              // Captain info
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Captain: ${team['creator_name']}",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: subtitleSize,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+
+              // Sport and time info
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "${team['selected_sport']} • ${team['slot_time']}",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: captionSize,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Players needed badge
+        Flexible(
+          child: Container(
+            padding: config['badgePadding'],
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.green.withOpacity(0.8),
+                  Colors.teal.withOpacity(0.8),
                 ],
+              ),
+              borderRadius: BorderRadius.circular(config['borderRadius'] * 0.6),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.green.withOpacity(0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                "${team['need_players']} players needed",
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: badgeSize,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ),
-        );
-      },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTeamDetails(
+    Map<String, dynamic> team,
+    Map<String, dynamic> config,
+    double captionSize,
+    double priceSize,
+  ) {
+    return Container(
+      padding: EdgeInsets.all(config['detailsCardPadding']),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.black.withOpacity(0.2),
+            Colors.black.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(config['borderRadius'] * 0.6),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        children: [
+          // Turf name
+          _buildDetailRow(
+            Icons.sports_soccer,
+            Colors.pink,
+            team['turf_name'],
+            captionSize,
+            config['iconSize'],
+            fontWeight: FontWeight.w600,
+          ),
+
+          SizedBox(height: config['contentSpacing'] * 0.5),
+
+          // Location
+          _buildDetailRow(
+            Icons.location_on,
+            Colors.orange,
+            team['turf_location'],
+            captionSize * 0.9,
+            config['iconSize'],
+          ),
+
+          SizedBox(height: config['contentSpacing'] * 0.5),
+
+          // Date and price row
+          Row(
+            children: [
+              Expanded(
+                child: _buildDetailRow(
+                  Icons.calendar_today,
+                  Colors.blue,
+                  team['slot_date'],
+                  captionSize * 0.9,
+                  config['iconSize'],
+                  isExpanded: false,
+                ),
+              ),
+
+              // Price container
+              Container(
+                padding: config['priceContainerPadding'],
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.pink.withOpacity(0.8),
+                      Colors.purple.withOpacity(0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(
+                    config['borderRadius'] * 0.4,
+                  ),
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    "₹${(team['amount'] / team['total_players']).round()}",
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: priceSize,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(
+    IconData icon,
+    Color iconColor,
+    String text,
+    double fontSize,
+    double iconSize, {
+    FontWeight? fontWeight,
+    bool isExpanded = true,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, color: iconColor, size: iconSize),
+        const SizedBox(width: 8),
+        isExpanded
+            ? Expanded(
+              child: Text(
+                text,
+                style: GoogleFonts.poppins(
+                  color: fontWeight != null ? Colors.white : Colors.white70,
+                  fontSize: fontSize,
+                  fontWeight: fontWeight,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            )
+            : Flexible(
+              child: Text(
+                text,
+                style: GoogleFonts.poppins(
+                  color: fontWeight != null ? Colors.white : Colors.white70,
+                  fontSize: fontSize,
+                  fontWeight: fontWeight,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+      ],
+    );
+  }
+
+  Widget _buildJoinButton(
+    Map<String, dynamic> team,
+    Map<String, dynamic> config,
+    double fontSize,
+  ) {
+    return SizedBox(
+      width: double.infinity,
+      height: config['buttonHeight'],
+      child: ElevatedButton(
+        onPressed: () => _joinTeam(team),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.pink.withOpacity(0.8),
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(config['borderRadius'] * 0.6),
+          ),
+          elevation: 0,
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            'Join Team',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: fontSize,
+            ),
+          ),
+        ),
+      ),
     );
   }
 

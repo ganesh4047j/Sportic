@@ -19,33 +19,75 @@ import 'favourites.dart';
 import 'live_screen.dart';
 import 'mvp.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
 final sportsProvider = FutureProvider<List<Map<String, String>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 500));
   return [
-    {
-      'image': 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
-      'text': 'Football'
-    },
-    {
-      'image': 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
-      'text': 'Cricket'
-    },
-    {
-      'image': 'https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
-      'text': 'Tennis'
-    },
-    {
-      'image': 'https://images.unsplash.com/photo-1594736797933-d0ceeb6d2d18?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
-      'text': 'Badminton'
-    },
-    {
-      'image': 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
-      'text': 'Pickle Ball'
-    },
+    {'image': 'assets/images/football.png', 'text': 'Football'},
+    {'image': 'assets/images/cricket.png', 'text': 'Cricket'},
+    {'image': 'assets/images/tennis.png', 'text': 'Tennis'},
+    {'image': 'assets/images/badminton.png', 'text': 'Badminton'},
+    {'image': 'assets/images/pickle_ball.png', 'text': 'Pickle Ball'},
   ];
+});
+
+// Add providers for today's schedule
+final todayBookingsProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
+  final userProfile = await ref.watch(userProfileProvider.future);
+  if (userProfile['uid'] == null) return [];
+
+  final today = DateTime.now();
+  final todayString = '${today.day}-${today.month}-${today.year}';
+
+  try {
+    final bookingsSnapshot =
+        await FirebaseFirestore.instance
+            .collection('booking_details')
+            .doc(userProfile['uid']) // Using user's uid as document ID
+            .collection(userProfile['uid'])
+            .where('slot_date', isEqualTo: todayString)
+            .orderBy('booking_timestamp', descending: true)
+            .get();
+
+    return bookingsSnapshot.docs
+        .map((doc) => {'id': doc.id, ...doc.data()})
+        .toList();
+  } catch (e) {
+    print('Error fetching bookings: $e');
+    return [];
+  }
+});
+
+final todayTeamsProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
+  final userProfile = await ref.watch(userProfileProvider.future);
+  if (userProfile['uid'] == null) return [];
+
+  final today = DateTime.now();
+  final todayString = '${today.day}-${today.month}-${today.year}';
+
+  try {
+    final teamsSnapshot =
+        await FirebaseFirestore.instance
+            .collection('created_team')
+            .where('slot_date', isEqualTo: todayString)
+            .where('creator_user_id', isEqualTo: userProfile['uid'])
+            .orderBy('team_timestamp', descending: true)
+            .get();
+
+    return teamsSnapshot.docs
+        .map((doc) => {'id': doc.id, ...doc.data()})
+        .toList();
+  } catch (e) {
+    print('Error fetching teams: $e');
+    return [];
+  }
 });
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -98,7 +140,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.elasticOut));
+    ).animate(
+      CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
+    );
 
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.bounceOut),
@@ -128,6 +172,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
+  // Add method to show schedule popup
+  void _showSchedulePopup(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => const SchedulePopup(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sportsAsync = ref.watch(sportsProvider);
@@ -145,10 +198,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
 
     Widget _buildSection_recent(
-        String title,
-        List<TurfModel> turfList,
-        Color titleColor,
-        ) {
+      String title,
+      List<TurfModel> turfList,
+      Color titleColor,
+    ) {
       return FadeTransition(
         opacity: _fadeAnimation,
         child: SlideTransition(
@@ -159,9 +212,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: ShaderMask(
-                  shaderCallback: (bounds) => LinearGradient(
-                    colors: [titleColor, titleColor.withOpacity(0.7)],
-                  ).createShader(bounds),
+                  shaderCallback:
+                      (bounds) => LinearGradient(
+                        colors: [titleColor, titleColor.withOpacity(0.7)],
+                      ).createShader(bounds),
                   child: Text(
                     title,
                     style: GoogleFonts.robotoSlab(
@@ -198,22 +252,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     Navigator.push(
                                       context,
                                       PageRouteBuilder(
-                                        pageBuilder: (context, animation, secondaryAnimation) =>
-                                            BookingPage(
+                                        pageBuilder:
+                                            (
+                                              context,
+                                              animation,
+                                              secondaryAnimation,
+                                            ) => BookingPage(
                                               turfImages: turf.imageUrl,
                                               turfName: turf.name,
                                               location: turf.location,
                                               owner_id: turf.ownerId,
                                             ),
-                                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        transitionsBuilder: (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                          child,
+                                        ) {
                                           return SlideTransition(
                                             position: Tween<Offset>(
                                               begin: const Offset(1.0, 0.0),
                                               end: Offset.zero,
-                                            ).animate(CurvedAnimation(
-                                              parent: animation,
-                                              curve: Curves.easeInOutCubic,
-                                            )),
+                                            ).animate(
+                                              CurvedAnimation(
+                                                parent: animation,
+                                                curve: Curves.easeInOutCubic,
+                                              ),
+                                            ),
                                             child: child,
                                           );
                                         },
@@ -227,19 +292,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
                                         colors: [
-                                          const Color(0xFF452152).withOpacity(0.3),
-                                          const Color(0xFF3D1A4A).withOpacity(0.5),
-                                          const Color(0xFF200D28).withOpacity(0.7),
+                                          const Color(
+                                            0xFF452152,
+                                          ).withOpacity(0.3),
+                                          const Color(
+                                            0xFF3D1A4A,
+                                          ).withOpacity(0.5),
+                                          const Color(
+                                            0xFF200D28,
+                                          ).withOpacity(0.7),
                                         ],
                                       ),
                                       border: Border.all(
-                                        color: const Color(0xff979698).withOpacity(0.6),
+                                        color: const Color(
+                                          0xff979698,
+                                        ).withOpacity(0.6),
                                         width: 2,
                                       ),
                                       borderRadius: BorderRadius.circular(30),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF452152).withOpacity(0.3),
+                                          color: const Color(
+                                            0xFF452152,
+                                          ).withOpacity(0.3),
                                           blurRadius: 20,
                                           offset: const Offset(0, 10),
                                         ),
@@ -252,56 +327,157 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                         child: Column(
                                           children: [
                                             ClipRRect(
-                                              borderRadius: BorderRadius.circular(20),
-                                              child: ShaderMask(
-                                                shaderCallback: (bounds) => LinearGradient(
-                                                  begin: Alignment.topCenter,
-                                                  end: Alignment.bottomCenter,
-                                                  colors: [
-                                                    Colors.transparent,
-                                                    Colors.black.withOpacity(0.1),
-                                                  ],
-                                                ).createShader(bounds),
-                                                child: Image.network(
-                                                  turf.imageUrl.isNotEmpty
-                                                      ? turf.imageUrl
-                                                      : 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-                                                  height: 160,
-                                                  width: 280,
-                                                  fit: BoxFit.cover,
-                                                ),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              child: Image.network(
+                                                turf.imageUrl.isNotEmpty
+                                                    ? turf.imageUrl
+                                                    : 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                                                height: 160,
+                                                width: 280,
+                                                fit: BoxFit.cover,
+                                                loadingBuilder: (
+                                                  context,
+                                                  child,
+                                                  loadingProgress,
+                                                ) {
+                                                  if (loadingProgress == null)
+                                                    return child;
+                                                  return Container(
+                                                    height: 160,
+                                                    width: 280,
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        colors: [
+                                                          const Color(
+                                                            0xFF452152,
+                                                          ).withOpacity(0.3),
+                                                          const Color(
+                                                            0xFF3D1A4A,
+                                                          ).withOpacity(0.5),
+                                                        ],
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
+                                                          ),
+                                                    ),
+                                                    child: Center(
+                                                      child: CircularProgressIndicator(
+                                                        valueColor:
+                                                            AlwaysStoppedAnimation<
+                                                              Color
+                                                            >(
+                                                              const Color(
+                                                                0xFF452152,
+                                                              ),
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                                errorBuilder: (
+                                                  context,
+                                                  error,
+                                                  stackTrace,
+                                                ) {
+                                                  return Container(
+                                                    height: 160,
+                                                    width: 280,
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        colors: [
+                                                          const Color(
+                                                            0xFF452152,
+                                                          ).withOpacity(0.3),
+                                                          const Color(
+                                                            0xFF3D1A4A,
+                                                          ).withOpacity(0.5),
+                                                        ],
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
+                                                          ),
+                                                    ),
+                                                    child: Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.sports_soccer,
+                                                          color: Colors.white70,
+                                                          size: 40,
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 8,
+                                                        ),
+                                                        Text(
+                                                          turf.name,
+                                                          style:
+                                                              GoogleFonts.robotoSlab(
+                                                                color:
+                                                                    Colors
+                                                                        .white70,
+                                                                fontSize: 12,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                              ),
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          maxLines: 2,
+                                                          overflow:
+                                                              TextOverflow
+                                                                  .ellipsis,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                },
                                               ),
                                             ),
                                             const SizedBox(height: 16),
                                             Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
                                                 Flexible(
                                                   child: Text(
                                                     turf.name,
-                                                    style: GoogleFonts.robotoSlab(
-                                                      color: Colors.white,
-                                                      fontSize: 20,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
+                                                    style:
+                                                        GoogleFonts.robotoSlab(
+                                                          color: Colors.white,
+                                                          fontSize: 20,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
                                                   ),
                                                 ),
                                                 Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 6,
-                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 6,
+                                                      ),
                                                   decoration: BoxDecoration(
-                                                    gradient: const LinearGradient(
-                                                      colors: [
-                                                        Color(0xFFFFD700),
-                                                        Color(0xFFFFA500),
-                                                      ],
-                                                    ),
-                                                    borderRadius: BorderRadius.circular(20),
+                                                    gradient:
+                                                        const LinearGradient(
+                                                          colors: [
+                                                            Color(0xFFFFD700),
+                                                            Color(0xFFFFA500),
+                                                          ],
+                                                        ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          20,
+                                                        ),
                                                   ),
                                                   child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
                                                     children: [
                                                       const Icon(
                                                         Icons.star,
@@ -311,11 +487,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                                       const SizedBox(width: 4),
                                                       Text(
                                                         '4.8',
-                                                        style: GoogleFonts.robotoSlab(
-                                                          color: Colors.white,
-                                                          fontSize: 14,
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
+                                                        style:
+                                                            GoogleFonts.robotoSlab(
+                                                              color:
+                                                                  Colors.white,
+                                                              fontSize: 14,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
                                                       ),
                                                     ],
                                                   ),
@@ -326,10 +506,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                             Row(
                                               children: [
                                                 Container(
-                                                  padding: const EdgeInsets.all(8),
+                                                  padding: const EdgeInsets.all(
+                                                    8,
+                                                  ),
                                                   decoration: BoxDecoration(
-                                                    color: const Color(0xFF452152).withOpacity(0.3),
-                                                    borderRadius: BorderRadius.circular(12),
+                                                    color: const Color(
+                                                      0xFF452152,
+                                                    ).withOpacity(0.3),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
                                                   ),
                                                   child: const Icon(
                                                     Icons.location_on,
@@ -341,10 +528,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                                 Expanded(
                                                   child: Text(
                                                     turf.location,
-                                                    style: GoogleFonts.robotoSlab(
-                                                      color: Colors.white70,
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
+                                                    style:
+                                                        GoogleFonts.robotoSlab(
+                                                          color: Colors.white70,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
                                                   ),
                                                 ),
                                               ],
@@ -371,10 +560,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     Widget _buildSection_top_rating_turf(
-        String title,
-        List<TurfModel> turfList,
-        Color titleColor,
-        ) {
+      String title,
+      List<TurfModel> turfList,
+      Color titleColor,
+    ) {
       return FadeTransition(
         opacity: _fadeAnimation,
         child: Column(
@@ -383,9 +572,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  colors: [titleColor, titleColor.withOpacity(0.7)],
-                ).createShader(bounds),
+                shaderCallback:
+                    (bounds) => LinearGradient(
+                      colors: [titleColor, titleColor.withOpacity(0.7)],
+                    ).createShader(bounds),
                 child: Text(
                   title,
                   style: GoogleFonts.robotoSlab(
@@ -427,19 +617,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     Widget _buildSection_nearest_turf(
-        String title,
-        AsyncValue<List<Map<String, String>>> sportsAsync,
-        Color titleColor,
-        ) {
+      String title,
+      AsyncValue<List<Map<String, String>>> sportsAsync,
+      Color titleColor,
+    ) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: [titleColor, titleColor.withOpacity(0.7)],
-              ).createShader(bounds),
+              shaderCallback:
+                  (bounds) => LinearGradient(
+                    colors: [titleColor, titleColor.withOpacity(0.7)],
+                  ).createShader(bounds),
               child: Text(
                 title,
                 style: GoogleFonts.robotoSlab(
@@ -453,13 +644,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           SizedBox(
             height: 340,
             child: sportsAsync.when(
-              loading: () => Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    const Color(0xFF452152),
+              loading:
+                  () => Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        const Color(0xFF452152),
+                      ),
+                    ),
                   ),
-                ),
-              ),
               error: (error, stack) => Center(child: Text('Error: $error')),
               data: (sports) {
                 if (sports.isEmpty) {
@@ -568,9 +760,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Colors.white, Color(0xFFD1C4E9)],
-                        ).createShader(bounds),
+                        shaderCallback:
+                            (bounds) => const LinearGradient(
+                              colors: [Colors.white, Color(0xFFD1C4E9)],
+                            ).createShader(bounds),
                         child: Text(
                           'Sports',
                           style: GoogleFonts.poppins(
@@ -611,12 +804,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         final nearestTurfs = ref.watch(nearestTurfProvider);
                         final asyncTurfs = AsyncValue.data(
                           nearestTurfs
-                              .map((turf) => {
-                            'name': turf['name']!,
-                            'imageUrl': turf['imageUrl']!,
-                            'location': turf['location']!,
-                            'ownerId': turf['ownerId']!,
-                          })
+                              .map(
+                                (turf) => {
+                                  'name': turf['name']!,
+                                  'imageUrl': turf['imageUrl']!,
+                                  'location': turf['location']!,
+                                  'ownerId': turf['ownerId']!,
+                                },
+                              )
                               .toList(),
                         );
 
@@ -649,7 +844,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               backgroundColor: Colors.transparent,
               type: BottomNavigationBarType.shifting,
               currentIndex: ref.watch(navIndexProvider),
-              onTap: (index) => ref.read(navIndexProvider.notifier).state = index,
+              onTap:
+                  (index) => ref.read(navIndexProvider.notifier).state = index,
               selectedItemColor: Colors.pink,
               unselectedItemColor: Colors.white,
               selectedLabelStyle: GoogleFonts.outfit(
@@ -737,7 +933,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildEnhancedTurfCard(BuildContext context, TurfModel turf, int index) {
+  Widget _buildEnhancedTurfCard(
+    BuildContext context,
+    TurfModel turf,
+    int index,
+  ) {
     return Hero(
       tag: 'turf_top_${turf.name}_$index',
       child: Material(
@@ -747,19 +947,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Navigator.push(
               context,
               PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    BookingPage(
+                pageBuilder:
+                    (context, animation, secondaryAnimation) => BookingPage(
                       turfImages: turf.imageUrl,
                       turfName: turf.name,
                       location: turf.location,
                       owner_id: turf.ownerId,
                     ),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                transitionsBuilder: (
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  child,
+                ) {
                   return FadeTransition(
                     opacity: animation,
                     child: ScaleTransition(
                       scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                        CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutBack,
+                        ),
                       ),
                       child: child,
                     ),
@@ -812,7 +1020,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           top: 12,
                           right: 12,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFFE91E63), Color(0xFF9C27B0)],
@@ -846,7 +1057,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
@@ -863,7 +1077,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.star, color: Colors.white, size: 16),
+                              const Icon(
+                                Icons.star,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 '4.8',
@@ -915,9 +1133,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildNearestTurfCard(BuildContext context,Map<String, String> turf, int index) {
+  Widget _buildNearestTurfCard(
+    BuildContext context,
+    Map<String, String> turf,
+    int index,
+  ) {
     final name = turf['name'] ?? 'Turf';
-    final imageUrl = turf['imageUrl'] ??
+    final imageUrl =
+        turf['imageUrl'] ??
         'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
     final location = turf['location'] ?? 'Unknown';
 
@@ -930,22 +1153,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Navigator.push(
               context,
               PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    BookingPage(
+                pageBuilder:
+                    (context, animation, secondaryAnimation) => BookingPage(
                       turfImages: turf['imageUrl']!,
                       turfName: turf['name']!,
                       location: turf['location']!,
                       owner_id: turf['ownerId']!,
                     ),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                transitionsBuilder: (
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  child,
+                ) {
                   return SlideTransition(
                     position: Tween<Offset>(
                       begin: const Offset(0.0, 1.0),
                       end: Offset.zero,
-                    ).animate(CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeInOutQuart,
-                    )),
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeInOutQuart,
+                      ),
+                    ),
                     child: child,
                   );
                 },
@@ -998,7 +1228,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           top: 12,
                           left: 12,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
@@ -1008,7 +1241,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.near_me, color: Colors.white, size: 12),
+                                const Icon(
+                                  Icons.near_me,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   'NEARBY',
@@ -1039,7 +1276,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
@@ -1049,7 +1289,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.star, color: Colors.white, size: 16),
+                              const Icon(
+                                Icons.star,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 '4.8',
@@ -1122,17 +1366,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   await Navigator.push(
                     context,
                     PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) =>
-                      const LocationInputScreen(shouldRedirectToHome: true),
-                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      pageBuilder:
+                          (context, animation, secondaryAnimation) =>
+                              const LocationInputScreen(
+                                shouldRedirectToHome: true,
+                              ),
+                      transitionsBuilder: (
+                        context,
+                        animation,
+                        secondaryAnimation,
+                        child,
+                      ) {
                         return SlideTransition(
                           position: Tween<Offset>(
                             begin: const Offset(-1.0, 0.0),
                             end: Offset.zero,
-                          ).animate(CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeInOutCubic,
-                          )),
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeInOutCubic,
+                            ),
+                          ),
                           child: child,
                         );
                       },
@@ -1214,12 +1468,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               Navigator.push(
                                 context,
                                 PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) =>
-                                  const MvpPage(),
-                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                  pageBuilder:
+                                      (
+                                        context,
+                                        animation,
+                                        secondaryAnimation,
+                                      ) => const MvpPage(),
+                                  transitionsBuilder: (
+                                    context,
+                                    animation,
+                                    secondaryAnimation,
+                                    child,
+                                  ) {
                                     return ScaleTransition(
-                                      scale: Tween<double>(begin: 0.0, end: 1.0).animate(
-                                        CurvedAnimation(parent: animation, curve: Curves.elasticOut),
+                                      scale: Tween<double>(
+                                        begin: 0.0,
+                                        end: 1.0,
+                                      ).animate(
+                                        CurvedAnimation(
+                                          parent: animation,
+                                          curve: Curves.elasticOut,
+                                        ),
                                       ),
                                       child: child,
                                     );
@@ -1243,9 +1512,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   const SizedBox(height: 4),
                                   Consumer(
                                     builder: (context, ref, _) {
-                                      final points = ref.watch(mvpPointsProvider);
+                                      // final points = ref.watch(
+                                      //   mvpPointsProvider,
+                                      // );
                                       return Text(
-                                        '$points pts',
+                                        'MVP',
                                         style: GoogleFonts.poppins(
                                           color: Colors.white,
                                           fontSize: 12,
@@ -1268,19 +1539,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       Navigator.push(
                         context,
                         PageRouteBuilder(
-                          pageBuilder: (context, animation, secondaryAnimation) =>
-                          const ProfileScreen(),
-                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          pageBuilder:
+                              (context, animation, secondaryAnimation) =>
+                                  const ProfileScreen(),
+                          transitionsBuilder: (
+                            context,
+                            animation,
+                            secondaryAnimation,
+                            child,
+                          ) {
                             return FadeTransition(
                               opacity: animation,
                               child: SlideTransition(
                                 position: Tween<Offset>(
                                   begin: const Offset(1.0, 0.0),
                                   end: Offset.zero,
-                                ).animate(CurvedAnimation(
-                                  parent: animation,
-                                  curve: Curves.easeInOutCubic,
-                                )),
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeInOutCubic,
+                                  ),
+                                ),
                                 child: child,
                               ),
                             );
@@ -1326,7 +1605,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Card(
             color: Colors.transparent,
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(24),
               child: Stack(
@@ -1347,7 +1628,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       );
                     },
                     errorBuilder: (context, error, stackTrace) {
-                      return const Center(child: Icon(Icons.error, color: Colors.white));
+                      return const Center(
+                        child: Icon(Icons.error, color: Colors.white),
+                      );
                     },
                   ),
                   Container(
@@ -1394,7 +1677,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     top: 20,
                     right: 20,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFFE91E63), Color(0xFF9C27B0)],
@@ -1421,9 +1707,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildSportsCards(
-      AsyncValue<List<Map<String, String>>> sportsAsync,
-      BuildContext context,
-      ) {
+    AsyncValue<List<Map<String, String>>> sportsAsync,
+    BuildContext context,
+  ) {
     final List<List<Color>> cardGradients = [
       [const Color(0xFFE1BEE7), const Color(0xFFCE93D8)],
       [const Color(0xFFFFCC80), const Color(0xFFFF8A65)],
@@ -1432,270 +1718,389 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       [const Color(0xFFD1C4E9), const Color(0xFFBA68C8)],
     ];
 
-    return SizedBox(
-      height: 180,
-      child: sportsAsync.when(
-        loading: () => Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF452152)),
-          ),
-        ),
-        error: (error, stack) => Center(child: Text('Error: $error')),
-        data: (sports) {
-          return ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: sports.length,
-            itemBuilder: (context, index) {
-              return TweenAnimationBuilder<double>(
-                duration: Duration(milliseconds: 800 + (index * 200)),
-                tween: Tween(begin: 0.0, end: 1.0),
-                builder: (context, value, child) {
-                  return Transform.translate(
-                    offset: Offset(50 * (1 - value), 0),
-                    child: Transform.scale(
-                      scale: 0.85 + (0.15 * value),
-                      child: Opacity(
-                        opacity: value,
-                        child: Container(
-                          width: MediaQuery.of(context).size.width / 2.5,
-                          margin: const EdgeInsets.only(right: 16),
-                          child: Hero(
-                            tag: 'sport_${sports[index]['text']}_$index',
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    PageRouteBuilder(
-                                      pageBuilder: (context, animation, secondaryAnimation) =>
-                                      const HomePage(),
-                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                        return FadeTransition(
-                                          opacity: animation,
-                                          child: ScaleTransition(
-                                            scale: Tween<double>(begin: 0.0, end: 1.0).animate(
-                                              CurvedAnimation(parent: animation, curve: Curves.elasticOut),
-                                            ),
-                                            child: child,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(24),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: cardGradients[index % cardGradients.length],
-                                    ),
-                                    borderRadius: BorderRadius.circular(24),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: cardGradients[index % cardGradients.length][0].withOpacity(0.4),
-                                        blurRadius: 15,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      // Background Image with Parallax Effect
-                                      Positioned.fill(
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(24),
-                                          child: TweenAnimationBuilder<double>(
-                                            duration: Duration(milliseconds: 1000 + (index * 100)),
-                                            tween: Tween(begin: 1.2, end: 1.0),
-                                            builder: (context, scaleValue, child) {
-                                              return Transform.scale(
-                                                scale: scaleValue,
-                                                child: Image.network(
-                                                  sports[index]['image']!,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error, stackTrace) =>
-                                                      Container(
-                                                        decoration: BoxDecoration(
-                                                          gradient: LinearGradient(
-                                                            colors: cardGradients[index % cardGradients.length],
-                                                          ),
-                                                          borderRadius: BorderRadius.circular(24),
-                                                        ),
-                                                        child: const Center(
-                                                          child: Icon(
-                                                            Icons.sports,
-                                                            color: Colors.white,
-                                                            size: 40,
-                                                          ),
-                                                        ),
-                                                      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Get screen dimensions for responsive design
+        final screenWidth = MediaQuery.of(context).size.width;
+        final availableWidth = constraints.maxWidth;
+
+        // Define responsive breakpoints
+        bool isSmallScreen = screenWidth <= 360; // iPhone SE, small Android
+        bool isMediumScreen =
+            screenWidth > 360 &&
+            screenWidth <= 414; // iPhone 12, standard phones
+        bool isLargeScreen = screenWidth > 414; // iPhone Pro Max, large phones
+
+        // Calculate responsive dimensions
+        double cardHeight, cardWidth, fontSize, padding, margin;
+
+        if (isSmallScreen) {
+          cardHeight = 130.0;
+          cardWidth = (availableWidth - 32) / 3; // 3 cards with margins
+          fontSize = 12.0;
+          padding = 8.0;
+          margin = 6.0;
+        } else if (isMediumScreen) {
+          cardHeight = 145.0;
+          cardWidth = (availableWidth - 40) / 3;
+          fontSize = 13.0;
+          padding = 10.0;
+          margin = 8.0;
+        } else {
+          cardHeight = 160.0;
+          cardWidth = (availableWidth - 48) / 3;
+          fontSize = 14.0;
+          padding = 12.0;
+          margin = 10.0;
+        }
+
+        // Ensure minimum card width
+        cardWidth = cardWidth.clamp(90.0, 150.0);
+
+        return SizedBox(
+          height: cardHeight,
+          child: sportsAsync.when(
+            loading:
+                () => Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      const Color(0xFF452152),
+                    ),
+                  ),
+                ),
+            error:
+                (error, stack) => Center(
+                  child: Text(
+                    'Error: $error',
+                    style: TextStyle(color: Colors.white, fontSize: fontSize),
+                  ),
+                ),
+            data: (sports) {
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: sports.length,
+                itemBuilder: (context, index) {
+                  return TweenAnimationBuilder<double>(
+                    duration: Duration(milliseconds: 800 + (index * 200)),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    builder: (context, value, child) {
+                      return Transform.translate(
+                        offset: Offset(30 * (1 - value), 0),
+                        child: Transform.scale(
+                          scale: 0.9 + (0.1 * value),
+                          child: Opacity(
+                            opacity: value,
+                            child: Container(
+                              width: cardWidth,
+                              height: cardHeight,
+                              margin: EdgeInsets.only(
+                                right: index == sports.length - 1 ? 0 : margin,
+                                left: index == 0 ? 16 : 0,
+                              ),
+                              child: Hero(
+                                tag: 'sport_${sports[index]['text']}_$index',
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        PageRouteBuilder(
+                                          pageBuilder:
+                                              (
+                                                context,
+                                                animation,
+                                                secondaryAnimation,
+                                              ) => const HomePage(),
+                                          transitionsBuilder: (
+                                            context,
+                                            animation,
+                                            secondaryAnimation,
+                                            child,
+                                          ) {
+                                            return FadeTransition(
+                                              opacity: animation,
+                                              child: ScaleTransition(
+                                                scale: Tween<double>(
+                                                  begin: 0.0,
+                                                  end: 1.0,
+                                                ).animate(
+                                                  CurvedAnimation(
+                                                    parent: animation,
+                                                    curve: Curves.elasticOut,
+                                                  ),
                                                 ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                      // Gradient Overlay
-                                      Positioned.fill(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(24),
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Colors.transparent,
-                                                Colors.black.withOpacity(0.3),
-                                                Colors.black.withOpacity(0.7),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      // Animated Content
-                                      Positioned(
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: TweenAnimationBuilder<double>(
-                                          duration: Duration(milliseconds: 1200 + (index * 150)),
-                                          tween: Tween(begin: 50.0, end: 0.0),
-                                          builder: (context, translateValue, child) {
-                                            return Transform.translate(
-                                              offset: Offset(0, translateValue),
-                                              child: Container(
-                                                padding: const EdgeInsets.all(16),
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    // Sport Icon with Bounce Animation
-                                                    TweenAnimationBuilder<double>(
-                                                      duration: Duration(milliseconds: 1500 + (index * 100)),
-                                                      tween: Tween(begin: 0.0, end: 1.0),
-                                                      curve: Curves.elasticOut,
-                                                      builder: (context, bounceValue, child) {
-                                                        return Transform.scale(
-                                                          scale: bounceValue,
-                                                          child: Container(
-                                                            padding: const EdgeInsets.all(12),
-                                                            decoration: BoxDecoration(
-                                                              color: Colors.white.withOpacity(0.9),
-                                                              borderRadius: BorderRadius.circular(16),
-                                                              boxShadow: [
-                                                                BoxShadow(
-                                                                  color: Colors.black.withOpacity(0.2),
-                                                                  blurRadius: 8,
-                                                                  offset: const Offset(0, 4),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                            child: Icon(
-                                                              _getSportIcon(sports[index]['text']!),
-                                                              color: cardGradients[index % cardGradients.length][1],
-                                                              size: 32,
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                    ),
-                                                    const SizedBox(height: 12),
-                                                    // Text with Fade Animation
-                                                    TweenAnimationBuilder<double>(
-                                                      duration: Duration(milliseconds: 1000 + (index * 200)),
-                                                      tween: Tween(begin: 0.0, end: 1.0),
-                                                      builder: (context, fadeValue, child) {
-                                                        return Opacity(
-                                                          opacity: fadeValue,
-                                                          child: Text(
-                                                            sports[index]['text']!,
-                                                            style: GoogleFonts.poppins(
-                                                              color: Colors.white,
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 16,
-                                                              shadows: [
-                                                                Shadow(
-                                                                  color: Colors.black.withOpacity(0.5),
-                                                                  blurRadius: 4,
-                                                                  offset: const Offset(0, 2),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                            textAlign: TextAlign.center,
-                                                          ),
-                                                        );
-                                                      },
-                                                    ),
-                                                  ],
-                                                ),
+                                                child: child,
                                               ),
                                             );
                                           },
                                         ),
+                                      );
+                                    },
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors:
+                                              cardGradients[index %
+                                                  cardGradients.length],
+                                        ),
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: cardGradients[index %
+                                                    cardGradients.length][0]
+                                                .withOpacity(0.4),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
                                       ),
-                                      // Shimmer Effect on Hover
-                                      Positioned.fill(
-                                        child: TweenAnimationBuilder<double>(
-                                          duration: const Duration(milliseconds: 2000),
-                                          tween: Tween(begin: -1.0, end: 1.0),
-                                          curve: Curves.easeInOut,
-                                          builder: (context, shimmerValue, child) {
-                                            return Container(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            // Background Image
+                                            TweenAnimationBuilder<double>(
+                                              duration: Duration(
+                                                milliseconds:
+                                                    1000 + (index * 100),
+                                              ),
+                                              tween: Tween(
+                                                begin: 1.1,
+                                                end: 1.0,
+                                              ),
+                                              builder: (
+                                                context,
+                                                scaleValue,
+                                                child,
+                                              ) {
+                                                return Transform.scale(
+                                                  scale: scaleValue,
+                                                  child: Image.asset(
+                                                    sports[index]['image']!,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (
+                                                      context,
+                                                      error,
+                                                      stackTrace,
+                                                    ) {
+                                                      print(
+                                                        'Image loading error for ${sports[index]['text']}: $error',
+                                                      );
+                                                      String fallbackImage =
+                                                          _getFallbackImage(
+                                                            sports[index]['text']!,
+                                                          );
+
+                                                      return Image.network(
+                                                        fallbackImage,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder: (
+                                                          context,
+                                                          error2,
+                                                          stackTrace2,
+                                                        ) {
+                                                          return Container(
+                                                            decoration: BoxDecoration(
+                                                              gradient: LinearGradient(
+                                                                colors:
+                                                                    cardGradients[index %
+                                                                        cardGradients
+                                                                            .length],
+                                                              ),
+                                                            ),
+                                                            child: Center(
+                                                              child: Text(
+                                                                sports[index]['text']!,
+                                                                style: GoogleFonts.poppins(
+                                                                  color:
+                                                                      Colors
+                                                                          .white,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize:
+                                                                      fontSize,
+                                                                ),
+                                                                textAlign:
+                                                                    TextAlign
+                                                                        .center,
+                                                                maxLines: 2,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                          );
+                                                        },
+                                                      );
+                                                    },
+                                                  ),
+                                                );
+                                              },
+                                            ),
+
+                                            // Gradient Overlay
+                                            Container(
                                               decoration: BoxDecoration(
-                                                borderRadius: BorderRadius.circular(24),
                                                 gradient: LinearGradient(
-                                                  begin: Alignment(-1.0 + shimmerValue, -1.0 + shimmerValue),
-                                                  end: Alignment(1.0 + shimmerValue, 1.0 + shimmerValue),
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.bottomCenter,
                                                   colors: [
                                                     Colors.transparent,
-                                                    Colors.white.withOpacity(0.1),
-                                                    Colors.transparent,
+                                                    Colors.black.withOpacity(
+                                                      0.2,
+                                                    ),
+                                                    Colors.black.withOpacity(
+                                                      0.7,
+                                                    ),
                                                   ],
-                                                  stops: const [0.0, 0.5, 1.0],
                                                 ),
                                               ),
-                                            );
-                                          },
+                                            ),
+
+                                            // Text Content
+                                            Positioned(
+                                              bottom: padding,
+                                              left: padding,
+                                              right: padding,
+                                              child: TweenAnimationBuilder<
+                                                double
+                                              >(
+                                                duration: Duration(
+                                                  milliseconds:
+                                                      1200 + (index * 150),
+                                                ),
+                                                tween: Tween(
+                                                  begin: 0.0,
+                                                  end: 1.0,
+                                                ),
+                                                builder: (
+                                                  context,
+                                                  fadeValue,
+                                                  child,
+                                                ) {
+                                                  return Opacity(
+                                                    opacity: fadeValue,
+                                                    child: Text(
+                                                      sports[index]['text']!,
+                                                      style: GoogleFonts.poppins(
+                                                        color: Colors.white,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: fontSize,
+                                                        height: 1.1,
+                                                        shadows: [
+                                                          Shadow(
+                                                            color: Colors.black
+                                                                .withOpacity(
+                                                                  0.8,
+                                                                ),
+                                                            blurRadius: 4,
+                                                            offset:
+                                                                const Offset(
+                                                                  0,
+                                                                  2,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      maxLines:
+                                                          isSmallScreen ? 1 : 2,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+
+                                            // Shimmer Effect
+                                            TweenAnimationBuilder<double>(
+                                              duration: const Duration(
+                                                milliseconds: 2000,
+                                              ),
+                                              tween: Tween(
+                                                begin: -1.0,
+                                                end: 1.0,
+                                              ),
+                                              curve: Curves.easeInOut,
+                                              builder: (
+                                                context,
+                                                shimmerValue,
+                                                child,
+                                              ) {
+                                                return Container(
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment(
+                                                        -1.0 + shimmerValue,
+                                                        -1.0 + shimmerValue,
+                                                      ),
+                                                      end: Alignment(
+                                                        1.0 + shimmerValue,
+                                                        1.0 + shimmerValue,
+                                                      ),
+                                                      colors: [
+                                                        Colors.transparent,
+                                                        Colors.white
+                                                            .withOpacity(0.1),
+                                                        Colors.transparent,
+                                                      ],
+                                                      stops: const [
+                                                        0.0,
+                                                        0.5,
+                                                        1.0,
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   );
                 },
               );
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
-  IconData _getSportIcon(String sport) {
+  // Helper method to get fallback images for each sport
+  String _getFallbackImage(String sport) {
     switch (sport.toLowerCase()) {
       case 'football':
-        return Icons.sports_soccer;
+        return 'assets/images/football.png';
       case 'cricket':
-        return Icons.sports_cricket;
+        return 'assets/images/cricket.png';
       case 'tennis':
-        return Icons.sports_tennis;
+        return 'assets/images/tennis.png';
       case 'badminton':
-        return Icons.sports_kabaddi;
+        return 'assets/images/badminton.png';
       case 'pickle ball':
-        return Icons.sports_baseball;
+        return 'assets/images/pickle_ball.png';
       default:
-        return Icons.sports;
+        return 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80';
     }
   }
 
@@ -1708,146 +2113,235 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           scale: 0.9 + (0.1 * value),
           child: Opacity(
             opacity: value,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF7B1FA2).withOpacity(0.3),
-                    const Color(0xFF4A148C).withOpacity(0.5),
-                    const Color(0xFF1A0E2E).withOpacity(0.7),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: const Color(0xFF7B1FA2).withOpacity(0.4),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF7B1FA2).withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.2),
-                            Colors.white.withOpacity(0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        'START PLAYING!',
-                        style: GoogleFonts.robotoSlab(
-                          fontSize: 14,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = MediaQuery.of(context).size.width;
+
+                // Responsive sizing
+                double containerHeight,
+                    titleFontSize,
+                    subtitleFontSize,
+                    padding;
+
+                if (screenWidth <= 380) {
+                  // Small screens
+                  containerHeight = 180.0;
+                  titleFontSize = 20.0;
+                  subtitleFontSize = 13.0;
+                  padding = 16.0;
+                } else if (screenWidth <= 414) {
+                  // Medium screens
+                  containerHeight = 180.0;
+                  titleFontSize = 22.0;
+                  subtitleFontSize = 14.0;
+                  padding = 20.0;
+                } else {
+                  // Large screens
+                  containerHeight = 200.0;
+                  titleFontSize = 24.0;
+                  subtitleFontSize = 14.0;
+                  padding = 24.0;
+                }
+
+                return Container(
+                  height: containerHeight,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF7B1FA2).withOpacity(0.3),
+                        const Color(0xFF4A148C).withOpacity(0.5),
+                        const Color(0xFF1A0E2E).withOpacity(0.7),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: const Color(0xFF7B1FA2).withOpacity(0.4),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF7B1FA2).withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(padding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Invent A Game',
-                                style: GoogleFonts.robotoSlab(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Your schedule is currently empty.',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                         Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFE91E63), Color(0xFFAD1457)],
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white.withOpacity(0.2),
+                                Colors.white.withOpacity(0.1),
+                              ],
                             ),
                             borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFE91E63).withOpacity(0.4),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            'START PLAYING!',
+                            style: GoogleFonts.robotoSlab(
+                              fontSize: 12,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: padding * 0.6),
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Invent A Game',
+                                      style: GoogleFonts.robotoSlab(
+                                        fontSize: titleFontSize,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(height: 6),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFFE91E63),
+                                      Color(0xFFAD1457),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFFE91E63,
+                                      ).withOpacity(0.4),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: padding * 0.8,
+                                      vertical: padding * 0.5,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      PageRouteBuilder(
+                                        pageBuilder:
+                                            (
+                                              context,
+                                              animation,
+                                              secondaryAnimation,
+                                            ) => const CreateTeamScreen(),
+                                        transitionsBuilder: (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                          child,
+                                        ) {
+                                          return SlideTransition(
+                                            position: Tween<Offset>(
+                                              begin: const Offset(0.0, 1.0),
+                                              end: Offset.zero,
+                                            ).animate(
+                                              CurvedAnimation(
+                                                parent: animation,
+                                                curve: Curves.easeInOutBack,
+                                              ),
+                                            ),
+                                            child: child,
+                                          );
+                                        },
+                                      ),
+                                    );
+                                  },
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.add,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Create',
+                                        style: GoogleFonts.robotoSlab(
+                                          fontSize: 16,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
+                        ),
+                        SizedBox(height: padding * 0.4),
+                        Container(
+                          height: 1,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.transparent,
+                                Colors.white.withOpacity(0.3),
+                                Colors.transparent,
+                              ],
                             ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) =>
-                                  const CreateTeamScreen(),
-                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                    return SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(0.0, 1.0),
-                                        end: Offset.zero,
-                                      ).animate(CurvedAnimation(
-                                        parent: animation,
-                                        curve: Curves.easeInOutBack,
-                                      )),
-                                      child: child,
-                                    );
-                                  },
-                                ),
-                              );
-                            },
+                          ),
+                        ),
+                        SizedBox(height: padding * 0.4),
+                        Center(
+                          child: TextButton(
+                            onPressed: () => _showSchedulePopup(context),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: 20,
+                                  Icons.calendar_today,
+                                  color: Colors.white70,
+                                  size: 16,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Create',
+                                  'See My Schedule',
                                   style: GoogleFonts.robotoSlab(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: Colors.white70,
+                                    decoration: TextDecoration.underline,
                                   ),
                                 ),
                               ],
@@ -1856,45 +2350,159 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 1,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            Colors.white.withOpacity(0.3),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: TextButton(
-                        onPressed: () {},
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.calendar_today,
-                              color: Colors.white70,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'See My Schedule',
-                              style: GoogleFonts.robotoSlab(
-                                fontSize: 14,
-                                color: Colors.white70,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActionCard(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Gradient gradient,
+    VoidCallback onTap,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Get comprehensive screen information
+        final mediaQuery = MediaQuery.of(context);
+        final screenWidth = mediaQuery.size.width;
+        final screenHeight = mediaQuery.size.height;
+        final cardWidth = constraints.maxWidth;
+
+        // Define breakpoints for different device sizes
+        bool isSmallScreen =
+            screenWidth <= 360; // Small phones (iPhone SE, etc.)
+        bool isMediumScreen =
+            screenWidth > 360 && screenWidth <= 414; // Standard phones
+        bool isLargeScreen = screenWidth > 414; // Large phones and tablets
+
+        // Responsive sizing based on device categories
+        double iconSize, titleFontSize, subtitleFontSize, padding, cardHeight;
+
+        if (isSmallScreen) {
+          // Small screens (iPhone SE, Galaxy S10e, etc.)
+          iconSize = 20.0;
+          titleFontSize = 16.0;
+          subtitleFontSize = 12.0;
+          padding = 12.0;
+          cardHeight = 140.0;
+        } else if (isMediumScreen) {
+          // Medium screens (iPhone 12, Galaxy S21, etc.)
+          iconSize = 24.0;
+          titleFontSize = 18.0;
+          subtitleFontSize = 13.5;
+          padding = 16.0;
+          cardHeight = 160.0;
+        } else {
+          // Large screens (iPhone 14 Pro Max, tablets, etc.)
+          iconSize = 28.0;
+          titleFontSize = 20.0;
+          subtitleFontSize = 15.0;
+          padding = 20.0;
+          cardHeight = 180.0;
+        }
+
+        // Fine-tune based on available card width
+        final widthRatio =
+            cardWidth / (screenWidth / 2); // Ratio compared to half screen
+        iconSize *= widthRatio.clamp(0.8, 1.2);
+        titleFontSize *= widthRatio.clamp(0.9, 1.1);
+        subtitleFontSize *= widthRatio.clamp(0.9, 1.1);
+
+        return Hero(
+          tag: 'action_$title',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                height: cardHeight,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (gradient as LinearGradient).colors.first
+                          .withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
                     ),
                   ],
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(padding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Icon container
+                      Container(
+                        padding: EdgeInsets.all(padding * 0.4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(icon, color: Colors.white, size: iconSize),
+                      ),
+
+                      // Text section with flexible layout
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: padding * 0.5),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              // Title - always fits on one line
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  title,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: titleFontSize,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ),
+
+                              SizedBox(height: padding * 0.3),
+
+                              // Subtitle - responsive with proper wrapping
+                              Flexible(
+                                child: Container(
+                                  width: double.infinity,
+                                  child: Text(
+                                    subtitle,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: subtitleFontSize,
+                                      color: Colors.white.withOpacity(0.9),
+                                      height: 1.2,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: isSmallScreen ? 2 : 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1913,144 +2521,109 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           offset: Offset(0, 30 * (1 - value)),
           child: Opacity(
             opacity: value,
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    'Play',
-                    'Discover players and join their games',
-                    Icons.people,
-                    const LinearGradient(
-                      colors: [Color(0xFF7B1FA2), Color(0xFF4A148C)],
-                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = MediaQuery.of(context).size.width;
+
+                // Responsive gap calculation
+                double gap;
+                if (screenWidth <= 360) {
+                  gap = 12.0; // Small screens
+                } else if (screenWidth <= 414) {
+                  gap = 16.0; // Medium screens
+                } else {
+                  gap = 20.0; // Large screens
+                }
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: _buildActionCard(
+                        context,
+                        'Play',
+                        'Discover players and join their games',
+                        Icons.people,
+                        const LinearGradient(
+                          colors: [Color(0xFF7B1FA2), Color(0xFF4A148C)],
+                        ),
                         () => Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                        const HomePage(),
-                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: ScaleTransition(
-                              scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                                CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-                              ),
-                              child: child,
-                            ),
-                          );
-                        },
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    const HomePage(),
+                            transitionsBuilder: (
+                              context,
+                              animation,
+                              secondaryAnimation,
+                              child,
+                            ) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: ScaleTransition(
+                                  scale: Tween<double>(
+                                    begin: 0.8,
+                                    end: 1.0,
+                                  ).animate(
+                                    CurvedAnimation(
+                                      parent: animation,
+                                      curve: Curves.easeOutBack,
+                                    ),
+                                  ),
+                                  child: child,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildActionCard(
-                    context,
-                    'Book',
-                    'Book your slots in venues nearby you',
-                    Icons.book_online,
-                    const LinearGradient(
-                      colors: [Color(0xFFE91E63), Color(0xFFAD1457)],
-                    ),
+                    SizedBox(width: gap),
+                    Expanded(
+                      child: _buildActionCard(
+                        context,
+                        'Book',
+                        'Book your slots in venues nearby you',
+                        Icons.book_online,
+                        const LinearGradient(
+                          colors: [Color(0xFFE91E63), Color(0xFFAD1457)],
+                        ),
                         () => Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                        const TurfHomeScreen(),
-                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                          return SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(1.0, 0.0),
-                              end: Offset.zero,
-                            ).animate(CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeInOutCubic,
-                            )),
-                            child: child,
-                          );
-                        },
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    const TurfHomeScreen(),
+                            transitionsBuilder: (
+                              context,
+                              animation,
+                              secondaryAnimation,
+                              child,
+                            ) {
+                              return SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(1.0, 0.0),
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeInOutCubic,
+                                  ),
+                                ),
+                                child: child,
+                              );
+                            },
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildActionCard(
-      BuildContext context,
-      String title,
-      String subtitle,
-      IconData icon,
-      Gradient gradient,
-      VoidCallback onTap,
-      ) {
-    return Hero(
-      tag: 'action_$title',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            height: 160,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: (gradient as LinearGradient).colors.first.withOpacity(0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.white70,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -2098,7 +2671,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           _buildSocialButton(
                             FontAwesomeIcons.instagram,
                             const Color(0xFFE91E63),
-                                () {},
+                            () {},
                           ),
                           const SizedBox(width: 12),
                           Container(
@@ -2113,7 +2686,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           _buildSocialButton(
                             FontAwesomeIcons.facebook,
                             const Color(0xFF3F51B5),
-                                () {},
+                            () {},
                           ),
                         ],
                       ),
@@ -2136,17 +2709,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ],
             ),
             borderRadius: BorderRadius.circular(25),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.1),
-              width: 1,
-            ),
+            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
           ),
           child: Column(
             children: [
               ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFFE1BEE7), Color(0xFFCE93D8)],
-                ).createShader(bounds),
+                shaderCallback:
+                    (bounds) => const LinearGradient(
+                      colors: [Color(0xFFE1BEE7), Color(0xFFCE93D8)],
+                    ).createShader(bounds),
                 child: Text(
                   'SPORTIC',
                   style: GoogleFonts.robotoSerif(
@@ -2216,24 +2787,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   'assets/images/sportsman.png',
                   height: 180,
                   width: 160,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 180,
-                    width: 160,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFF7B1FA2).withOpacity(0.3),
-                          const Color(0xFF4A148C).withOpacity(0.2),
-                        ],
+                  errorBuilder:
+                      (context, error, stackTrace) => Container(
+                        height: 180,
+                        width: 160,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF7B1FA2).withOpacity(0.3),
+                              const Color(0xFF4A148C).withOpacity(0.2),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.sports,
+                          color: Colors.white,
+                          size: 80,
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.sports,
-                      color: Colors.white,
-                      size: 80,
-                    ),
-                  ),
                 ),
               ),
             );
@@ -2249,14 +2821,572 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       decoration: BoxDecoration(
         color: color.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.4),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.4), width: 1),
       ),
       child: IconButton(
         icon: FaIcon(icon, color: color, size: 20),
         onPressed: onTap,
+      ),
+    );
+  }
+}
+
+// Schedule Popup Widget
+class SchedulePopup extends ConsumerStatefulWidget {
+  const SchedulePopup({super.key});
+
+  @override
+  ConsumerState<SchedulePopup> createState() => _SchedulePopupState();
+}
+
+class _SchedulePopupState extends ConsumerState<SchedulePopup>
+    with TickerProviderStateMixin {
+  late AnimationController _slideController;
+  late AnimationController _fadeController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _slideController, curve: Curves.easeOutBack),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+
+    // Start animations
+    _fadeController.forward();
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _slideController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _slideController.dispose();
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bookingsAsync = ref.watch(todayBookingsProvider);
+    final teamsAsync = ref.watch(todayTeamsProvider);
+    final today = DateTime.now();
+    final todayFormatted = '${today.day}-${today.month}-${today.year}';
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Material(
+        color: Colors.black.withOpacity(0.5),
+        child: GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: Center(
+            child: GestureDetector(
+              onTap: () {}, // Prevent closing when tapping inside
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: Container(
+                  margin: const EdgeInsets.all(20),
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                    maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF452152),
+                        Color(0xFF3D1A4A),
+                        Color(0xFF200D28),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF7B1FA2).withOpacity(0.3),
+                              const Color(0xFF4A148C).withOpacity(0.2),
+                            ],
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(24),
+                            topRight: Radius.circular(24),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE91E63).withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.today,
+                                color: Color(0xFFE91E63),
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Today's Schedule",
+                                    style: GoogleFonts.robotoSlab(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    todayFormatted,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Content
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Bookings Section
+                              _buildSectionHeader(
+                                'Your Bookings',
+                                Icons.book_online,
+                              ),
+                              const SizedBox(height: 12),
+                              bookingsAsync.when(
+                                loading: () => _buildLoadingCard(),
+                                error:
+                                    (error, stack) => _buildErrorCard(
+                                      'Failed to load bookings',
+                                    ),
+                                data: (bookings) {
+                                  if (bookings.isEmpty) {
+                                    return _buildEmptyCard(
+                                      'No bookings for today',
+                                    );
+                                  }
+                                  return Column(
+                                    children:
+                                        bookings
+                                            .map(
+                                              (booking) =>
+                                                  _buildBookingCard(booking),
+                                            )
+                                            .toList(),
+                                  );
+                                },
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // Teams Section
+                              _buildSectionHeader('Your Teams', Icons.groups),
+                              const SizedBox(height: 12),
+                              teamsAsync.when(
+                                loading: () => _buildLoadingCard(),
+                                error:
+                                    (error, stack) =>
+                                        _buildErrorCard('Failed to load teams'),
+                                data: (teams) {
+                                  if (teams.isEmpty) {
+                                    return _buildEmptyCard(
+                                      'No teams created for today',
+                                    );
+                                  }
+                                  return Column(
+                                    children:
+                                        teams
+                                            .map((team) => _buildTeamCard(team))
+                                            .toList(),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFFE91E63), size: 20),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: GoogleFonts.robotoSlab(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.1),
+            Colors.white.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Row(
+        children: [
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE91E63)),
+            strokeWidth: 2,
+          ),
+          const SizedBox(width: 16),
+          Text(
+            'Loading...',
+            style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorCard(String message) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.red.withOpacity(0.1), Colors.red.withOpacity(0.05)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade300, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyCard(String message) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.05),
+            Colors.white.withOpacity(0.02),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.event_busy,
+              color: Colors.white.withOpacity(0.5),
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: GoogleFonts.poppins(color: Colors.white60, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookingCard(Map<String, dynamic> booking) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF7B1FA2).withOpacity(0.2),
+            const Color(0xFF4A148C).withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF7B1FA2).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE91E63).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.sports_soccer,
+                  color: Color(0xFFE91E63),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      booking['turf_name'] ?? 'Unknown Turf',
+                      style: GoogleFonts.robotoSlab(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      booking['location'] ?? 'Unknown Location',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  booking['status'] ?? 'confirmed',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: Colors.green,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildInfoChip(Icons.access_time, booking['slot_time'] ?? 'N/A'),
+              const SizedBox(width: 12),
+              _buildInfoChip(Icons.sports, booking['selected_sport'] ?? 'N/A'),
+            ],
+          ),
+          if (booking['amount'] != null) ...[
+            const SizedBox(height: 8),
+            _buildInfoChip(Icons.currency_rupee, '${booking['amount']}'),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeamCard(Map<String, dynamic> team) {
+    final joinedPlayers = team['joined_players'] as List<dynamic>? ?? [];
+    final totalPlayers = team['total_players'] ?? 0;
+    final availableSlots = team['available_slots'] ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFE91E63).withOpacity(0.2),
+            const Color(0xFFAD1457).withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE91E63).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4CAF50).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.groups,
+                  color: Color(0xFF4CAF50),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      team['turf_name'] ?? 'Team Game',
+                      style: GoogleFonts.robotoSlab(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      team['turf_location'] ?? 'Unknown Location',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  team['status'] ?? 'active',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: Colors.orange,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildInfoChip(Icons.access_time, team['slot_time'] ?? 'N/A'),
+              const SizedBox(width: 12),
+              _buildInfoChip(Icons.sports, team['selected_sport'] ?? 'N/A'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildInfoChip(
+                Icons.people,
+                '${joinedPlayers.length}/$totalPlayers',
+              ),
+              const SizedBox(width: 12),
+              if (availableSlots > 0)
+                _buildInfoChip(Icons.person_add, '$availableSlots slots left'),
+            ],
+          ),
+          if (team['amount'] != null) ...[
+            const SizedBox(height: 8),
+            _buildInfoChip(Icons.currency_rupee, '${team['amount']}'),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: Colors.white70),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: GoogleFonts.poppins(fontSize: 11, color: Colors.white70),
+          ),
+        ],
       ),
     );
   }

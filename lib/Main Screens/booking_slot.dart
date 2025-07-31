@@ -49,11 +49,15 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
   late AnimationController _pulseAnimationController;
   late AnimationController _fadeAnimationController;
   late AnimationController _scaleAnimationController;
+  late AnimationController _slideAnimationController;
+  late AnimationController _bounceAnimationController;
 
   late Animation<double> _cardSlideAnimation;
   late Animation<double> _pulseAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _bounceAnimation;
 
   // Razorpay and Firestore related variables
   late Razorpay _razorpay;
@@ -86,7 +90,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
 
   void _initializeAnimations() {
     _cardAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
 
@@ -96,23 +100,33 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     );
 
     _fadeAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
     _scaleAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
-    _cardSlideAnimation = Tween<double>(begin: 50.0, end: 0.0).animate(
+    _slideAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+    _bounceAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _cardSlideAnimation = Tween<double>(begin: 100.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _cardAnimationController,
         curve: Curves.easeOutBack,
       ),
     );
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
       CurvedAnimation(
         parent: _pulseAnimationController,
         curve: Curves.easeInOut,
@@ -120,7 +134,10 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeAnimationController, curve: Curves.easeIn),
+      CurvedAnimation(
+        parent: _fadeAnimationController,
+        curve: Curves.easeInOut,
+      ),
     );
 
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
@@ -130,9 +147,28 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
       ),
     );
 
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _slideAnimationController,
+        curve: Curves.easeOutQuart,
+      ),
+    );
+
+    _bounceAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _bounceAnimationController,
+        curve: Curves.bounceOut,
+      ),
+    );
+
     _cardAnimationController.forward();
     _fadeAnimationController.forward();
     _scaleAnimationController.forward();
+    _slideAnimationController.forward();
+    _bounceAnimationController.forward();
     _pulseAnimationController.repeat(reverse: true);
   }
 
@@ -142,6 +178,8 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     _pulseAnimationController.dispose();
     _fadeAnimationController.dispose();
     _scaleAnimationController.dispose();
+    _slideAnimationController.dispose();
+    _bounceAnimationController.dispose();
     _razorpay.clear();
     super.dispose();
   }
@@ -612,46 +650,54 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     );
   }
 
-  // Responsive Glass Card Widget
-  Widget _buildGlassContainer({
+  // Modern Glass Card Widget
+  Widget _buildModernGlassCard({
     required Widget child,
     double? height,
     EdgeInsetsGeometry? margin,
     EdgeInsetsGeometry? padding,
+    bool addBorder = true,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isSmallScreen = screenWidth < 360;
+        final isMediumScreen = screenWidth < 400;
+
         return Container(
           height: height,
-          margin:
-              margin ??
-              EdgeInsets.only(bottom: constraints.maxWidth < 400 ? 12 : 20),
+          margin: margin ?? EdgeInsets.only(bottom: isSmallScreen ? 16 : 20),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(
-              constraints.maxWidth < 400 ? 16 : 24,
-            ),
+            borderRadius: BorderRadius.circular(24),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Container(
-                padding:
-                    padding ??
-                    EdgeInsets.all(constraints.maxWidth < 400 ? 16 : 24),
+                padding: padding ?? EdgeInsets.all(isSmallScreen ? 18 : 24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withOpacity(0.2),
-                      Colors.white.withOpacity(0.1),
+                      Colors.white.withOpacity(0.15),
+                      Colors.white.withOpacity(0.08),
+                      Colors.white.withOpacity(0.05),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(
-                    constraints.maxWidth < 400 ? 16 : 24,
-                  ),
-                  border: Border.all(
-                    width: 1.5,
-                    color: Colors.white.withOpacity(0.2),
-                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border:
+                      addBorder
+                          ? Border.all(
+                            width: 1,
+                            color: Colors.white.withOpacity(0.2),
+                          )
+                          : null,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: child,
               ),
@@ -662,86 +708,180 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     );
   }
 
-  // Responsive Header Widget
+  // Enhanced Header Widget
   Widget _buildHeader() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 400;
+    return AnimatedBuilder(
+      animation: _slideAnimation,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final isSmallScreen = screenWidth < 360;
 
-        return _buildGlassContainer(
-          margin: EdgeInsets.only(bottom: isSmallScreen ? 16 : 24),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(
-                        Icons.arrow_back,
-                        color: Colors.white,
-                        size: isSmallScreen ? 20 : 24,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: isSmallScreen ? 12 : 16),
-                  Expanded(
-                    child: Text(
-                      'Book ${widget.turfName}',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize: isSmallScreen ? 20 : 24,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: isSmallScreen ? 8 : 12),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isSmallScreen ? 12 : 16,
-                  vertical: isSmallScreen ? 6 : 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+          return _buildModernGlassCard(
+            child: Column(
+              children: [
+                Row(
                   children: [
-                    Icon(
-                      Icons.location_on,
-                      color: Colors.white70,
-                      size: isSmallScreen ? 14 : 16,
+                    // Back Button
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withOpacity(0.2),
+                            Colors.white.withOpacity(0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                      ),
+                      child: IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: isSmallScreen ? 20 : 22,
+                        ),
+                        splashRadius: 24,
+                      ),
                     ),
-                    SizedBox(width: isSmallScreen ? 6 : 8),
-                    Flexible(
+                    SizedBox(width: isSmallScreen ? 12 : 16),
+
+                    // Title
+                    Expanded(
                       child: Text(
-                        widget.location,
+                        'Book Your Slot',
                         style: GoogleFonts.poppins(
-                          color: Colors.white70,
-                          fontSize: isSmallScreen ? 12 : 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: isSmallScreen ? 22 : 26,
+                          letterSpacing: 0.5,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
+
+                SizedBox(height: isSmallScreen ? 16 : 20),
+
+                // Turf Details Card
+                Container(
+                  padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.teal.withOpacity(0.2),
+                        Colors.teal.withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.teal.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          // Turf Icon
+                          Container(
+                            padding: EdgeInsets.all(isSmallScreen ? 12 : 14),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.teal.shade400.withOpacity(0.8),
+                                  Colors.teal.shade600.withOpacity(0.8),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.teal.withOpacity(0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.sports_soccer_outlined,
+                              color: Colors.white,
+                              size: isSmallScreen ? 24 : 28,
+                            ),
+                          ),
+                          SizedBox(width: isSmallScreen ? 12 : 16),
+
+                          // Turf Details
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Turf Details',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white70,
+                                    fontSize: isSmallScreen ? 12 : 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  widget.turfName,
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontSize: isSmallScreen ? 18 : 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      SizedBox(height: isSmallScreen ? 12 : 16),
+
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            color: Colors.white70,
+                            size: isSmallScreen ? 16 : 18,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.location,
+                              style: GoogleFonts.poppins(
+                                color: Colors.white70,
+                                fontSize: isSmallScreen ? 14 : 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      builder: (context, child) {
+        return SlideTransition(
+          position: _slideAnimation,
+          child: FadeTransition(opacity: _fadeAnimation, child: child),
         );
       },
     );
   }
 
-  Widget _buildSportSearchCard(List<String> filteredSports) {
+  Widget _buildSportSelectionCard(List<String> filteredSports) {
     return AnimatedBuilder(
       animation: _cardSlideAnimation,
       builder: (context, child) {
@@ -751,111 +891,36 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
             opacity: _fadeAnimation,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isSmallScreen = constraints.maxWidth < 400;
-                final crossAxisCount =
-                    constraints.maxWidth < 300
-                        ? 1
-                        : constraints.maxWidth < 500
-                        ? 2
-                        : 3;
+                final screenWidth = MediaQuery.of(context).size.width;
+                final isSmallScreen = screenWidth < 360;
+                final isMediumScreen = screenWidth < 400;
 
-                return _buildGlassContainer(
+                return _buildModernGlassCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.blue.shade400.withOpacity(0.8),
-                                  Colors.blue.shade600.withOpacity(0.8),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.blue.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              Icons.sports_soccer,
-                              color: Colors.white,
-                              size: isSmallScreen ? 20 : 24,
-                            ),
-                          ),
-                          SizedBox(width: isSmallScreen ? 12 : 16),
-                          Expanded(
-                            child: Text(
-                              'Select Your Sport',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: isSmallScreen ? 18 : 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
+                      // Section Header
+                      Text(
+                        'Select Sport',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: isSmallScreen ? 22 : 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
                       ),
+
                       SizedBox(height: isSmallScreen ? 16 : 20),
 
-                      if (showSearchField)
-                        TweenAnimationBuilder<double>(
-                          duration: const Duration(milliseconds: 300),
-                          tween: Tween(begin: 0.0, end: 1.0),
-                          builder: (context, value, child) {
-                            return Transform.scale(
-                              scale: value,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(15),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.3),
-                                  ),
-                                ),
-                                child: TextField(
-                                  onChanged:
-                                      (value) =>
-                                          setState(() => searchText = value),
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: isSmallScreen ? 14 : 16,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: '🔍 Search sports...',
-                                    hintStyle: TextStyle(
-                                      color: Colors.white.withOpacity(0.7),
-                                      fontSize: isSmallScreen ? 14 : 16,
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.all(
-                                      isSmallScreen ? 12 : 16,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-
-                      if (showSearchField)
-                        SizedBox(height: isSmallScreen ? 12 : 16),
-
-                      // Responsive sports grid
+                      // Sports Grid
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                          childAspectRatio: 2.5,
+                          crossAxisCount: 1,
+                          crossAxisSpacing: 0,
+                          mainAxisSpacing: isSmallScreen ? 12 : 16,
+                          childAspectRatio: 4.5,
                         ),
                         itemCount: filteredSports.length,
                         itemBuilder: (context, index) {
@@ -863,99 +928,160 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                           final isSelected = selectedSport == sport;
 
                           return TweenAnimationBuilder<double>(
-                            duration: const Duration(milliseconds: 200),
-                            tween: Tween(begin: 0.8, end: 1.0),
-                            builder: (context, scale, child) {
+                            duration: Duration(
+                              milliseconds: 300 + (index * 50),
+                            ),
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            builder: (context, value, child) {
                               return Transform.scale(
-                                scale: scale,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    setState(() => selectedSport = sport);
-                                    if (isSelected) {
-                                      _pulseAnimationController.forward().then((
-                                        _,
-                                      ) {
-                                        _pulseAnimationController.reverse();
-                                      });
-                                    }
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeInOut,
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: isSmallScreen ? 12 : 16,
-                                      vertical: isSmallScreen ? 8 : 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      gradient:
-                                          isSelected
-                                              ? LinearGradient(
-                                                colors: [
-                                                  Colors.green.shade400
-                                                      .withOpacity(0.8),
-                                                  Colors.green.shade600
-                                                      .withOpacity(0.8),
-                                                ],
-                                              )
-                                              : LinearGradient(
-                                                colors: [
-                                                  Colors.white.withOpacity(0.2),
-                                                  Colors.white.withOpacity(0.1),
-                                                ],
-                                              ),
-                                      borderRadius: BorderRadius.circular(25),
-                                      border: Border.all(
-                                        color:
-                                            isSelected
-                                                ? Colors.green.withOpacity(0.5)
-                                                : Colors.white.withOpacity(0.3),
+                                scale: 0.8 + (0.2 * value),
+                                child: Opacity(
+                                  opacity: value,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() => selectedSport = sport);
+                                      if (isSelected) {
+                                        _pulseAnimationController
+                                            .forward()
+                                            .then((_) {
+                                              _pulseAnimationController
+                                                  .reverse();
+                                            });
+                                      }
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 300,
                                       ),
-                                      boxShadow: [
-                                        BoxShadow(
+                                      curve: Curves.easeInOut,
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: isSmallScreen ? 16 : 20,
+                                        vertical: isSmallScreen ? 14 : 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        gradient:
+                                            isSelected
+                                                ? LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    Colors.green.shade400
+                                                        .withOpacity(0.8),
+                                                    Colors.green.shade600
+                                                        .withOpacity(0.8),
+                                                  ],
+                                                )
+                                                : LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    Colors.white.withOpacity(
+                                                      0.15,
+                                                    ),
+                                                    Colors.white.withOpacity(
+                                                      0.08,
+                                                    ),
+                                                  ],
+                                                ),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
                                           color:
                                               isSelected
                                                   ? Colors.green.withOpacity(
-                                                    0.4,
+                                                    0.6,
                                                   )
-                                                  : Colors.black.withOpacity(
-                                                    0.1,
+                                                  : Colors.white.withOpacity(
+                                                    0.25,
                                                   ),
-                                          blurRadius: isSelected ? 12 : 6,
-                                          offset: const Offset(0, 4),
+                                          width: isSelected ? 2 : 1,
                                         ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (isSelected)
-                                          Icon(
-                                            Icons.check_circle,
-                                            color: Colors.white,
-                                            size: isSmallScreen ? 16 : 18,
-                                          ),
-                                        if (isSelected)
-                                          SizedBox(
-                                            width: isSmallScreen ? 6 : 8,
-                                          ),
-                                        Flexible(
-                                          child: Text(
-                                            sport,
-                                            style: GoogleFonts.poppins(
-                                              color: Colors.white,
-                                              fontWeight:
-                                                  isSelected
-                                                      ? FontWeight.bold
-                                                      : FontWeight.w500,
-                                              fontSize: isSmallScreen ? 14 : 16,
+                                        boxShadow:
+                                            isSelected
+                                                ? [
+                                                  BoxShadow(
+                                                    color: Colors.green
+                                                        .withOpacity(0.3),
+                                                    blurRadius: 15,
+                                                    offset: const Offset(0, 6),
+                                                  ),
+                                                ]
+                                                : [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withOpacity(0.05),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          // Sport Icon
+                                          Container(
+                                            padding: EdgeInsets.all(
+                                              isSmallScreen ? 8 : 10,
                                             ),
-                                            textAlign: TextAlign.center,
-                                            overflow: TextOverflow.ellipsis,
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  isSelected
+                                                      ? Colors.white
+                                                          .withOpacity(0.2)
+                                                      : Colors.white
+                                                          .withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: _getSportIcon(
+                                              sport,
+                                              isSelected,
+                                              isSmallScreen,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+
+                                          SizedBox(
+                                            width: isSmallScreen ? 12 : 16,
+                                          ),
+
+                                          // Sport Name
+                                          Expanded(
+                                            child: Text(
+                                              sport,
+                                              style: GoogleFonts.poppins(
+                                                color: Colors.white,
+                                                fontWeight:
+                                                    isSelected
+                                                        ? FontWeight.bold
+                                                        : FontWeight.w600,
+                                                fontSize:
+                                                    isSmallScreen ? 16 : 18,
+                                                letterSpacing: 0.5,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+
+                                          // Selection Indicator
+                                          if (isSelected)
+                                            AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 300,
+                                              ),
+                                              padding: EdgeInsets.all(
+                                                isSmallScreen ? 6 : 8,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                              child: Icon(
+                                                Icons.check,
+                                                color: Colors.green.shade600,
+                                                size: isSmallScreen ? 16 : 18,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -963,32 +1089,6 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                             },
                           );
                         },
-                      ),
-
-                      SizedBox(height: isSmallScreen ? 12 : 16),
-
-                      Center(
-                        child: TextButton.icon(
-                          onPressed:
-                              () => setState(
-                                () => showSearchField = !showSearchField,
-                              ),
-                          icon: Icon(
-                            showSearchField
-                                ? Icons.keyboard_arrow_up
-                                : Icons.search,
-                            color: Colors.white70,
-                            size: isSmallScreen ? 18 : 20,
-                          ),
-                          label: Text(
-                            showSearchField ? 'Hide Search' : 'Search Sports',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white70,
-                              fontWeight: FontWeight.w600,
-                              fontSize: isSmallScreen ? 14 : 16,
-                            ),
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -1001,6 +1101,37 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     );
   }
 
+  // Helper method to get sport icons
+  Widget _getSportIcon(String sport, bool isSelected, bool isSmallScreen) {
+    IconData iconData;
+    Color iconColor = Colors.white;
+
+    switch (sport.toLowerCase()) {
+      case 'football':
+        iconData = Icons.sports_soccer;
+        break;
+      case 'cricket':
+        iconData = Icons.sports_cricket;
+        break;
+      case 'basketball':
+        iconData = Icons.sports_basketball;
+        break;
+      case 'tennis':
+        iconData = Icons.sports_tennis;
+        break;
+      case 'hockey':
+        iconData = Icons.sports_hockey;
+        break;
+      case 'pickleball':
+        iconData = Icons.sports_tennis;
+        break;
+      default:
+        iconData = Icons.sports;
+    }
+
+    return Icon(iconData, color: iconColor, size: isSmallScreen ? 20 : 24);
+  }
+
   Widget _buildDateTimeCard() {
     return AnimatedBuilder(
       animation: _cardSlideAnimation,
@@ -1011,82 +1142,129 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
             opacity: _fadeAnimation,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isSmallScreen = constraints.maxWidth < 500;
+                final screenWidth = MediaQuery.of(context).size.width;
+                final screenHeight = MediaQuery.of(context).size.height;
 
-                return _buildGlassContainer(
+                // Define breakpoints for different screen sizes
+                final isExtraSmallScreen =
+                    screenWidth < 320; // Very small phones
+                final isSmallScreen = screenWidth < 360; // Small phones
+                final isMediumScreen = screenWidth < 400; // Medium phones
+                final isLargeScreen = screenWidth >= 400; // Large phones
+
+                // Dynamic sizing based on screen dimensions
+                final horizontalPadding =
+                    screenWidth * 0.05; // 5% of screen width
+                final cardPadding =
+                    isExtraSmallScreen
+                        ? 12.0
+                        : isSmallScreen
+                        ? 16.0
+                        : isMediumScreen
+                        ? 20.0
+                        : 24.0;
+
+                final titleFontSize = screenWidth * 0.06; // 6% of screen width
+                final subtitleFontSize =
+                    screenWidth * 0.04; // 4% of screen width
+
+                return _buildModernGlassCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.purple.shade400.withOpacity(0.8),
-                                  Colors.purple.shade600.withOpacity(0.8),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.purple.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              Icons.access_time,
-                              color: Colors.white,
-                              size: isSmallScreen ? 20 : 24,
-                            ),
-                          ),
-                          SizedBox(width: isSmallScreen ? 12 : 16),
-                          Expanded(
-                            child: Text(
-                              'Select Date & Time',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: isSmallScreen ? 18 : 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
+                      // Section Header
+                      Text(
+                        'Select Date',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: titleFontSize.clamp(20.0, 26.0),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                      SizedBox(height: isSmallScreen ? 16 : 24),
 
-                      // Date Picker
+                      SizedBox(height: cardPadding),
+
+                      // Date Picker Container
                       Container(
-                        padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                        padding: EdgeInsets.all(cardPadding),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.purple.withOpacity(0.15),
+                              Colors.purple.withOpacity(0.08),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.purple.withOpacity(0.3),
                           ),
                         ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '📅 Select Date',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: isSmallScreen ? 14 : 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(height: isSmallScreen ? 8 : 12),
+                            // Date Display
                             Container(
-                              height: isSmallScreen ? 70 : 80,
+                              width: double.infinity,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: cardPadding,
+                                vertical: cardPadding * 0.75,
+                              ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white.withOpacity(0.15),
+                                    Colors.white.withOpacity(0.08),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color: Colors.white.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_outlined,
+                                    color: Colors.white,
+                                    size: (screenWidth * 0.05).clamp(
+                                      16.0,
+                                      22.0,
+                                    ),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Flexible(
+                                    child: Text(
+                                      '${_getWeekday(_selectedDate.weekday)}, ${_getMonthName(_selectedDate.month)} ${_selectedDate.day}, ${_selectedDate.year}',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                        fontSize: subtitleFontSize.clamp(
+                                          14.0,
+                                          18.0,
+                                        ),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            SizedBox(height: cardPadding),
+
+                            // Date Picker with dynamic height
+                            Container(
+                              height: (screenHeight * 0.12).clamp(80.0, 120.0),
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.15),
                                 ),
                               ),
                               child: ScrollDatePicker(
@@ -1101,8 +1279,11 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                 },
                                 options: DatePickerOptions(
                                   backgroundColor: Colors.transparent,
-                                  itemExtent: isSmallScreen ? 50 : 60,
-                                  diameterRatio: 3,
+                                  itemExtent: (screenHeight * 0.08).clamp(
+                                    40.0,
+                                    70.0,
+                                  ),
+                                  diameterRatio: isExtraSmallScreen ? 2.5 : 3.0,
                                   perspective: 0.01,
                                 ),
                               ),
@@ -1111,162 +1292,27 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                         ),
                       ),
 
-                      SizedBox(height: isSmallScreen ? 16 : 20),
+                      SizedBox(height: cardPadding * 1.2),
 
-                      // Time Pickers
-                      isSmallScreen
-                          ? Column(
-                            children: [
-                              Container(
-                                width: double.infinity,
-                                padding: EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.2),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '🕐 Start Time',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildScrollableTimePicker(
-                                      selectedStartHour,
-                                      isStartAM,
-                                      Colors.green,
-                                      (hour, isAM) => setState(() {
-                                        selectedStartHour = hour;
-                                        isStartAM = isAM;
-                                      }),
-                                      isSmallScreen: true,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Container(
-                                width: double.infinity,
-                                padding: EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.2),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '🕐 End Time',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildScrollableTimePicker(
-                                      selectedEndHour,
-                                      isEndAM,
-                                      Colors.orange,
-                                      (hour, isAM) => setState(() {
-                                        selectedEndHour = hour;
-                                        isEndAM = isAM;
-                                      }),
-                                      isSmallScreen: true,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          )
-                          : Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.2),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '🕐 Start Time',
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      _buildScrollableTimePicker(
-                                        selectedStartHour,
-                                        isStartAM,
-                                        Colors.green,
-                                        (hour, isAM) => setState(() {
-                                          selectedStartHour = hour;
-                                          isStartAM = isAM;
-                                        }),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.2),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '🕐 End Time',
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      _buildScrollableTimePicker(
-                                        selectedEndHour,
-                                        isEndAM,
-                                        Colors.orange,
-                                        (hour, isAM) => setState(() {
-                                          selectedEndHour = hour;
-                                          isEndAM = isAM;
-                                        }),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                      // Time Section Header
+                      Text(
+                        'Select Time',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: titleFontSize.clamp(20.0, 26.0),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+
+                      SizedBox(height: cardPadding),
+
+                      // Time Pickers - Responsive Layout
+                      _buildResponsiveTimePickers(
+                        screenWidth,
+                        screenHeight,
+                        cardPadding,
+                      ),
                     ],
                   ),
                 );
@@ -1278,160 +1324,348 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildScrollableTimePicker(
+  Widget _buildResponsiveTimePickers(
+    double screenWidth,
+    double screenHeight,
+    double cardPadding,
+  ) {
+    final isExtraSmallScreen = screenWidth < 320;
+    final isSmallScreen = screenWidth < 360;
+
+    // For very small screens, stack the time pickers vertically
+    if (isExtraSmallScreen) {
+      return Column(
+        children: [
+          _buildTimePickerCard(
+            title: 'Start Time',
+            icon: Icons.access_time_outlined,
+            selectedHour: selectedStartHour,
+            isAM: isStartAM,
+            color: Colors.green,
+            onChanged:
+                (hour, isAM) => setState(() {
+                  selectedStartHour = hour;
+                  isStartAM = isAM;
+                }),
+            screenWidth: screenWidth,
+            screenHeight: screenHeight,
+            cardPadding: cardPadding,
+          ),
+          SizedBox(height: cardPadding),
+          _buildTimePickerCard(
+            title: 'End Time',
+            icon: Icons.access_time_filled_outlined,
+            selectedHour: selectedEndHour,
+            isAM: isEndAM,
+            color: Colors.orange,
+            onChanged:
+                (hour, isAM) => setState(() {
+                  selectedEndHour = hour;
+                  isEndAM = isAM;
+                }),
+            screenWidth: screenWidth,
+            screenHeight: screenHeight,
+            cardPadding: cardPadding,
+          ),
+        ],
+      );
+    }
+
+    // For other screens, use row layout with responsive spacing
+    return Row(
+      children: [
+        Expanded(
+          child: _buildTimePickerCard(
+            title: 'Start Time',
+            icon: Icons.access_time_outlined,
+            selectedHour: selectedStartHour,
+            isAM: isStartAM,
+            color: Colors.green,
+            onChanged:
+                (hour, isAM) => setState(() {
+                  selectedStartHour = hour;
+                  isStartAM = isAM;
+                }),
+            screenWidth: screenWidth,
+            screenHeight: screenHeight,
+            cardPadding: cardPadding,
+          ),
+        ),
+        SizedBox(width: isSmallScreen ? 8 : cardPadding * 0.75),
+        Expanded(
+          child: _buildTimePickerCard(
+            title: 'End Time',
+            icon: Icons.access_time_filled_outlined,
+            selectedHour: selectedEndHour,
+            isAM: isEndAM,
+            color: Colors.orange,
+            onChanged:
+                (hour, isAM) => setState(() {
+                  selectedEndHour = hour;
+                  isEndAM = isAM;
+                }),
+            screenWidth: screenWidth,
+            screenHeight: screenHeight,
+            cardPadding: cardPadding,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimePickerCard({
+    required String title,
+    required IconData icon,
+    required int selectedHour,
+    required bool isAM,
+    required MaterialColor color,
+    required Function(int, bool) onChanged,
+    required double screenWidth,
+    required double screenHeight,
+    required double cardPadding,
+  }) {
+    final isExtraSmallScreen = screenWidth < 320;
+    final isSmallScreen = screenWidth < 360;
+
+    // Dynamic font sizes based on screen width
+    final titleFontSize = (screenWidth * 0.035).clamp(12.0, 16.0);
+    final timeFontSize = (screenWidth * 0.045).clamp(14.0, 18.0);
+    final iconSize = (screenWidth * 0.04).clamp(14.0, 18.0);
+
+    return Container(
+      padding: EdgeInsets.all(cardPadding * 0.75),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withOpacity(0.15), color.withOpacity(0.08)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Row(
+            children: [
+              Icon(icon, color: Colors.white, size: iconSize),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: titleFontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: cardPadding * 0.75),
+
+          // Time Display
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: cardPadding * 0.75,
+              vertical: cardPadding * 0.5,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Text(
+              formatHour(selectedHour, isAM),
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: timeFontSize,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+
+          SizedBox(height: cardPadding * 0.5),
+
+          // Time Picker with responsive height
+          _buildResponsiveTimePicker(
+            selectedHour,
+            isAM,
+            onChanged,
+            screenWidth,
+            screenHeight,
+            cardPadding,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResponsiveTimePicker(
     int selectedHour,
     bool isAM,
-    MaterialColor color,
-    Function(int, bool) onChanged, {
-    bool isSmallScreen = false,
-  }) {
-    final FixedExtentScrollController hourController =
-        FixedExtentScrollController(
-          initialItem: selectedHour == 12 ? 0 : selectedHour - 1,
-        );
-    final FixedExtentScrollController ampmController =
-        FixedExtentScrollController(initialItem: isAM ? 0 : 1);
+    Function(int, bool) onChanged,
+    double screenWidth,
+    double screenHeight,
+    double cardPadding,
+  ) {
+    final isExtraSmallScreen = screenWidth < 320;
+    final isSmallScreen = screenWidth < 360;
 
-    final double pickerHeight = isSmallScreen ? 120 : 140;
-    final double itemExtent = isSmallScreen ? 40 : 50;
-    final double fontSize = isSmallScreen ? 18 : 20;
+    // Dynamic dimensions
+    final pickerHeight = (screenHeight * 0.15).clamp(100.0, 140.0);
+    final itemExtent = (screenHeight * 0.05).clamp(30.0, 45.0);
+    final fontSize = (screenWidth * 0.04).clamp(14.0, 18.0);
 
     return Container(
       height: pickerHeight,
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Row(
-          children: [
-            // Hour Picker
-            Expanded(
-              flex: 2,
-              child: ListWheelScrollView.useDelegate(
-                controller: hourController,
-                itemExtent: itemExtent,
-                perspective: 0.005,
-                diameterRatio: 1.5,
-                physics: const FixedExtentScrollPhysics(),
-                childDelegate: ListWheelChildBuilderDelegate(
-                  childCount: 12,
-                  builder: (context, index) {
-                    final hour = index + 1 == 13 ? 12 : (index + 1) % 13;
-                    final displayHour = hour == 0 ? 12 : hour;
-                    final isSelected = displayHour == selectedHour;
-                    return Container(
-                      margin: EdgeInsets.symmetric(
-                        vertical: isSmallScreen ? 3 : 5,
-                        horizontal: isSmallScreen ? 6 : 8,
-                      ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isSmallScreen ? 12 : 16,
-                        vertical: isSmallScreen ? 6 : 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            isSelected
-                                ? Colors.white.withOpacity(0.2)
-                                : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        border:
-                            isSelected
-                                ? Border.all(
-                                  color: Colors.white.withOpacity(0.4),
-                                )
-                                : null,
-                      ),
-                      child: Center(
-                        child: Text(
-                          displayHour.toString().padLeft(2, '0'),
-                          style: GoogleFonts.poppins(
-                            fontSize: fontSize,
-                            fontWeight:
-                                isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: Colors.white,
-                          ),
+      child: Row(
+        children: [
+          // Hour Picker
+          Expanded(
+            flex: isExtraSmallScreen ? 3 : 2,
+            child: ListWheelScrollView.useDelegate(
+              itemExtent: itemExtent,
+              perspective: 0.005,
+              diameterRatio: isExtraSmallScreen ? 1.2 : 1.5,
+              physics: const FixedExtentScrollPhysics(),
+              childDelegate: ListWheelChildBuilderDelegate(
+                childCount: 12,
+                builder: (context, index) {
+                  final hour = index + 1;
+                  final displayHour = hour == 13 ? 12 : hour;
+                  final isSelected = displayHour == selectedHour;
+                  return Container(
+                    margin: EdgeInsets.symmetric(
+                      vertical: 1,
+                      horizontal: cardPadding * 0.25,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          isSelected
+                              ? Colors.white.withOpacity(0.2)
+                              : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        displayHour.toString().padLeft(2, '0'),
+                        style: GoogleFonts.poppins(
+                          fontSize: fontSize,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: Colors.white,
                         ),
                       ),
-                    );
-                  },
-                ),
-                onSelectedItemChanged: (index) {
-                  final hour = index + 1 == 13 ? 12 : (index + 1) % 13;
-                  final displayHour = hour == 0 ? 12 : hour;
-                  onChanged(displayHour, isAM);
+                    ),
+                  );
                 },
               ),
+              onSelectedItemChanged: (index) {
+                final hour = index + 1;
+                final displayHour = hour == 13 ? 12 : hour;
+                onChanged(displayHour, isAM);
+              },
             ),
+          ),
 
-            // Separator
-            Container(
-              width: 1,
-              height: pickerHeight * 0.5,
-              color: Colors.white.withOpacity(0.3),
-            ),
+          // Separator
+          Container(
+            width: 1,
+            height: pickerHeight * 0.6,
+            color: Colors.white.withOpacity(0.2),
+          ),
 
-            // AM/PM Picker
-            Expanded(
-              flex: 1,
-              child: ListWheelScrollView.useDelegate(
-                controller: ampmController,
-                itemExtent: itemExtent,
-                perspective: 0.005,
-                diameterRatio: 1.5,
-                physics: const FixedExtentScrollPhysics(),
-                childDelegate: ListWheelChildBuilderDelegate(
-                  childCount: 2,
-                  builder: (context, index) {
-                    final period = index == 0 ? 'AM' : 'PM';
-                    final isSelected = (period == 'AM') == isAM;
-                    return Container(
-                      margin: EdgeInsets.symmetric(
-                        vertical: isSmallScreen ? 3 : 5,
-                        horizontal: isSmallScreen ? 6 : 8,
-                      ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isSmallScreen ? 8 : 12,
-                        vertical: isSmallScreen ? 6 : 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            isSelected
-                                ? Colors.white.withOpacity(0.2)
-                                : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        border:
-                            isSelected
-                                ? Border.all(
-                                  color: Colors.white.withOpacity(0.4),
-                                )
-                                : null,
-                      ),
-                      child: Center(
-                        child: Text(
-                          period,
-                          style: GoogleFonts.poppins(
-                            fontSize: fontSize - 2,
-                            fontWeight:
-                                isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: Colors.white,
-                          ),
+          // AM/PM Picker
+          Expanded(
+            flex: 1,
+            child: ListWheelScrollView.useDelegate(
+              itemExtent: itemExtent,
+              perspective: 0.005,
+              diameterRatio: isExtraSmallScreen ? 1.2 : 1.5,
+              physics: const FixedExtentScrollPhysics(),
+              childDelegate: ListWheelChildBuilderDelegate(
+                childCount: 2,
+                builder: (context, index) {
+                  final period = index == 0 ? 'AM' : 'PM';
+                  final isSelected = (period == 'AM') == isAM;
+                  return Container(
+                    margin: EdgeInsets.symmetric(
+                      vertical: 1,
+                      horizontal: cardPadding * 0.25,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          isSelected
+                              ? Colors.white.withOpacity(0.2)
+                              : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        period,
+                        style: GoogleFonts.poppins(
+                          fontSize: fontSize * 0.85,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: Colors.white,
                         ),
                       ),
-                    );
-                  },
-                ),
-                onSelectedItemChanged: (index) {
-                  onChanged(selectedHour, index == 0);
+                    ),
+                  );
                 },
               ),
+              onSelectedItemChanged: (index) {
+                onChanged(selectedHour, index == 0);
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  // Helper methods for date formatting
+  String _getWeekday(int weekday) {
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    return weekdays[weekday - 1];
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return months[month - 1];
   }
 
   Widget _buildBookingCard() {
@@ -1444,94 +1678,73 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
             opacity: _fadeAnimation,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isSmallScreen = constraints.maxWidth < 400;
+                final screenWidth = MediaQuery.of(context).size.width;
+                final isSmallScreen = screenWidth < 360;
 
-                return _buildGlassContainer(
+                return _buildModernGlassCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.green.shade400.withOpacity(0.8),
-                                  Colors.green.shade600.withOpacity(0.8),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.green.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              Icons.receipt_long,
-                              color: Colors.white,
-                              size: isSmallScreen ? 20 : 24,
-                            ),
-                          ),
-                          SizedBox(width: isSmallScreen ? 12 : 16),
-                          Expanded(
-                            child: Text(
-                              'Booking Summary',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: isSmallScreen ? 18 : 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
+                      // Section Header
+                      Text(
+                        'Booking Summary',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: isSmallScreen ? 22 : 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
                       ),
+
                       SizedBox(height: isSmallScreen ? 16 : 20),
 
+                      // Summary Details
+                      _buildSummaryRow('Turf', widget.turfName, isSmallScreen),
                       _buildSummaryRow(
-                        '🏟 Turf',
-                        widget.turfName,
-                        isSmallScreen,
-                      ),
-                      _buildSummaryRow(
-                        '📍 Location',
+                        'Location',
                         widget.location,
                         isSmallScreen,
                       ),
                       _buildSummaryRow(
-                        '⚽ Sport',
+                        'Sport',
                         selectedSport ?? 'Not selected',
                         isSmallScreen,
                       ),
                       _buildSummaryRow(
-                        '📅 Date',
+                        'Date',
                         '${_selectedDate.day}-${_selectedDate.month}-${_selectedDate.year}',
                         isSmallScreen,
                       ),
                       _buildSummaryRow(
-                        '⏰ Time',
+                        'Time',
                         '${formatHour(selectedStartHour, isStartAM)} - ${formatHour(selectedEndHour, isEndAM)}',
                         isSmallScreen,
                       ),
 
                       SizedBox(height: isSmallScreen ? 16 : 20),
+
+                      // Amount Container
                       Container(
-                        padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                        padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.green.withOpacity(0.2),
+                              Colors.green.withOpacity(0.1),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
+                            color: Colors.green.withOpacity(0.3),
                           ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '💰 Total Amount',
+                              'Total Amount',
                               style: GoogleFonts.poppins(
                                 fontSize: isSmallScreen ? 16 : 18,
                                 fontWeight: FontWeight.bold,
@@ -1543,7 +1756,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                               style: GoogleFonts.poppins(
                                 fontSize: isSmallScreen ? 20 : 24,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: Colors.green.shade300,
                               ),
                             ),
                           ],
@@ -1552,7 +1765,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
 
                       SizedBox(height: isSmallScreen ? 20 : 24),
 
-                      // Enhanced Book Now Button
+                      // Book Now Button
                       AnimatedBuilder(
                         animation: _pulseAnimation,
                         builder: (context, child) {
@@ -1563,9 +1776,11 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                     : 1.0,
                             child: Container(
                               width: double.infinity,
-                              height: isSmallScreen ? 50 : 60,
+                              height: isSmallScreen ? 54 : 60,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                   colors:
                                       selectedSport != null
                                           ? [
@@ -1577,15 +1792,15 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                             ),
                                           ]
                                           : [
-                                            Colors.white.withOpacity(0.2),
-                                            Colors.white.withOpacity(0.1),
+                                            Colors.white.withOpacity(0.15),
+                                            Colors.white.withOpacity(0.08),
                                           ],
                                 ),
                                 borderRadius: BorderRadius.circular(30),
                                 border: Border.all(
                                   color:
                                       selectedSport != null
-                                          ? Colors.green.withOpacity(0.5)
+                                          ? Colors.green.withOpacity(0.6)
                                           : Colors.white.withOpacity(0.3),
                                 ),
                                 boxShadow:
@@ -1628,7 +1843,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 Icon(
-                                                  Icons.payment,
+                                                  Icons.payment_outlined,
                                                   color: Colors.white,
                                                   size: isSmallScreen ? 20 : 24,
                                                 ),
@@ -1636,12 +1851,13 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                                   width: isSmallScreen ? 8 : 12,
                                                 ),
                                                 Text(
-                                                  'Book Now & Pay',
+                                                  'Pay & Book Now',
                                                   style: GoogleFonts.poppins(
                                                     color: Colors.white,
                                                     fontSize:
                                                         isSmallScreen ? 16 : 18,
                                                     fontWeight: FontWeight.bold,
+                                                    letterSpacing: 0.5,
                                                   ),
                                                 ),
                                               ],
@@ -1653,8 +1869,6 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                           );
                         },
                       ),
-
-                      SizedBox(height: isSmallScreen ? 12 : 16),
                     ],
                   ),
                 );
@@ -1668,12 +1882,12 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
 
   Widget _buildSummaryRow(String label, String value, bool isSmallScreen) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 6 : 8),
+      padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 8 : 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: isSmallScreen ? 100 : 120,
+            width: isSmallScreen ? 80 : 100,
             child: Text(
               label,
               style: GoogleFonts.poppins(
@@ -1683,6 +1897,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
               ),
             ),
           ),
+          SizedBox(width: isSmallScreen ? 12 : 16),
           Expanded(
             child: Text(
               value,
@@ -1702,8 +1917,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     return '${hour.toString().padLeft(2, '0')}:00 ${isAM ? 'AM' : 'PM'}';
   }
 
-  // Enhanced Success Popup with Booking Details
-  // Enhanced Success Popup with better responsiveness and animations
+  // Enhanced Success Popup with Modern Design
   void _showBookingSuccessPopup() {
     showDialog(
       context: context,
@@ -1713,36 +1927,24 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
           builder: (context, constraints) {
             final screenWidth = constraints.maxWidth;
             final screenHeight = constraints.maxHeight;
-            final isSmallScreen = screenWidth < 400;
-            final isExtraSmallScreen = screenWidth < 350;
-            final isTablet = screenWidth >= 600;
-
-            // Responsive dimensions
-            final dialogWidth =
-                isTablet
-                    ? screenWidth * 0.6
-                    : isSmallScreen
-                    ? screenWidth * 0.92
-                    : screenWidth * 0.88;
-
-            final maxDialogHeight = screenHeight * 0.9;
+            final isSmallScreen = screenWidth < 360;
+            final isExtraSmallScreen = screenWidth < 320;
 
             return Dialog(
               backgroundColor: Colors.transparent,
               insetPadding: EdgeInsets.symmetric(
-                horizontal: isExtraSmallScreen ? 8 : 16,
-                vertical: 20,
+                horizontal: isExtraSmallScreen ? 12 : 20,
+                vertical: 30,
               ),
               child: Container(
-                width: dialogWidth,
                 constraints: BoxConstraints(
-                  maxHeight: maxDialogHeight,
-                  maxWidth: isTablet ? 500 : double.infinity,
+                  maxHeight: screenHeight * 0.85,
+                  maxWidth: screenWidth > 600 ? 500 : double.infinity,
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 20),
+                  borderRadius: BorderRadius.circular(24),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -1754,33 +1956,18 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                             Colors.white.withOpacity(0.1),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(
-                          isSmallScreen ? 16 : 20,
-                        ),
+                        borderRadius: BorderRadius.circular(24),
                         border: Border.all(
                           width: 1.5,
                           color: Colors.white.withOpacity(0.3),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
                       ),
                       child: SingleChildScrollView(
-                        padding: EdgeInsets.all(
-                          isExtraSmallScreen
-                              ? 16
-                              : isSmallScreen
-                              ? 20
-                              : 24,
-                        ),
+                        padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Success Icon with enhanced animation
+                            // Success Animation
                             TweenAnimationBuilder<double>(
                               duration: const Duration(milliseconds: 1200),
                               tween: Tween(begin: 0.0, end: 1.0),
@@ -1788,14 +1975,9 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                               builder: (context, value, child) {
                                 return Transform.scale(
                                   scale: value,
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 800),
+                                  child: Container(
                                     padding: EdgeInsets.all(
-                                      isExtraSmallScreen
-                                          ? 12
-                                          : isSmallScreen
-                                          ? 16
-                                          : 20,
+                                      isSmallScreen ? 16 : 20,
                                     ),
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
@@ -1822,32 +2004,18 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                       ],
                                     ),
                                     child: Icon(
-                                      Icons.check_circle,
+                                      Icons.check_circle_outline,
                                       color: Colors.green.shade300,
-                                      size:
-                                          isExtraSmallScreen
-                                              ? 40
-                                              : isSmallScreen
-                                              ? 48
-                                              : isTablet
-                                              ? 64
-                                              : 56,
+                                      size: isSmallScreen ? 48 : 56,
                                     ),
                                   ),
                                 );
                               },
                             ),
 
-                            SizedBox(
-                              height:
-                                  isExtraSmallScreen
-                                      ? 16
-                                      : isSmallScreen
-                                      ? 20
-                                      : 24,
-                            ),
+                            SizedBox(height: isSmallScreen ? 20 : 24),
 
-                            // Success Title with staggered animation
+                            // Success Title
                             TweenAnimationBuilder<double>(
                               duration: const Duration(milliseconds: 800),
                               tween: Tween(begin: 0.0, end: 1.0),
@@ -1860,14 +2028,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                     child: Text(
                                       'Booking Confirmed! 🎉',
                                       style: GoogleFonts.poppins(
-                                        fontSize:
-                                            isExtraSmallScreen
-                                                ? 18
-                                                : isSmallScreen
-                                                ? 22
-                                                : isTablet
-                                                ? 28
-                                                : 26,
+                                        fontSize: isSmallScreen ? 22 : 26,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
                                         height: 1.2,
@@ -1879,16 +2040,9 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                               },
                             ),
 
-                            SizedBox(
-                              height:
-                                  isExtraSmallScreen
-                                      ? 8
-                                      : isSmallScreen
-                                      ? 12
-                                      : 16,
-                            ),
+                            SizedBox(height: isSmallScreen ? 16 : 20),
 
-                            // Booking Details Container with slide-up animation
+                            // Booking Details Card
                             TweenAnimationBuilder<double>(
                               duration: const Duration(milliseconds: 1000),
                               tween: Tween(begin: 0.0, end: 1.0),
@@ -1901,50 +2055,24 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                     child: Container(
                                       width: double.infinity,
                                       padding: EdgeInsets.all(
-                                        isExtraSmallScreen
-                                            ? 12
-                                            : isSmallScreen
-                                            ? 16
-                                            : 20,
+                                        isSmallScreen ? 16 : 20,
                                       ),
                                       decoration: BoxDecoration(
                                         color: Colors.white.withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(
-                                          isSmallScreen ? 12 : 16,
-                                        ),
+                                        borderRadius: BorderRadius.circular(16),
                                         border: Border.all(
                                           color: Colors.white.withOpacity(0.25),
                                         ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(
-                                              0.1,
-                                            ),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
                                       ),
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          // Booking ID with improved responsive design
+                                          // Booking ID
                                           Container(
                                             width: double.infinity,
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal:
-                                                  isExtraSmallScreen
-                                                      ? 8
-                                                      : isSmallScreen
-                                                      ? 12
-                                                      : 16,
-                                              vertical:
-                                                  isExtraSmallScreen
-                                                      ? 6
-                                                      : isSmallScreen
-                                                      ? 8
-                                                      : 10,
+                                            padding: EdgeInsets.all(
+                                              isSmallScreen ? 12 : 14,
                                             ),
                                             decoration: BoxDecoration(
                                               gradient: LinearGradient(
@@ -1954,7 +2082,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                                 ],
                                               ),
                                               borderRadius:
-                                                  BorderRadius.circular(10),
+                                                  BorderRadius.circular(12),
                                               border: Border.all(
                                                 color: Colors.blue.withOpacity(
                                                   0.4,
@@ -1966,29 +2094,18 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                                   MainAxisAlignment.center,
                                               children: [
                                                 Icon(
-                                                  Icons.confirmation_number,
+                                                  Icons
+                                                      .confirmation_number_outlined,
                                                   color: Colors.blue.shade300,
-                                                  size:
-                                                      isExtraSmallScreen
-                                                          ? 16
-                                                          : isSmallScreen
-                                                          ? 18
-                                                          : 20,
+                                                  size: isSmallScreen ? 16 : 18,
                                                 ),
-                                                SizedBox(
-                                                  width:
-                                                      isExtraSmallScreen
-                                                          ? 6
-                                                          : 8,
-                                                ),
+                                                SizedBox(width: 8),
                                                 Flexible(
                                                   child: Text(
                                                     'ID: ${bookingId ?? 'N/A'}',
                                                     style: GoogleFonts.poppins(
                                                       fontSize:
-                                                          isExtraSmallScreen
-                                                              ? 12
-                                                              : isSmallScreen
+                                                          isSmallScreen
                                                               ? 14
                                                               : 16,
                                                       fontWeight:
@@ -1997,7 +2114,6 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                                     ),
                                                     overflow:
                                                         TextOverflow.ellipsis,
-                                                    maxLines: 1,
                                                   ),
                                                 ),
                                               ],
@@ -2005,38 +2121,23 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                           ),
 
                                           SizedBox(
-                                            height:
-                                                isExtraSmallScreen
-                                                    ? 12
-                                                    : isSmallScreen
-                                                    ? 16
-                                                    : 20,
+                                            height: isSmallScreen ? 16 : 20,
                                           ),
 
-                                          // Booking Details with better spacing
+                                          // Booking Details
                                           ..._buildAnimatedDetailRows(
-                                            isExtraSmallScreen,
                                             isSmallScreen,
                                           ),
 
                                           SizedBox(
-                                            height:
-                                                isExtraSmallScreen
-                                                    ? 8
-                                                    : isSmallScreen
-                                                    ? 12
-                                                    : 16,
+                                            height: isSmallScreen ? 12 : 16,
                                           ),
 
-                                          // Amount Container with enhanced styling
+                                          // Amount Container
                                           Container(
                                             width: double.infinity,
                                             padding: EdgeInsets.all(
-                                              isExtraSmallScreen
-                                                  ? 10
-                                                  : isSmallScreen
-                                                  ? 12
-                                                  : 16,
+                                              isSmallScreen ? 12 : 16,
                                             ),
                                             decoration: BoxDecoration(
                                               gradient: LinearGradient(
@@ -2054,47 +2155,26 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                                   0.4,
                                                 ),
                                               ),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.green
-                                                      .withOpacity(0.2),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ],
                                             ),
                                             child: Row(
                                               mainAxisAlignment:
                                                   MainAxisAlignment
                                                       .spaceBetween,
                                               children: [
-                                                Flexible(
-                                                  child: Text(
-                                                    '💰 Amount Paid',
-                                                    style: GoogleFonts.poppins(
-                                                      fontSize:
-                                                          isExtraSmallScreen
-                                                              ? 14
-                                                              : isSmallScreen
-                                                              ? 16
-                                                              : 18,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Colors.white,
-                                                    ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
+                                                Text(
+                                                  'Amount Paid',
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize:
+                                                        isSmallScreen ? 16 : 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
                                                   ),
                                                 ),
                                                 Text(
                                                   '₹${bookingAmount.toStringAsFixed(0)}',
                                                   style: GoogleFonts.poppins(
                                                     fontSize:
-                                                        isExtraSmallScreen
-                                                            ? 16
-                                                            : isSmallScreen
-                                                            ? 18
-                                                            : 22,
+                                                        isSmallScreen ? 18 : 22,
                                                     fontWeight: FontWeight.bold,
                                                     color:
                                                         Colors.green.shade300,
@@ -2111,16 +2191,9 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                               },
                             ),
 
-                            SizedBox(
-                              height:
-                                  isExtraSmallScreen
-                                      ? 16
-                                      : isSmallScreen
-                                      ? 20
-                                      : 24,
-                            ),
+                            SizedBox(height: isSmallScreen ? 20 : 24),
 
-                            // Action Buttons with improved animations
+                            // Action Buttons
                             TweenAnimationBuilder<double>(
                               duration: const Duration(milliseconds: 1200),
                               tween: Tween(begin: 0.0, end: 1.0),
@@ -2135,12 +2208,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                         // Download Voucher Button
                                         _buildAnimatedButton(
                                           width: double.infinity,
-                                          height:
-                                              isExtraSmallScreen
-                                                  ? 44
-                                                  : isSmallScreen
-                                                  ? 48
-                                                  : 54,
+                                          height: isSmallScreen ? 48 : 54,
                                           gradient: LinearGradient(
                                             colors: [
                                               Colors.blue.shade400.withOpacity(
@@ -2157,45 +2225,25 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                           shadowColor: Colors.blue.withOpacity(
                                             0.4,
                                           ),
-                                          icon: Icons.download,
+                                          icon: Icons.download_outlined,
                                           text: 'Download Voucher',
-                                          fontSize:
-                                              isExtraSmallScreen
-                                                  ? 14
-                                                  : isSmallScreen
-                                                  ? 16
-                                                  : 18,
-                                          iconSize:
-                                              isExtraSmallScreen
-                                                  ? 18
-                                                  : isSmallScreen
-                                                  ? 20
-                                                  : 22,
+                                          fontSize: isSmallScreen ? 16 : 18,
+                                          iconSize: isSmallScreen ? 20 : 22,
                                           onTap: () async {
                                             Navigator.of(context).pop();
                                             await _generateAndShareBookingPDF();
                                           },
-                                          isSmallScreen: isExtraSmallScreen,
+                                          isSmallScreen: isSmallScreen,
                                         ),
 
                                         SizedBox(
-                                          height:
-                                              isExtraSmallScreen
-                                                  ? 10
-                                                  : isSmallScreen
-                                                  ? 12
-                                                  : 16,
+                                          height: isSmallScreen ? 12 : 16,
                                         ),
 
                                         // Back to Home Button
                                         _buildAnimatedButton(
                                           width: double.infinity,
-                                          height:
-                                              isExtraSmallScreen
-                                                  ? 44
-                                                  : isSmallScreen
-                                                  ? 48
-                                                  : 54,
+                                          height: isSmallScreen ? 48 : 54,
                                           gradient: LinearGradient(
                                             colors: [
                                               Colors.white.withOpacity(0.25),
@@ -2208,25 +2256,15 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                           shadowColor: Colors.black.withOpacity(
                                             0.1,
                                           ),
-                                          icon: Icons.home,
+                                          icon: Icons.home_outlined,
                                           text: 'Back to Home',
-                                          fontSize:
-                                              isExtraSmallScreen
-                                                  ? 14
-                                                  : isSmallScreen
-                                                  ? 16
-                                                  : 18,
-                                          iconSize:
-                                              isExtraSmallScreen
-                                                  ? 18
-                                                  : isSmallScreen
-                                                  ? 20
-                                                  : 22,
+                                          fontSize: isSmallScreen ? 16 : 18,
+                                          iconSize: isSmallScreen ? 20 : 22,
                                           onTap: () {
                                             Navigator.of(context).pop();
                                             Navigator.of(context).pop();
                                           },
-                                          isSmallScreen: isExtraSmallScreen,
+                                          isSmallScreen: isSmallScreen,
                                         ),
                                       ],
                                     ),
@@ -2235,16 +2273,9 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                               },
                             ),
 
-                            SizedBox(
-                              height:
-                                  isExtraSmallScreen
-                                      ? 12
-                                      : isSmallScreen
-                                      ? 16
-                                      : 20,
-                            ),
+                            SizedBox(height: isSmallScreen ? 16 : 20),
 
-                            // Footer Message with fade-in animation
+                            // Footer Message
                             TweenAnimationBuilder<double>(
                               duration: const Duration(milliseconds: 1400),
                               tween: Tween(begin: 0.0, end: 1.0),
@@ -2254,11 +2285,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                   opacity: value,
                                   child: Container(
                                     padding: EdgeInsets.all(
-                                      isExtraSmallScreen
-                                          ? 10
-                                          : isSmallScreen
-                                          ? 12
-                                          : 16,
+                                      isSmallScreen ? 12 : 16,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.08),
@@ -2272,12 +2299,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                         Text(
                                           'Thank you for your booking! 🙏',
                                           style: GoogleFonts.poppins(
-                                            fontSize:
-                                                isExtraSmallScreen
-                                                    ? 12
-                                                    : isSmallScreen
-                                                    ? 14
-                                                    : 16,
+                                            fontSize: isSmallScreen ? 14 : 16,
                                             fontWeight: FontWeight.w600,
                                             color: Colors.white,
                                             height: 1.3,
@@ -2288,12 +2310,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                         Text(
                                           'Please arrive 15 minutes before your slot time.',
                                           style: GoogleFonts.poppins(
-                                            fontSize:
-                                                isExtraSmallScreen
-                                                    ? 11
-                                                    : isSmallScreen
-                                                    ? 12
-                                                    : 14,
+                                            fontSize: isSmallScreen ? 12 : 14,
                                             color: Colors.white70,
                                             height: 1.3,
                                           ),
@@ -2320,21 +2337,18 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
   }
 
   // Helper method to build animated detail rows
-  List<Widget> _buildAnimatedDetailRows(
-    bool isExtraSmallScreen,
-    bool isSmallScreen,
-  ) {
+  List<Widget> _buildAnimatedDetailRows(bool isSmallScreen) {
     final List<Map<String, String>> details = [
-      {'label': '🏟 Turf', 'value': widget.turfName},
-      {'label': '📍 Location', 'value': widget.location},
-      {'label': '⚽ Sport', 'value': selectedSport ?? 'N/A'},
+      {'label': 'Turf', 'value': widget.turfName},
+      {'label': 'Location', 'value': widget.location},
+      {'label': 'Sport', 'value': selectedSport ?? 'N/A'},
       {
-        'label': '📅 Date',
+        'label': 'Date',
         'value':
             '${_selectedDate.day}-${_selectedDate.month}-${_selectedDate.year}',
       },
       {
-        'label': '⏰ Time Slot',
+        'label': 'Time Slot',
         'value':
             '${formatHour(selectedStartHour, isStartAM)} - ${formatHour(selectedEndHour, isEndAM)}',
       },
@@ -2354,33 +2368,16 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
             child: Opacity(
               opacity: value,
               child: Padding(
-                padding: EdgeInsets.symmetric(
-                  vertical:
-                      isExtraSmallScreen
-                          ? 4
-                          : isSmallScreen
-                          ? 6
-                          : 8,
-                ),
+                padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 6 : 8),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width:
-                          isExtraSmallScreen
-                              ? 80
-                              : isSmallScreen
-                              ? 90
-                              : 110,
+                      width: isSmallScreen ? 80 : 100,
                       child: Text(
                         detail['label']!,
                         style: GoogleFonts.poppins(
-                          fontSize:
-                              isExtraSmallScreen
-                                  ? 11
-                                  : isSmallScreen
-                                  ? 13
-                                  : 15,
+                          fontSize: isSmallScreen ? 13 : 15,
                           fontWeight: FontWeight.w500,
                           color: Colors.white70,
                           height: 1.3,
@@ -2391,12 +2388,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                       child: Text(
                         detail['value']!,
                         style: GoogleFonts.poppins(
-                          fontSize:
-                              isExtraSmallScreen
-                                  ? 11
-                                  : isSmallScreen
-                                  ? 13
-                                  : 15,
+                          fontSize: isSmallScreen ? 13 : 15,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                           height: 1.3,
@@ -2429,61 +2421,49 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     required VoidCallback onTap,
     required bool isSmallScreen,
   }) {
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 200),
-      tween: Tween(begin: 1.0, end: 1.0),
-      builder: (context, scale, child) {
-        return Transform.scale(
-          scale: scale,
-          child: Container(
-            width: width,
-            height: height,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(25),
-              border: Border.all(color: borderColor),
-              boxShadow: [
-                BoxShadow(
-                  color: shadowColor,
-                  blurRadius: 15,
-                  offset: const Offset(0, 6),
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: shadowColor,
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(25),
+          onTap: onTap,
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: Colors.white, size: iconSize),
+                SizedBox(width: isSmallScreen ? 8 : 12),
+                Flexible(
+                  child: Text(
+                    text,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(25),
-                onTap: onTap,
-                onTapDown: (_) {
-                  // Add tap animation if needed
-                },
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, color: Colors.white, size: iconSize),
-                      SizedBox(width: isSmallScreen ? 6 : 12),
-                      Flexible(
-                        child: Text(
-                          text,
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: fontSize,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -2513,14 +2493,19 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.symmetric(
+              horizontal: MediaQuery.of(context).size.width < 360 ? 16 : 20,
+              vertical: 16,
+            ),
             child: Column(
               children: [
                 _buildHeader(),
-                _buildSportSearchCard(filteredSports),
+                _buildSportSelectionCard(filteredSports),
                 _buildDateTimeCard(),
                 _buildBookingCard(),
-                const SizedBox(height: 32),
+                SizedBox(
+                  height: MediaQuery.of(context).size.width < 360 ? 24 : 32,
+                ),
               ],
             ),
           ),
@@ -2536,6 +2521,33 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
       DiagnosticsProperty<Animation<double>>(
         '_scaleAnimation',
         _scaleAnimation,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<Animation<double>>('_fadeAnimation', _fadeAnimation),
+    );
+    properties.add(
+      DiagnosticsProperty<Animation<double>>(
+        '_pulseAnimation',
+        _pulseAnimation,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<Animation<double>>(
+        '_cardSlideAnimation',
+        _cardSlideAnimation,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<Animation<Offset>>(
+        '_slideAnimation',
+        _slideAnimation,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<Animation<double>>(
+        '_bounceAnimation',
+        _bounceAnimation,
       ),
     );
   }

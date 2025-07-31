@@ -43,13 +43,33 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
     'Professional',
   ];
 
-  final List<String> positions = [
-    'Batsman',
-    'Striker',
-    'Goalkeeper',
-    'Bowler',
-    'Wicket Keeper',
-  ];
+  // Game-specific positions mapping
+  final Map<String, List<String>> gamePositions = {
+    'Cricket': ['Batsman', 'Bowler', 'All Rounder', 'Wicket Keeper', 'Captain'],
+    'Football': ['Goalkeeper', 'Defender', 'Midfielder', 'Forward', 'Striker'],
+    'Badminton': [
+      'Singles Player',
+      'Doubles Player',
+      'Mixed Doubles',
+      'Left Court',
+      'Right Court',
+    ],
+    'Volleyball': ['Setter', 'Spiker', 'Blocker', 'Libero', 'Server'],
+    'Basketball': [
+      'Point Guard',
+      'Shooting Guard',
+      'Small Forward',
+      'Power Forward',
+      'Center',
+    ],
+    'Pickleball': [
+      'Singles Player',
+      'Doubles Player',
+      'Net Player',
+      'Baseline Player',
+      'Server',
+    ],
+  };
 
   @override
   void initState() {
@@ -58,7 +78,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
     // Initialize default values
     selectedGame = games.first;
     selectedCategory = category.first;
-    selectedPosition = positions.first;
+    selectedPosition = gamePositions[games.first]?.first;
 
     // Initialize animation controllers
     _slideController = AnimationController(
@@ -109,9 +129,47 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 360;
+    final size = MediaQuery.of(context).size;
+    final screenHeight = size.height;
+    final screenWidth = size.width;
+
+    // Responsive breakpoints
+    final isExtraSmall = screenWidth < 320; // Very old/small phones
+    final isSmall = screenWidth < 360; // Small phones
+    final isMedium = screenWidth < 400; // Standard phones
+    final isLarge = screenWidth >= 400; // Large phones/tablets
+
+    // Dynamic sizing based on screen width
+    final baseFontSize =
+        isExtraSmall
+            ? 12.0
+            : isSmall
+            ? 14.0
+            : isMedium
+            ? 16.0
+            : 18.0;
+    final basePadding =
+        isExtraSmall
+            ? 12.0
+            : isSmall
+            ? 16.0
+            : isMedium
+            ? 20.0
+            : 24.0;
+    final baseRadius =
+        isExtraSmall
+            ? 15.0
+            : isSmall
+            ? 18.0
+            : 20.0;
+    final avatarRadius =
+        isExtraSmall
+            ? 25.0
+            : isSmall
+            ? 30.0
+            : isMedium
+            ? 35.0
+            : 40.0;
 
     return Scaffold(
       body: Container(
@@ -130,8 +188,8 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
         child: SafeArea(
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.05,
-              vertical: screenHeight * 0.02,
+              horizontal: basePadding,
+              vertical: basePadding * 0.8,
             ),
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -141,24 +199,39 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Header row
-                    _buildHeader(context, isSmallScreen),
-
-                    SizedBox(height: screenHeight * 0.025),
-
-                    // Profile section
-                    _buildProfileSection(isSmallScreen),
-
-                    SizedBox(height: screenHeight * 0.025),
-
-                    // Info Card
-                    _buildInfoCard(screenWidth, isSmallScreen),
-
-                    SizedBox(height: screenHeight * 0.025),
-
-                    // Tabs
-                    _buildTabs(isSmallScreen),
+                    _buildHeader(
+                      context,
+                      baseFontSize,
+                      basePadding,
+                      baseRadius,
+                    ),
 
                     SizedBox(height: screenHeight * 0.02),
+
+                    // Profile section
+                    _buildProfileSection(
+                      context,
+                      baseFontSize,
+                      basePadding,
+                      avatarRadius,
+                    ),
+
+                    SizedBox(height: screenHeight * 0.02),
+
+                    // Info Card
+                    _buildInfoCard(
+                      context,
+                      baseFontSize,
+                      basePadding,
+                      baseRadius,
+                    ),
+
+                    SizedBox(height: screenHeight * 0.02),
+
+                    // Tabs
+                    _buildTabs(context, baseFontSize, basePadding, baseRadius),
+
+                    SizedBox(height: screenHeight * 0.015),
 
                     Container(
                       height: 1,
@@ -174,7 +247,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                       ),
                     ),
 
-                    SizedBox(height: screenHeight * 0.025),
+                    SizedBox(height: screenHeight * 0.02),
 
                     // Content
                     AnimatedSwitcher(
@@ -194,11 +267,18 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                       child:
                           selectedTab == 'recent'
                               ? buildRecentMatchForm(
-                                screenHeight,
+                                context,
+                                baseFontSize,
+                                basePadding,
+                                baseRadius,
                                 screenWidth,
-                                isSmallScreen,
                               )
-                              : buildPreviousMatchCards(isSmallScreen),
+                              : buildPreviousMatchCards(
+                                context,
+                                baseFontSize,
+                                basePadding,
+                                baseRadius,
+                              ),
                     ),
                   ],
                 ),
@@ -210,7 +290,12 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isSmallScreen) {
+  Widget _buildHeader(
+    BuildContext context,
+    double baseFontSize,
+    double basePadding,
+    double baseRadius,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -230,15 +315,16 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: Colors.white,
+                    size: baseFontSize + 8,
                   ),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
             ),
-            SizedBox(width: isSmallScreen ? 8 : 12),
+            SizedBox(width: basePadding * 0.6),
             TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 800),
@@ -251,7 +337,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                       "MVP",
                       style: GoogleFonts.robotoSlab(
                         color: Colors.white,
-                        fontSize: isSmallScreen ? 20 : 24,
+                        fontSize: baseFontSize + 8,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,
                       ),
@@ -296,14 +382,14 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
             },
             child: Container(
               padding: EdgeInsets.symmetric(
-                vertical: isSmallScreen ? 8 : 10,
-                horizontal: isSmallScreen ? 12 : 16,
+                vertical: basePadding * 0.5,
+                horizontal: basePadding * 0.8,
               ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Colors.pink.shade400, Colors.purple.shade400],
                 ),
-                borderRadius: BorderRadius.circular(25),
+                borderRadius: BorderRadius.circular(baseRadius + 5),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.pink.withOpacity(0.4),
@@ -316,7 +402,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                 "Leaderboard",
                 style: GoogleFonts.robotoSlab(
                   color: Colors.white,
-                  fontSize: isSmallScreen ? 10 : 12,
+                  fontSize: baseFontSize - 2,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -327,7 +413,12 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildProfileSection(bool isSmallScreen) {
+  Widget _buildProfileSection(
+    BuildContext context,
+    double baseFontSize,
+    double basePadding,
+    double avatarRadius,
+  ) {
     return Center(
       child: Column(
         children: [
@@ -356,7 +447,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                   ),
                   padding: const EdgeInsets.all(4),
                   child: CircleAvatar(
-                    radius: isSmallScreen ? 35 : 40,
+                    radius: avatarRadius,
                     backgroundImage: const NetworkImage(
                       'https://i.pravatar.cc/300',
                     ),
@@ -366,7 +457,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
               );
             },
           ),
-          SizedBox(height: isSmallScreen ? 8 : 12),
+          SizedBox(height: basePadding * 0.6),
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0.0, end: 1.0),
             duration: const Duration(milliseconds: 1200),
@@ -377,7 +468,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                   "Hariharan S",
                   style: GoogleFonts.poppins(
                     color: Colors.white,
-                    fontSize: isSmallScreen ? 18 : 20,
+                    fontSize: baseFontSize + 4,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
                   ),
@@ -385,7 +476,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
               );
             },
           ),
-          SizedBox(height: isSmallScreen ? 4 : 6),
+          SizedBox(height: basePadding * 0.3),
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0.0, end: 1.0),
             duration: const Duration(milliseconds: 1400),
@@ -396,8 +487,8 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                   opacity: value,
                   child: Container(
                     padding: EdgeInsets.symmetric(
-                      horizontal: isSmallScreen ? 12 : 16,
-                      vertical: isSmallScreen ? 6 : 8,
+                      horizontal: basePadding,
+                      vertical: basePadding * 0.4,
                     ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -406,7 +497,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                           Colors.orange.withOpacity(0.8),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(basePadding),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.amber.withOpacity(0.3),
@@ -419,7 +510,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                       "MVP points = +250 🪙",
                       style: GoogleFonts.poppins(
                         color: Colors.white,
-                        fontSize: isSmallScreen ? 12 : 14,
+                        fontSize: baseFontSize - 2,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -433,7 +524,12 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildInfoCard(double screenWidth, bool isSmallScreen) {
+  Widget _buildInfoCard(
+    BuildContext context,
+    double baseFontSize,
+    double basePadding,
+    double baseRadius,
+  ) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 1000),
@@ -444,7 +540,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
             opacity: value,
             child: Container(
               width: double.infinity,
-              padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+              padding: EdgeInsets.all(basePadding),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -454,7 +550,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                     const Color(0xFF3D1A4A).withOpacity(0.8),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(baseRadius),
                 border: Border.all(
                   color: Colors.white.withOpacity(0.3),
                   width: 1.5,
@@ -474,7 +570,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       color: Colors.white,
-                      fontSize: isSmallScreen ? 16 : 18,
+                      fontSize: baseFontSize + 2,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -483,7 +579,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       color: Colors.white,
-                      fontSize: isSmallScreen ? 16 : 18,
+                      fontSize: baseFontSize + 2,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -496,28 +592,55 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildTabs(bool isSmallScreen) {
+  Widget _buildTabs(
+    BuildContext context,
+    double baseFontSize,
+    double basePadding,
+    double baseRadius,
+  ) {
     return Center(
       child: Container(
-        padding: const EdgeInsets.all(4),
+        padding: EdgeInsets.all(basePadding * 0.2),
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(baseRadius + 5),
           border: Border.all(color: Colors.white.withOpacity(0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildTabButton('Recent match', 'recent', isSmallScreen),
-            SizedBox(width: isSmallScreen ? 4 : 8),
-            _buildTabButton('Previous match', 'previous', isSmallScreen),
+            Flexible(
+              child: _buildTabButton(
+                'Recent match',
+                'recent',
+                baseFontSize,
+                basePadding,
+                baseRadius,
+              ),
+            ),
+            SizedBox(width: basePadding * 0.2),
+            Flexible(
+              child: _buildTabButton(
+                'Previous match',
+                'previous',
+                baseFontSize,
+                basePadding,
+                baseRadius,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTabButton(String title, String tabValue, bool isSmallScreen) {
+  Widget _buildTabButton(
+    String title,
+    String tabValue,
+    double baseFontSize,
+    double basePadding,
+    double baseRadius,
+  ) {
     final isSelected = selectedTab == tabValue;
 
     return AnimatedContainer(
@@ -531,8 +654,8 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
         },
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: isSmallScreen ? 16 : 20,
-            vertical: isSmallScreen ? 10 : 12,
+            horizontal: basePadding * 0.8,
+            vertical: basePadding * 0.6,
           ),
           decoration: BoxDecoration(
             gradient:
@@ -544,7 +667,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                       ],
                     )
                     : null,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(baseRadius),
             boxShadow:
                 isSelected
                     ? [
@@ -556,12 +679,15 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                     ]
                     : null,
           ),
-          child: Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: isSmallScreen ? 14 : 16,
-              color: Colors.white,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: baseFontSize,
+                color: Colors.white,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
             ),
           ),
         ),
@@ -569,7 +695,12 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget buildPreviousMatchCards(bool isSmallScreen) {
+  Widget buildPreviousMatchCards(
+    BuildContext context,
+    double baseFontSize,
+    double basePadding,
+    double baseRadius,
+  ) {
     final matches = [
       {
         'image': 'https://img.icons8.com/color/2x/soccer-field.png',
@@ -604,11 +735,11 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
           "Previous Games",
           style: GoogleFonts.poppins(
             color: Colors.white,
-            fontSize: isSmallScreen ? 16 : 18,
+            fontSize: baseFontSize + 2,
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: isSmallScreen ? 12 : 16),
+        SizedBox(height: basePadding),
         ...matches.asMap().entries.map((entry) {
           final index = entry.key;
           final match = entry.value;
@@ -622,7 +753,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                 child: Opacity(
                   opacity: value,
                   child: Container(
-                    margin: EdgeInsets.only(bottom: isSmallScreen ? 12 : 16),
+                    margin: EdgeInsets.only(bottom: basePadding),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -630,7 +761,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                           const Color(0xff2a1a35).withOpacity(0.8),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(baseRadius),
                       border: Border.all(
                         color: (match['color'] as Color).withOpacity(0.3),
                         width: 1.5,
@@ -644,15 +775,15 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                       ],
                     ),
                     child: ListTile(
-                      contentPadding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                      contentPadding: EdgeInsets.all(basePadding),
                       leading: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: EdgeInsets.all(basePadding * 0.4),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: (match['color'] as Color).withOpacity(0.2),
                         ),
                         child: CircleAvatar(
-                          radius: isSmallScreen ? 20 : 24,
+                          radius: baseFontSize + 4,
                           backgroundImage: NetworkImage(
                             match['image']! as String,
                           ),
@@ -664,7 +795,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
-                          fontSize: isSmallScreen ? 14 : 16,
+                          fontSize: baseFontSize,
                         ),
                       ),
                       subtitle: Padding(
@@ -673,7 +804,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                           'Slot: ${match['slot']}',
                           style: GoogleFonts.poppins(
                             color: Colors.white70,
-                            fontSize: isSmallScreen ? 12 : 14,
+                            fontSize: baseFontSize - 2,
                           ),
                         ),
                       ),
@@ -685,7 +816,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                               (match['color'] as Color).withOpacity(0.8),
                             ],
                           ),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(baseRadius),
                           boxShadow: [
                             BoxShadow(
                               color: (match['color'] as Color).withOpacity(0.3),
@@ -700,7 +831,11 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(baseRadius),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: basePadding * 0.6,
+                              vertical: basePadding * 0.4,
                             ),
                           ),
                           child: Text(
@@ -708,7 +843,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                             style: GoogleFonts.poppins(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
-                              fontSize: isSmallScreen ? 12 : 14,
+                              fontSize: baseFontSize - 2,
                             ),
                           ),
                         ),
@@ -725,9 +860,11 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
   }
 
   Widget buildRecentMatchForm(
-    double screenHeight,
+    BuildContext context,
+    double baseFontSize,
+    double basePadding,
+    double baseRadius,
     double screenWidth,
-    bool isSmallScreen,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -736,11 +873,11 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
           "Choose Player",
           style: GoogleFonts.inter(
             color: Colors.white,
-            fontSize: isSmallScreen ? 16 : 18,
+            fontSize: baseFontSize + 2,
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: isSmallScreen ? 12 : 16),
+        SizedBox(height: basePadding),
 
         TweenAnimationBuilder<double>(
           tween: Tween(begin: 0.0, end: 1.0),
@@ -752,13 +889,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                 opacity: value,
                 child: Container(
                   width: double.infinity,
-                  // Remove the Stack and Positioned widget approach
-                  padding: EdgeInsets.fromLTRB(
-                    isSmallScreen ? 16 : 20,
-                    isSmallScreen ? 20 : 24,
-                    isSmallScreen ? 16 : 20,
-                    isSmallScreen ? 24 : 28, // Reduced bottom padding
-                  ),
+                  padding: EdgeInsets.all(basePadding),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -768,7 +899,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                         const Color(0xFF241133).withOpacity(0.9),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(25),
+                    borderRadius: BorderRadius.circular(baseRadius + 5),
                     border: Border.all(
                       color: Colors.purple.withOpacity(0.3),
                       width: 1.5,
@@ -787,32 +918,43 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                       _buildTextField(
                         controller: turfController,
                         label: 'Turf name',
-                        isSmallScreen: isSmallScreen,
+                        baseFontSize: baseFontSize,
+                        basePadding: basePadding,
+                        baseRadius: baseRadius,
                       ),
 
-                      SizedBox(height: isSmallScreen ? 16 : 20),
+                      SizedBox(height: basePadding),
 
                       _buildDropdown(
                         value: selectedGame!,
                         items: games,
                         label: 'Game type',
-                        onChanged:
-                            (value) => setState(() => selectedGame = value),
-                        isSmallScreen: isSmallScreen,
+                        onChanged: (value) {
+                          setState(() {
+                            selectedGame = value;
+                            // Reset position when game changes
+                            selectedPosition = gamePositions[value]?.first;
+                          });
+                        },
+                        baseFontSize: baseFontSize,
+                        basePadding: basePadding,
+                        baseRadius: baseRadius,
                       ),
 
-                      SizedBox(height: isSmallScreen ? 16 : 20),
+                      SizedBox(height: basePadding),
 
                       _buildDropdown(
                         value: selectedPosition!,
-                        items: positions,
+                        items: gamePositions[selectedGame] ?? [],
                         label: 'Best player position',
                         onChanged:
                             (value) => setState(() => selectedPosition = value),
-                        isSmallScreen: isSmallScreen,
+                        baseFontSize: baseFontSize,
+                        basePadding: basePadding,
+                        baseRadius: baseRadius,
                       ),
 
-                      SizedBox(height: isSmallScreen ? 16 : 20),
+                      SizedBox(height: basePadding),
 
                       _buildDropdown(
                         value: selectedCategory!,
@@ -820,12 +962,19 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                         label: 'Category',
                         onChanged:
                             (value) => setState(() => selectedCategory = value),
-                        isSmallScreen: isSmallScreen,
+                        baseFontSize: baseFontSize,
+                        basePadding: basePadding,
+                        baseRadius: baseRadius,
                       ),
 
-                      SizedBox(height: isSmallScreen ? 16 : 20),
+                      SizedBox(height: basePadding),
 
-                      _buildRatingRow(isSmallScreen),
+                      _buildRatingRow(
+                        baseFontSize,
+                        basePadding,
+                        baseRadius,
+                        screenWidth,
+                      ),
                     ],
                   ),
                 ),
@@ -834,8 +983,8 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
           },
         ),
 
-        // Move the Continue button outside the container as a separate widget
-        SizedBox(height: isSmallScreen ? 20 : 25),
+        // Continue button
+        SizedBox(height: basePadding * 1.5),
 
         Center(
           child: TweenAnimationBuilder<double>(
@@ -845,13 +994,13 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
               return Transform.scale(
                 scale: 0.8 + (btnValue * 0.2),
                 child: Container(
-                  width: screenWidth * 0.6,
-                  height: isSmallScreen ? 45 : 50,
+                  width: screenWidth * 0.8,
+                  height: basePadding * 2.5,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [Colors.pinkAccent, Colors.purpleAccent],
                     ),
-                    borderRadius: BorderRadius.circular(25),
+                    borderRadius: BorderRadius.circular(baseRadius + 5),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.pink.withOpacity(0.4),
@@ -865,7 +1014,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(baseRadius + 5),
                       ),
                     ),
                     onPressed: () {
@@ -900,7 +1049,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                     child: Text(
                       "Continue",
                       style: GoogleFonts.nunito(
-                        fontSize: isSmallScreen ? 16 : 18,
+                        fontSize: baseFontSize + 2,
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
@@ -919,11 +1068,13 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
-    required bool isSmallScreen,
+    required double baseFontSize,
+    required double basePadding,
+    required double baseRadius,
   }) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(baseRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -934,39 +1085,36 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
       ),
       child: TextField(
         controller: controller,
-        style: GoogleFonts.poppins(
-          color: Colors.white,
-          fontSize: isSmallScreen ? 14 : 16,
-        ),
+        style: GoogleFonts.poppins(color: Colors.white, fontSize: baseFontSize),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: GoogleFonts.poppins(
             color: Colors.white70,
-            fontSize: isSmallScreen ? 14 : 16,
+            fontSize: baseFontSize,
           ),
           filled: true,
           fillColor: const Color(0xFF3A1C4D).withOpacity(0.8),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(baseRadius),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(baseRadius),
             borderSide: BorderSide(
               color: Colors.purple.withOpacity(0.3),
               width: 1,
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(baseRadius),
             borderSide: BorderSide(
               color: Colors.pinkAccent.withOpacity(0.6),
               width: 2,
             ),
           ),
           contentPadding: EdgeInsets.symmetric(
-            horizontal: isSmallScreen ? 16 : 20,
-            vertical: isSmallScreen ? 14 : 16,
+            horizontal: basePadding,
+            vertical: basePadding * 0.8,
           ),
         ),
       ),
@@ -978,11 +1126,13 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
     required List<String> items,
     required String label,
     required ValueChanged<String?> onChanged,
-    required bool isSmallScreen,
+    required double baseFontSize,
+    required double basePadding,
+    required double baseRadius,
   }) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(baseRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -998,38 +1148,36 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
           labelText: label,
           labelStyle: GoogleFonts.poppins(
             color: Colors.white70,
-            fontSize: isSmallScreen ? 14 : 16,
+            fontSize: baseFontSize,
           ),
           filled: true,
           fillColor: const Color(0xFF3A1C4D).withOpacity(0.8),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(baseRadius),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(baseRadius),
             borderSide: BorderSide(
               color: Colors.purple.withOpacity(0.3),
               width: 1,
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(baseRadius),
             borderSide: BorderSide(
               color: Colors.pinkAccent.withOpacity(0.6),
               width: 2,
             ),
           ),
           contentPadding: EdgeInsets.symmetric(
-            horizontal: isSmallScreen ? 16 : 20,
-            vertical: isSmallScreen ? 14 : 16,
+            horizontal: basePadding,
+            vertical: basePadding * 0.8,
           ),
         ),
         iconEnabledColor: Colors.white,
-        style: GoogleFonts.poppins(
-          color: Colors.white,
-          fontSize: isSmallScreen ? 14 : 16,
-        ),
+        iconSize: baseFontSize + 8,
+        style: GoogleFonts.poppins(color: Colors.white, fontSize: baseFontSize),
         items:
             items.map((String item) {
               return DropdownMenuItem<String>(
@@ -1038,17 +1186,24 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                   item,
                   style: GoogleFonts.poppins(
                     color: Colors.white,
-                    fontSize: isSmallScreen ? 14 : 16,
+                    fontSize: baseFontSize,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               );
             }).toList(),
         onChanged: onChanged,
+        isExpanded: true,
       ),
     );
   }
 
-  Widget _buildRatingRow(bool isSmallScreen) {
+  Widget _buildRatingRow(
+    double baseFontSize,
+    double basePadding,
+    double baseRadius,
+    double screenWidth,
+  ) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 1000),
@@ -1058,7 +1213,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
           child: Opacity(
             opacity: value,
             child: Container(
-              padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+              padding: EdgeInsets.all(basePadding * 0.8),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -1066,74 +1221,168 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                     Colors.orange.withOpacity(0.2),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(baseRadius - 5),
                 border: Border.all(
                   color: Colors.amber.withOpacity(0.3),
                   width: 1,
                 ),
               ),
-              child: Row(
-                children: [
-                  Text(
-                    "Turf rating:",
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: isSmallScreen ? 14 : 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(width: isSmallScreen ? 8 : 12),
-                  ...List.generate(4, (index) {
-                    return TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.0, end: 1.0),
-                      duration: Duration(milliseconds: 800 + (index * 100)),
-                      builder: (context, starValue, child) {
-                        return Transform.scale(
-                          scale: 0.5 + (starValue * 0.5),
-                          child: Icon(
-                            Icons.star,
-                            color: const Color(0xffffd537),
-                            size: isSmallScreen ? 18 : 20,
+              child:
+                  screenWidth < 320
+                      ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Turf rating:",
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: baseFontSize,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        );
-                      },
-                    );
-                  }),
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    duration: const Duration(milliseconds: 1200),
-                    builder: (context, starValue, child) {
-                      return Transform.scale(
-                        scale: 0.5 + (starValue * 0.5),
-                        child: Icon(
-                          Icons.star_border,
-                          color: const Color(0xffffd537),
-                          size: isSmallScreen ? 18 : 20,
+                          SizedBox(height: basePadding * 0.4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  ...List.generate(4, (index) {
+                                    return TweenAnimationBuilder<double>(
+                                      tween: Tween(begin: 0.0, end: 1.0),
+                                      duration: Duration(
+                                        milliseconds: 800 + (index * 100),
+                                      ),
+                                      builder: (context, starValue, child) {
+                                        return Transform.scale(
+                                          scale: 0.5 + (starValue * 0.5),
+                                          child: Icon(
+                                            Icons.star,
+                                            color: const Color(0xffffd537),
+                                            size: baseFontSize + 2,
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  }),
+                                  TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0.0, end: 1.0),
+                                    duration: const Duration(
+                                      milliseconds: 1200,
+                                    ),
+                                    builder: (context, starValue, child) {
+                                      return Transform.scale(
+                                        scale: 0.5 + (starValue * 0.5),
+                                        child: Icon(
+                                          Icons.star_border,
+                                          color: const Color(0xffffd537),
+                                          size: baseFontSize + 2,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: basePadding * 0.5,
+                                  vertical: basePadding * 0.3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(
+                                    baseRadius - 12,
+                                  ),
+                                ),
+                                child: Text(
+                                  "4.0",
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.amber,
+                                    fontSize: baseFontSize - 2,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                      : Flexible(
+                        child: Row(
+                          children: [
+                            Text(
+                              "Turf rating:",
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: baseFontSize,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(width: basePadding * 0.3),
+                            Flexible(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ...List.generate(4, (index) {
+                                    return TweenAnimationBuilder<double>(
+                                      tween: Tween(begin: 0.0, end: 1.0),
+                                      duration: Duration(
+                                        milliseconds: 800 + (index * 100),
+                                      ),
+                                      builder: (context, starValue, child) {
+                                        return Transform.scale(
+                                          scale: 0.5 + (starValue * 0.5),
+                                          child: Icon(
+                                            Icons.star,
+                                            color: const Color(0xffffd537),
+                                            size: baseFontSize + 2,
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  }),
+                                  TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0.0, end: 1.0),
+                                    duration: const Duration(
+                                      milliseconds: 1200,
+                                    ),
+                                    builder: (context, starValue, child) {
+                                      return Transform.scale(
+                                        scale: 0.5 + (starValue * 0.5),
+                                        child: Icon(
+                                          Icons.star_border,
+                                          color: const Color(0xffffd537),
+                                          size: baseFontSize + 2,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(width: basePadding * 0.3),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: basePadding * 0.4,
+                                vertical: basePadding * 0.2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(
+                                  baseRadius - 12,
+                                ),
+                              ),
+                              child: Text(
+                                "4.0",
+                                style: GoogleFonts.poppins(
+                                  color: Colors.amber,
+                                  fontSize: baseFontSize - 2,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
-                  SizedBox(width: isSmallScreen ? 8 : 12),
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isSmallScreen ? 8 : 10,
-                      vertical: isSmallScreen ? 4 : 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      "4.0",
-                      style: GoogleFonts.poppins(
-                        color: Colors.amber,
-                        fontSize: isSmallScreen ? 12 : 14,
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         );

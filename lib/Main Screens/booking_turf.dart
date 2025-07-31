@@ -1,10 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:iconify_flutter_plus/icons/zondicons.dart';
 import 'package:lottie/lottie.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:iconify_flutter_plus/iconify_flutter_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'booking_slot.dart'; // adjust the path if needed
 import 'package:direct_call_plus/direct_call_plus.dart';
@@ -546,12 +545,12 @@ class _BookingPageState extends State<BookingPage> {
                                     vertical: 8,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xf4fb965b),
+                                    color: Colors.pinkAccent,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
                                     mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
+                                        MainAxisAlignment.spaceAround,
                                     children: [
                                       Text(
                                         "Contact",
@@ -561,10 +560,10 @@ class _BookingPageState extends State<BookingPage> {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      Iconify(
-                                        Zondicons.phone,
-                                        color: Colors.green,
-                                        size: 15,
+                                      FaIcon(
+                                        FontAwesomeIcons.whatsapp,
+                                        color: Colors.white,
+                                        size: 16,
                                       ),
                                     ],
                                   ),

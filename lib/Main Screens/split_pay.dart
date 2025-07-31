@@ -814,136 +814,337 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
   }
 
   Widget _buildMyTeamSection() {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 800),
-      builder: (context, value, child) {
-        return Transform.translate(
-          offset: Offset(0, 30 * (1 - value)),
-          child: Opacity(
-            opacity: value,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xff4a1554),
-                    Color(0xff3d0d4e),
-                    Color(0xff2d0a3a),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: Colors.purple.withOpacity(0.3),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.purple.withOpacity(0.2),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mediaQuery = MediaQuery.of(context);
+        final screenSize = mediaQuery.size;
+        final screenWidth = screenSize.width;
+        final textScaleFactor = mediaQuery.textScaleFactor;
+
+        // Define screen size categories
+        final isExtraSmall = screenWidth < 320;
+        final isSmall = screenWidth >= 320 && screenWidth < 375;
+        final isMedium = screenWidth >= 375 && screenWidth < 414;
+        final isLarge = screenWidth >= 414 && screenWidth < 480;
+        final isExtraLarge = screenWidth >= 480;
+
+        // Get responsive configuration
+        Map<String, dynamic> getResponsiveConfig() {
+          if (isExtraSmall) {
+            return {
+              'containerPadding': 12.0,
+              'badgePadding': const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
               ),
-              child: Row(
-                children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    duration: const Duration(milliseconds: 600),
-                    builder: (context, animValue, child) {
-                      return Transform.scale(
-                        scale: 0.8 + (0.2 * animValue),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xff9d7aa5),
-                                Color(0xff7d6089),
-                                Color(0xff6d5079),
-                              ],
-                            ),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                              width: 1.5,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.groups,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'TEAM MEMBERS',
-                                style: GoogleFonts.robotoSlab(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.2,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+              'badgeSpacing': 10.0,
+              'iconSize': 14.0,
+              'iconTextSpacing': 6.0,
+              'badgeFontSize': 10.0,
+              'titleFontSize': 14.0,
+              'subtitleFontSize': 11.0,
+              'borderRadius': 12.0,
+              'badgeBorderRadius': 8.0,
+              'letterSpacing': 0.8,
+              'shadowBlur': 12.0,
+              'shadowOffset': 6.0,
+            };
+          } else if (isSmall) {
+            return {
+              'containerPadding': 14.0,
+              'badgePadding': const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 9,
+              ),
+              'badgeSpacing': 12.0,
+              'iconSize': 15.0,
+              'iconTextSpacing': 7.0,
+              'badgeFontSize': 11.0,
+              'titleFontSize': 15.0,
+              'subtitleFontSize': 12.0,
+              'borderRadius': 14.0,
+              'badgeBorderRadius': 9.0,
+              'letterSpacing': 1.0,
+              'shadowBlur': 13.0,
+              'shadowOffset': 7.0,
+            };
+          } else if (isMedium) {
+            return {
+              'containerPadding': 16.0,
+              'badgePadding': const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 10,
+              ),
+              'badgeSpacing': 14.0,
+              'iconSize': 16.0,
+              'iconTextSpacing': 7.0,
+              'badgeFontSize': 12.0,
+              'titleFontSize': 16.0,
+              'subtitleFontSize': 13.0,
+              'borderRadius': 16.0,
+              'badgeBorderRadius': 10.0,
+              'letterSpacing': 1.1,
+              'shadowBlur': 14.0,
+              'shadowOffset': 7.0,
+            };
+          } else if (isLarge) {
+            return {
+              'containerPadding': 18.0,
+              'badgePadding': const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 11,
+              ),
+              'badgeSpacing': 15.0,
+              'iconSize': 17.0,
+              'iconTextSpacing': 8.0,
+              'badgeFontSize': 13.0,
+              'titleFontSize': 17.0,
+              'subtitleFontSize': 13.0,
+              'borderRadius': 17.0,
+              'badgeBorderRadius': 11.0,
+              'letterSpacing': 1.2,
+              'shadowBlur': 15.0,
+              'shadowOffset': 8.0,
+            };
+          } else {
+            return {
+              'containerPadding': 20.0,
+              'badgePadding': const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 12,
+              ),
+              'badgeSpacing': 16.0,
+              'iconSize': 18.0,
+              'iconTextSpacing': 8.0,
+              'badgeFontSize': 14.0,
+              'titleFontSize': 18.0,
+              'subtitleFontSize': 14.0,
+              'borderRadius': 18.0,
+              'badgeBorderRadius': 12.0,
+              'letterSpacing': 1.2,
+              'shadowBlur': 15.0,
+              'shadowOffset': 8.0,
+            };
+          }
+        }
+
+        final config = getResponsiveConfig();
+
+        // Adjust font sizes based on text scale factor
+        final adjustedBadgeSize =
+            (config['badgeFontSize'] as double) /
+            textScaleFactor.clamp(0.8, 1.3);
+        final adjustedTitleSize =
+            (config['titleFontSize'] as double) /
+            textScaleFactor.clamp(0.8, 1.3);
+        final adjustedSubtitleSize =
+            (config['subtitleFontSize'] as double) /
+            textScaleFactor.clamp(0.8, 1.3);
+
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 800),
+          builder: (context, value, child) {
+            return Transform.translate(
+              offset: Offset(0, 30 * (1 - value)),
+              child: Opacity(
+                opacity: value,
+                child: Container(
+                  width: double.infinity,
+                  constraints: BoxConstraints(
+                    maxWidth: isExtraLarge ? 600 : double.infinity,
+                    minHeight: isExtraSmall ? 80 : 100,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ShaderMask(
-                          shaderCallback:
-                              (bounds) => LinearGradient(
-                                colors: [Colors.white, Colors.pink.shade200],
-                              ).createShader(bounds),
-                          child: Text(
-                            'Active Players',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Track payment status',
-                          style: GoogleFonts.poppins(
-                            color: Colors.grey.shade300,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                  padding: EdgeInsets.all(config['containerPadding']),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xff4a1554),
+                        Color(0xff3d0d4e),
+                        Color(0xff2d0a3a),
                       ],
                     ),
+                    borderRadius: BorderRadius.circular(config['borderRadius']),
+                    border: Border.all(
+                      color: Colors.purple.withOpacity(0.3),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.purple.withOpacity(0.2),
+                        blurRadius: config['shadowBlur'],
+                        offset: Offset(0, config['shadowOffset']),
+                      ),
+                    ],
                   ),
+                  child:
+                      isExtraSmall
+                          ? _buildCompactLayout(
+                            config,
+                            adjustedBadgeSize,
+                            adjustedTitleSize,
+                            adjustedSubtitleSize,
+                          )
+                          : _buildStandardLayout(
+                            config,
+                            adjustedBadgeSize,
+                            adjustedTitleSize,
+                            adjustedSubtitleSize,
+                          ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Compact layout for extra small screens
+  Widget _buildCompactLayout(
+    Map<String, dynamic> config,
+    double badgeSize,
+    double titleSize,
+    double subtitleSize,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Badge at top for compact layout
+        _buildTeamMembersBadge(config, badgeSize),
+
+        SizedBox(height: config['badgeSpacing'] * 0.8),
+
+        // Title and subtitle below
+        _buildTitleSection(titleSize, subtitleSize),
+      ],
+    );
+  }
+
+  // Standard layout for larger screens
+  Widget _buildStandardLayout(
+    Map<String, dynamic> config,
+    double badgeSize,
+    double titleSize,
+    double subtitleSize,
+  ) {
+    return Row(
+      children: [
+        // Badge on left
+        _buildTeamMembersBadge(config, badgeSize),
+
+        SizedBox(width: config['badgeSpacing']),
+
+        // Title section on right
+        Expanded(child: _buildTitleSection(titleSize, subtitleSize)),
+      ],
+    );
+  }
+
+  Widget _buildTeamMembersBadge(Map<String, dynamic> config, double fontSize) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 600),
+      builder: (context, animValue, child) {
+        return Transform.scale(
+          scale: 0.8 + (0.2 * animValue),
+          child: Container(
+            padding: config['badgePadding'],
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xff9d7aa5),
+                  Color(0xff7d6089),
+                  Color(0xff6d5079),
                 ],
               ),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1.5,
+              ),
+              borderRadius: BorderRadius.circular(config['badgeBorderRadius']),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.groups,
+                  color: Colors.white,
+                  size: config['iconSize'],
+                ),
+                SizedBox(width: config['iconTextSpacing']),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'TEAM MEMBERS',
+                    style: GoogleFonts.robotoSlab(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: config['letterSpacing'],
+                      fontSize: fontSize,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildTitleSection(double titleSize, double subtitleSize) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ShaderMask(
+          shaderCallback:
+              (bounds) => LinearGradient(
+                colors: [Colors.white, Colors.pink.shade200],
+              ).createShader(bounds),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Active Players',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: titleSize,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Track payment status',
+            style: GoogleFonts.poppins(
+              color: Colors.grey.shade300,
+              fontSize: subtitleSize,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 

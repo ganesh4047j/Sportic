@@ -1555,8 +1555,8 @@ class _BookingPageState extends State<BookingPage>
         final textScaleFactor = MediaQuery.of(context).textScaleFactor;
 
         // Device type detection
-        final isSmallScreen = screenWidth < 360;
-        final isMediumScreen = screenWidth >= 360 && screenWidth < 414;
+        final isSmallScreen = screenWidth < 380;
+        final isMediumScreen = screenWidth >= 380 && screenWidth < 414;
         // final isLargeScreen = screenWidth >= 414;
         final isTablet = screenWidth > 600;
 
@@ -2372,6 +2372,11 @@ class _BookingPageState extends State<BookingPage>
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<Animation<double>>('_sparkleAnimation', _sparkleAnimation));
+    properties.add(
+      DiagnosticsProperty<Animation<double>>(
+        '_sparkleAnimation',
+        _sparkleAnimation,
+      ),
+    );
   }
 }

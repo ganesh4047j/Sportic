@@ -114,12 +114,14 @@ flutter:
   assets:
     - assets/
     - assets/SPORTIC_grad.gif
-    - assets/images/football_pic.png
-    - assets/images/cricket_pic.png
-    - assets/images/tennis_pic.png
+    - assets/images/football.png
+    - assets/images/cricket.png
+    - assets/images/tennis.png
     - assets/images/badminton.png
-    - assets/images/pickleball.png
+    - assets/images/pickle_ball.png
     - assets/images/sportsman.png
+    - assets/images/feedback.png
+    - assets/images/badminton.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

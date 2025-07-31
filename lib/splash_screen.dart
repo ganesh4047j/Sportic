@@ -53,8 +53,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         child: Center(
           child: Image.asset(
             'assets/SPORTIC_grad.gif',
-            width: 400,
-            height: 500,
+            width: 300,
+            height: 400,
             fit: BoxFit.cover,
             gaplessPlayback: true,
           ),

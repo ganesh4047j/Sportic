@@ -244,6 +244,20 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage>
     );
   }
 
+  double _getResponsiveFontSize(double screenWidth, bool isTablet) {
+    if (screenWidth < 320) {
+      return 18; // Very small screens
+    } else if (screenWidth < 360) {
+      return 20; // Small screens
+    } else if (screenWidth < 400) {
+      return 22; // Medium-small screens
+    } else if (isTablet) {
+      return 32; // Tablets
+    } else {
+      return 24; // Default mobile
+    }
+  }
+
   Widget _buildAnimatedTextField(bool isTablet, double screenHeight) {
     return AnimatedBuilder(
       animation: _textFieldAnimation,
@@ -446,38 +460,11 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage>
                             borderRadius: BorderRadius.circular(20),
                             child: Stack(
                               children: [
-                                Image.network(
-                                  "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80",
+                                Image.asset(
+                                  "assets/images/feedback.png",
                                   height: double.infinity,
                                   width: double.infinity,
                                   fit: BoxFit.cover,
-                                  loadingBuilder: (
-                                    context,
-                                    child,
-                                    loadingProgress,
-                                  ) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      color: Colors.grey[800],
-                                      child: const Center(
-                                        child: CircularProgressIndicator(
-                                          color: Colors.pink,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder:
-                                      (context, error, stackTrace) => Container(
-                                        color: Colors.grey[800],
-                                        child: Center(
-                                          child: Text(
-                                            "Failed to load image",
-                                            style: GoogleFonts.outfit(
-                                              color: Colors.white70,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
                                 ),
                                 Container(
                                   decoration: BoxDecoration(
@@ -507,19 +494,27 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage>
                     builder: (context, child) {
                       return Transform.scale(
                         scale: _pulseAnimation.value,
-                        child: Text(
-                          "Share Your Feedback",
-                          style: GoogleFonts.cutive(
-                            fontSize: isTablet ? 32 : 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.pink.withOpacity(0.5),
-                                blurRadius: 10.0,
-                                offset: const Offset(0, 2),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            "Share Your Feedback",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.cutive(
+                              fontSize: _getResponsiveFontSize(
+                                screenWidth,
+                                isTablet,
                               ),
-                            ],
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.pink.withOpacity(0.5),
+                                  blurRadius: 10.0,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );
