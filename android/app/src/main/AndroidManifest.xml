@@ -6,7 +6,7 @@
 
     <application
         android:label="Sportic"
-        android:icon="@drawable/app_logo_modified">
+        android:icon="@drawable/app_logo">
         <activity
             android:name=".MainActivity"
             android:exported="true"

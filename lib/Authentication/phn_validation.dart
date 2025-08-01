@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../Main Screens/home.dart';
 import '../Main Screens/user_details_google.dart';
+import '../Main Screens/user_details_phone.dart';
 import '../Providers/secure_storage_service.dart';
 import '../Providers/validation_provider.dart';
 import '../Services/fcm_token.dart';
@@ -23,8 +24,11 @@ class PhoneLoginScreen extends ConsumerStatefulWidget {
 
 class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen>
     with SingleTickerProviderStateMixin {
-  final String widgetId = '35646c647a66363638303333';
-  final String authToken = '446617Ts2bJlY8z67f9ee70P1';
+  // final String widgetId = '35646c647a66363638303333';
+  // final String authToken = '446617Ts2bJlY8z67f9ee70P1';
+
+  final String widgetId = '3568616a6b6a303036303836'; // Your widgetId
+  final String authToken = '462773THelKRh4S3688c93d9P1'; // Your authToken
   late final AnimationController _controller;
   String? _requestId;
   bool _isLoading = false;
@@ -401,7 +405,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen>
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const HomeScreen(),
+                          builder: (context) => const CollectUserDetailsPage(),
                         ),
                       );
                     },

@@ -302,7 +302,7 @@ class _CollectUserDetailsPageState extends ConsumerState<CollectUserDetailsPage>
                                     ),
                                     child: Lottie.asset(
                                       'assets/welcome_1.json',
-                                      height: safeAreaHeight * 0.1,
+                                      height: 200,
                                       // Reduced from 0.2
                                       fit: BoxFit.contain,
                                     ),

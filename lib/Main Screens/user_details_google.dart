@@ -300,7 +300,7 @@ class _CollectUserDetailsPage1State
                                       ),
                                       child: Lottie.asset(
                                         'assets/welcome_1.json',
-                                        height: safeAreaHeight * 0.1,
+                                        height: 200,
                                         // Further reduced
                                         fit: BoxFit.contain,
                                       ),
