@@ -248,7 +248,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen>
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    "You’re Phone Number",
+                    "Your Phone Number",
                     style: GoogleFonts.robotoSlab(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
