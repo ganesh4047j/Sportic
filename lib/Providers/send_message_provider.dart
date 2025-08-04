@@ -1,156 +1,250 @@
-// // ✅ Updated sendMessageProvider to support UID or Email based login
-//
-// import 'dart:io';
-// import 'package:firebase_storage/firebase_storage.dart';
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:uuid/uuid.dart';
-//
-// final sendMessageProvider = Provider((ref) {
-//   return SendMessageService();
-// });
-//
-// class SendMessageService {
-//   final _uuid = const Uuid();
-//
-//   Future<void> _ensureChatExists(String chatId) async {
-//     final docRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
-//     final doc = await docRef.get();
-//     if (!doc.exists) {
-//       final participants = chatId.split('_');
-//       await docRef.set({
-//         'participants': participants,
-//         'createdAt': FieldValue.serverTimestamp(),
-//         'lastUpdated': FieldValue.serverTimestamp(),
-//       });
-//     } else {
-//       await docRef.update({'lastUpdated': FieldValue.serverTimestamp()});
-//     }
-//   }
-//
-//   Future<void> sendText(String chatId, String text, String fromId) async {
-//     if (fromId.isEmpty) return;
-//
-//     await _ensureChatExists(chatId);
-//
-//     await FirebaseFirestore.instance
-//         .collection('chats')
-//         .doc(chatId)
-//         .collection('messages')
-//         .add({
-//           'text': text,
-//           'from': fromId,
-//           'type': 'text',
-//           'timestamp': FieldValue.serverTimestamp(),
-//           'read': false,
-//         });
-//   }
-//
-//   Future<void> sendImage(String chatId, File imageFile, String fromId) async {
-//     if (fromId.isEmpty) {
-//       debugPrint("❌ sendImage failed: fromId is empty");
-//       return;
-//     }
-//
-//     await _ensureChatExists(chatId);
-//
-//     try {
-//       final fileId = _uuid.v4();
-//       final storageRef = FirebaseStorage.instance.ref().child(
-//         'chat_images/$chatId/$fileId.jpg',
-//       );
-//
-//       await storageRef.putFile(imageFile);
-//       final imageUrl = await storageRef.getDownloadURL();
-//       debugPrint("✅ Uploaded image. URL: $imageUrl");
-//
-//       await FirebaseFirestore.instance
-//           .collection('chats')
-//           .doc(chatId)
-//           .collection('messages')
-//           .add({
-//             'imageUrl': imageUrl,
-//             'from': fromId,
-//             'type': 'image',
-//             'timestamp': FieldValue.serverTimestamp(),
-//             'read': false,
-//           });
-//
-//       debugPrint("✅ Image message sent to chat");
-//     } catch (e) {
-//       debugPrint("❌ Error in sendImage: $e");
-//     }
-//   }
-// }
-
+// send_message_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../Services/notification_service.dart'; // Create this to share _getUserData logic
+import '../Services/notification_service.dart';
 
 final secureStorage = FlutterSecureStorage();
 
-final sendMessageProvider = Provider.family<Future<void>, Map<String, dynamic>>(
-  (ref, data) async {
-    final firestore = FirebaseFirestore.instance;
+class SendMessageNotifier extends StateNotifier<AsyncValue<void>> {
+  SendMessageNotifier() : super(const AsyncValue.data(null));
 
-    final chatId = data['chatId'];
-    final message = data['message'];
-    final receiverUid = data['receiverUid'];
+  Future<void> sendText(String chatId, String text, String myId) async {
+    state = const AsyncValue.loading();
 
-    final senderUid =
-        FirebaseAuth.instance.currentUser?.uid ??
-        await secureStorage.read(key: 'custom_uid');
+    try {
+      final firestore = FirebaseFirestore.instance;
+      String? receiverUid;
 
-    if (senderUid == null ||
-        chatId == null ||
-        receiverUid == null ||
-        message == null) {
-      throw 'Missing data';
+      print('🔥 Attempting to send message to chatId: $chatId');
+
+      // Get receiver ID from chat participants
+      final chatDoc = await firestore.collection('chats').doc(chatId).get();
+
+      if (chatDoc.exists) {
+        print('🔥 Chat document exists');
+        final chatData = chatDoc.data();
+        final participantsData = chatData?['participants'];
+
+        print(
+          '🔥 Participants data: $participantsData (${participantsData.runtimeType})',
+        );
+
+        if (participantsData != null) {
+          // Safe conversion from dynamic list to string list
+          List<String> participants = [];
+          if (participantsData is List) {
+            participants = participantsData.map((e) => e.toString()).toList();
+          }
+
+          print('🔥 Converted participants: $participants');
+
+          // Find receiver (the participant who is not me)
+          for (final participant in participants) {
+            if (participant != myId) {
+              receiverUid = participant;
+              break;
+            }
+          }
+        }
+      } else {
+        print('🔥 Chat document does not exist, creating new chat');
+        // Extract receiver ID from chatId (assuming format like "user1_user2")
+        final parts = chatId.split('_');
+        for (final part in parts) {
+          if (part != myId) {
+            receiverUid = part;
+            break;
+          }
+        }
+
+        if (receiverUid != null) {
+          // Create new chat document
+          await firestore.collection('chats').doc(chatId).set({
+            'participants': [
+              myId,
+              receiverUid,
+            ], // This creates a proper List<String>
+            'lastMessage': text,
+            'lastMessageTime': FieldValue.serverTimestamp(),
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+          print('🔥 Created new chat with participants: [$myId, $receiverUid]');
+        }
+      }
+
+      if (receiverUid == null || receiverUid.isEmpty) {
+        throw Exception(
+          'Could not determine receiver from chatId: $chatId, myId: $myId',
+        );
+      }
+
+      print('🔥 Sending message from $myId to $receiverUid');
+
+      // Create message with consistent structure
+      final messagePayload = {
+        'from': myId,
+        'to': receiverUid,
+        'text': text,
+        'type': 'text',
+        'timestamp': FieldValue.serverTimestamp(),
+        'read': false,
+      };
+
+      // Add message to subcollection
+      await firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add(messagePayload);
+
+      print('🔥 Message added to Firestore');
+
+      // Update chat document with last message info
+      await firestore.collection('chats').doc(chatId).update({
+        'lastMessage': text,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageFrom': myId,
+      });
+
+      print('🔥 Chat document updated');
+
+      // Send FCM Notification
+      await _sendNotification(receiverUid, myId, text);
+
+      state = const AsyncValue.data(null);
+      print('🔥 Message sent successfully');
+    } catch (e, stackTrace) {
+      print('🔥 Error sending message: $e');
+      print('🔥 Stack trace: $stackTrace');
+      state = AsyncValue.error(e, stackTrace);
+      rethrow;
     }
+  }
 
-    final messagePayload = {
-      'senderId': senderUid,
-      'receiverId': receiverUid,
-      'message': message,
-      'timestamp': FieldValue.serverTimestamp(),
-    };
+  Future<void> sendImage(String chatId, String imageUrl, String myId) async {
+    state = const AsyncValue.loading();
 
-    await firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .add(messagePayload);
+    try {
+      final firestore = FirebaseFirestore.instance;
+      String? receiverUid;
 
-    // 🔔 Send FCM Notification
-    final receiverDocEmail =
-        await firestore.collection('user_details_email').doc(receiverUid).get();
-    final receiverDocPhone =
-        await firestore.collection('user_details_phone').doc(receiverUid).get();
-    final receiverData =
-        receiverDocEmail.exists
-            ? receiverDocEmail.data()
-            : receiverDocPhone.data();
+      // Get receiver ID from chat participants
+      final chatDoc = await firestore.collection('chats').doc(chatId).get();
 
-    final fcmToken = receiverData?['fcm_token'];
-    final senderDocEmail =
-        await firestore.collection('user_details_email').doc(senderUid).get();
-    final senderDocPhone =
-        await firestore.collection('user_details_phone').doc(senderUid).get();
-    final senderName =
-        senderDocEmail.data()?['name'] ??
-        senderDocPhone.data()?['name'] ??
-        'Someone';
+      if (chatDoc.exists) {
+        final chatData = chatDoc.data();
+        final participantsData = chatData?['participants'];
 
-    if (fcmToken != null && fcmToken.toString().isNotEmpty) {
-      await FCMService.sendPushNotification(
-        toToken: fcmToken,
-        title: 'New Message',
-        body: '$senderName: $message',
-      );
+        if (participantsData != null) {
+          // Safe conversion from dynamic list to string list
+          List<String> participants = [];
+          if (participantsData is List) {
+            participants = participantsData.map((e) => e.toString()).toList();
+          }
+
+          // Find receiver
+          for (final participant in participants) {
+            if (participant != myId) {
+              receiverUid = participant;
+              break;
+            }
+          }
+        }
+      }
+
+      if (receiverUid == null || receiverUid.isEmpty) {
+        throw Exception('Could not determine receiver for image message');
+      }
+
+      // Create message with consistent structure
+      final messagePayload = {
+        'from': myId,
+        'to': receiverUid,
+        'text': '',
+        'type': 'image',
+        'imageUrl': imageUrl,
+        'timestamp': FieldValue.serverTimestamp(),
+        'read': false,
+      };
+
+      // Add message to subcollection
+      await firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add(messagePayload);
+
+      // Update chat document
+      await firestore.collection('chats').doc(chatId).update({
+        'lastMessage': '📷 Photo',
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageFrom': myId,
+      });
+
+      // Send FCM Notification
+      await _sendNotification(receiverUid, myId, '📷 Photo');
+
+      state = const AsyncValue.data(null);
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+      rethrow;
     }
-  },
-);
+  }
+
+  Future<void> _sendNotification(
+    String receiverUid,
+    String senderUid,
+    String message,
+  ) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      // Get receiver data
+      final receiverDocEmail =
+          await firestore
+              .collection('user_details_email')
+              .doc(receiverUid)
+              .get();
+      final receiverDocPhone =
+          await firestore
+              .collection('user_details_phone')
+              .doc(receiverUid)
+              .get();
+      final receiverData =
+          receiverDocEmail.exists
+              ? receiverDocEmail.data()
+              : receiverDocPhone.data();
+
+      // Get sender data
+      final senderDocEmail =
+          await firestore.collection('user_details_email').doc(senderUid).get();
+      final senderDocPhone =
+          await firestore.collection('user_details_phone').doc(senderUid).get();
+      final senderName =
+          senderDocEmail.data()?['name'] ??
+          senderDocPhone.data()?['name'] ??
+          'Someone';
+
+      final fcmToken = receiverData?['fcm_token'];
+
+      if (fcmToken != null && fcmToken.toString().isNotEmpty) {
+        await FCMService.sendPushNotification(
+          toToken: fcmToken,
+          title: 'New Message from $senderName',
+          body: message,
+        );
+      }
+    } catch (e) {
+      print('Failed to send notification: $e');
+      // Don't throw here, notification failure shouldn't break message sending
+    }
+  }
+}
+
+final sendMessageProvider =
+    StateNotifierProvider<SendMessageNotifier, AsyncValue<void>>(
+      (ref) => SendMessageNotifier(),
+    );

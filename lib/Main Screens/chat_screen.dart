@@ -1,7 +1,6 @@
-// chat_screen.dart
+// chat_screen.dart - Cleaned version without image support
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-//import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -10,7 +9,6 @@ import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import '../Providers/chat_message_providers.dart';
 import '../Providers/send_message_provider.dart';
-import '../Services/images_preview.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String chatId;
@@ -45,6 +43,24 @@ class _ChatPageState extends ConsumerState<ChatPage>
   @override
   void initState() {
     super.initState();
+
+    // Debug parameters
+    print('🔥 ChatPage initialized with:');
+    print('🔥 chatId: ${widget.chatId} (${widget.chatId.runtimeType})');
+    print(
+      '🔥 peerEmail: ${widget.peerEmail} (${widget.peerEmail.runtimeType})',
+    );
+    print('🔥 peerName: ${widget.peerName} (${widget.peerName.runtimeType})');
+    print('🔥 peerUid: ${widget.peerUid} (${widget.peerUid.runtimeType})');
+
+    // Validate parameters
+    if (widget.chatId.isEmpty) {
+      print('🚨 ERROR: Empty chatId');
+    }
+    if (widget.peerUid.isEmpty) {
+      print('🚨 ERROR: Empty peerUid');
+    }
+
     _initIdentifier();
     _initAnimations();
     _controller.addListener(_onTextChanged);
@@ -77,28 +93,100 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Future<void> _initIdentifier() async {
-    final fbUser = FirebaseAuth.instance.currentUser;
-    myId = fbUser?.uid ?? await _secureStorage.read(key: 'custom_uid');
-    if (myId == null) debugPrint("Error: myId is null");
-    setState(() {});
+    try {
+      final fbUser = FirebaseAuth.instance.currentUser;
+      myId = fbUser?.uid ?? await _secureStorage.read(key: 'custom_uid');
+
+      print('🔥 ChatPage myId initialized: $myId');
+
+      if (myId == null || myId!.isEmpty) {
+        print("🚨 ERROR: myId is null or empty");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User authentication error. Please log in again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print('🚨 ERROR in _initIdentifier: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Initialization error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _sendText() async {
     final text = _controller.text.trim();
     if (text.isEmpty || myId == null) return;
 
+    print('🔥 Sending message: "$text" from $myId to chat ${widget.chatId}');
+
+    // Animate send button
     _sendButtonController.forward().then((_) {
       _sendButtonController.reverse();
     });
 
+    // Clear input and reset typing state
     _controller.clear();
     setState(() {
       _isTyping = false;
     });
 
-    await ref
-        .read(sendMessageProvider as ProviderListenable)
-        .sendText(widget.chatId, text, myId!);
+    try {
+      // Use the correct provider method
+      await ref
+          .read(sendMessageProvider.notifier)
+          .sendText(widget.chatId, text, myId!);
+
+      print('🔥 Message sent successfully');
+
+      // Auto-scroll to bottom after sending
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } catch (e) {
+      print('🔥 Failed to send message: $e');
+
+      // Show error message to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send message: $e'),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () {
+                _controller.text = text; // Restore the message
+                setState(() {
+                  _isTyping = text.isNotEmpty;
+                });
+              },
+            ),
+          ),
+        );
+      }
+    }
   }
 
   String _formatTime(dynamic timestamp) {
@@ -132,9 +220,6 @@ class _ChatPageState extends ConsumerState<ChatPage>
     required String text,
     required String time,
     required bool read,
-    required bool isImage,
-    String? imageUrl,
-    required List<String> imageUrls,
     required int index,
   }) {
     return TweenAnimationBuilder<double>(
@@ -224,60 +309,15 @@ class _ChatPageState extends ConsumerState<ChatPage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (isImage && imageUrl != null)
-                              GestureDetector(
-                                onTap: () {
-                                  final imageIndex = imageUrls.indexOf(
-                                    imageUrl,
-                                  );
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (_) => ImagePreviewPage(
-                                            imageUrls: imageUrls,
-                                            initialIndex: imageIndex,
-                                          ),
-                                    ),
-                                  );
-                                },
-                                child: Hero(
-                                  tag: imageUrl,
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(
-                                              0.2,
-                                            ),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Image.network(
-                                        imageUrl,
-                                        width:
-                                            MediaQuery.of(context).size.width *
-                                            0.5,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              )
-                            else
-                              Text(
-                                text,
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                softWrap: true,
+                            Text(
+                              text,
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
                               ),
+                              softWrap: true,
+                            ),
                             const SizedBox(height: 6),
                             Row(
                               mainAxisSize: MainAxisSize.min,
@@ -475,82 +515,79 @@ class _ChatPageState extends ConsumerState<ChatPage>
                             );
                             List<Widget> messageWidgets = [];
                             String? lastDateLabel;
-                            final imageUrls =
-                                messages
-                                    .where(
-                                      (m) =>
-                                          m['type'] == 'image' &&
-                                          m['imageUrl'] != null,
-                                    )
-                                    .map((m) => m['imageUrl'] as String)
-                                    .toList();
 
                             for (int i = 0; i < messages.length; i++) {
-                              final msg = messages[i];
-                              final isMe =
-                                  msg['from']?.toString().trim() ==
-                                  myId?.trim();
-                              final isImage = msg['type'] == 'image';
-                              final imageUrl = msg['imageUrl'];
-                              final text = msg['text'] ?? '';
-                              final read = msg['read'] == true;
-                              final timestamp = msg['timestamp'];
-                              final time = _formatTime(timestamp);
-                              final currentDateLabel = _getDateLabel(timestamp);
+                              try {
+                                final msg = messages[i];
+                                final isMe =
+                                    msg['from']?.toString().trim() ==
+                                    myId?.trim();
+                                final text = msg['text']?.toString() ?? '';
+                                final read = msg['read'] == true;
+                                final timestamp = msg['timestamp'];
+                                final time = _formatTime(timestamp);
+                                final currentDateLabel = _getDateLabel(
+                                  timestamp,
+                                );
 
-                              if (lastDateLabel != currentDateLabel) {
-                                messageWidgets.add(
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    child: Center(
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(
-                                            20,
+                                // Add date label if needed
+                                if (lastDateLabel != currentDateLabel) {
+                                  messageWidgets.add(
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      child: Center(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 8,
                                           ),
-                                          border: Border.all(
+                                          decoration: BoxDecoration(
                                             color: Colors.white.withOpacity(
-                                              0.2,
+                                              0.15,
                                             ),
-                                            width: 1,
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(
+                                                0.2,
+                                              ),
+                                              width: 1,
+                                            ),
                                           ),
-                                        ),
-                                        child: Text(
-                                          currentDateLabel,
-                                          style: GoogleFonts.poppins(
-                                            color: Colors.white.withOpacity(
-                                              0.9,
+                                          child: Text(
+                                            currentDateLabel,
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.white.withOpacity(
+                                                0.9,
+                                              ),
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
                                             ),
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
                                       ),
                                     ),
+                                  );
+                                  lastDateLabel = currentDateLabel;
+                                }
+
+                                // Add message bubble
+                                messageWidgets.add(
+                                  _buildMessageBubble(
+                                    isMe: isMe,
+                                    text: text,
+                                    time: time,
+                                    read: read,
+                                    index: i,
                                   ),
                                 );
-                                lastDateLabel = currentDateLabel;
+                              } catch (e) {
+                                print('🚨 Error processing message $i: $e');
+                                continue; // Skip this message but continue with others
                               }
-
-                              messageWidgets.add(
-                                _buildMessageBubble(
-                                  isMe: isMe,
-                                  text: text,
-                                  time: time,
-                                  read: read,
-                                  isImage: isImage,
-                                  imageUrl: imageUrl,
-                                  imageUrls: imageUrls,
-                                  index: i,
-                                ),
-                              );
                             }
 
                             return ListView(
@@ -586,11 +623,33 @@ class _ChatPageState extends ConsumerState<ChatPage>
                                       color: Colors.red.withOpacity(0.3),
                                     ),
                                   ),
-                                  child: Text(
-                                    'Error: $e',
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.red.shade300,
-                                    ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.error_outline,
+                                        color: Colors.red.shade300,
+                                        size: 48,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Error loading messages',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.red.shade300,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '$e',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.red.shade200,
+                                          fontSize: 12,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -710,7 +769,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                                   decoration: const BoxDecoration(
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(
+                                  child: const Icon(
                                     Icons.send_rounded,
                                     color: Colors.white,
                                     size: 24,

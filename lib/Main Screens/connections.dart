@@ -816,26 +816,98 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage>
                                                                 ),
                                                             onTap: () async {
                                                               try {
+                                                                print(
+                                                                  '🔥 Starting chat navigation...',
+                                                                );
+
+                                                                // Get current user ID safely
                                                                 final currentUserUid =
                                                                     await ref.read(
                                                                       currentUserIdProvider
                                                                           .future,
                                                                     );
-                                                                final peerUid =
-                                                                    user['uid'];
+                                                                print(
+                                                                  '🔥 Current user UID: $currentUserUid',
+                                                                );
 
-                                                                if (peerUid ==
+                                                                // Extract peer UID safely
+                                                                final peerUidRaw =
+                                                                    user['uid'];
+                                                                print(
+                                                                  '🔥 Raw peer UID: $peerUidRaw (${peerUidRaw.runtimeType})',
+                                                                );
+
+                                                                if (peerUidRaw ==
                                                                     null) {
                                                                   throw Exception(
-                                                                    'Missing user IDs',
+                                                                    'Missing peer UID in user data',
                                                                   );
                                                                 }
 
+                                                                // Convert to string safely
+                                                                final peerUid =
+                                                                    peerUidRaw
+                                                                        .toString()
+                                                                        .trim();
+                                                                if (peerUid
+                                                                    .isEmpty) {
+                                                                  throw Exception(
+                                                                    'Empty peer UID',
+                                                                  );
+                                                                }
+
+                                                                print(
+                                                                  '🔥 Safe peer UID: $peerUid',
+                                                                );
+
+                                                                // Convert current user ID to string safely
+                                                                final safeCurrentUserUid =
+                                                                    currentUserUid
+                                                                        .toString()
+                                                                        .trim();
+                                                                if (safeCurrentUserUid
+                                                                    .isEmpty) {
+                                                                  throw Exception(
+                                                                    'Empty current user UID',
+                                                                  );
+                                                                }
+
+                                                                print(
+                                                                  '🔥 Safe current user UID: $safeCurrentUserUid',
+                                                                );
+
+                                                                // Generate chat ID safely
                                                                 final resolvedChatId =
                                                                     generateChatId(
                                                                       peerUid,
-                                                                      currentUserUid,
+                                                                      safeCurrentUserUid,
                                                                     );
+                                                                print(
+                                                                  '🔥 Generated chat ID: $resolvedChatId',
+                                                                );
+
+                                                                // Extract other user data safely
+                                                                final peerName =
+                                                                    (user['name'] ??
+                                                                            user['displayName'] ??
+                                                                            'Unknown')
+                                                                        .toString();
+                                                                final peerEmail =
+                                                                    (user['email'] ??
+                                                                            '')
+                                                                        .toString();
+
+                                                                print(
+                                                                  '🔥 Peer name: $peerName',
+                                                                );
+                                                                print(
+                                                                  '🔥 Peer email: $peerEmail',
+                                                                );
+
+                                                                // Navigate to chat
+                                                                if (!context
+                                                                    .mounted)
+                                                                  return;
 
                                                                 Navigator.push(
                                                                   context,
@@ -849,23 +921,46 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage>
                                                                           peerUid:
                                                                               peerUid,
                                                                           peerName:
-                                                                              user['name'] ??
-                                                                              '',
+                                                                              peerName,
                                                                           peerEmail:
-                                                                              '',
+                                                                              peerEmail,
                                                                         ),
                                                                   ),
                                                                 );
-                                                              } catch (e) {
-                                                                ScaffoldMessenger.of(
-                                                                  context,
-                                                                ).showSnackBar(
-                                                                  SnackBar(
-                                                                    content: Text(
-                                                                      'Failed to open chat: $e',
-                                                                    ),
-                                                                  ),
+
+                                                                print(
+                                                                  '🔥 Navigation completed successfully',
                                                                 );
+                                                              } catch (
+                                                                e,
+                                                                stackTrace
+                                                              ) {
+                                                                print(
+                                                                  '🔥 Navigation error: $e',
+                                                                );
+                                                                print(
+                                                                  '🔥 Stack trace: $stackTrace',
+                                                                );
+
+                                                                if (context
+                                                                    .mounted) {
+                                                                  ScaffoldMessenger.of(
+                                                                    context,
+                                                                  ).showSnackBar(
+                                                                    SnackBar(
+                                                                      content: Text(
+                                                                        'Failed to open chat: $e',
+                                                                      ),
+                                                                      backgroundColor:
+                                                                          Colors
+                                                                              .red,
+                                                                      duration: const Duration(
+                                                                        seconds:
+                                                                            3,
+                                                                      ),
+                                                                    ),
+                                                                  );
+                                                                }
                                                               }
                                                             },
                                                             child: Padding(

@@ -84,28 +84,34 @@ class _ProfileViewState extends ConsumerState<ProfileView>
     super.dispose();
   }
 
-  // Enhanced responsive breakpoints and calculations
-  ResponsiveConfig _getResponsiveConfig(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final width = size.width;
-    final height = size.height;
-
-    // Device categories with better breakpoints
-    if (width <= 320) {
-      // Very small phones (iPhone SE 1st gen, small Android)
-      return ResponsiveConfig.extraSmall(width, height);
-    } else if (width <= 360) {
-      // Small phones (iPhone SE 2nd/3rd gen, Pixel 4a)
-      return ResponsiveConfig.small(width, height);
-    } else if (width <= 390) {
-      // Medium phones (iPhone 12 mini, iPhone 13 mini)
-      return ResponsiveConfig.medium(width, height);
-    } else if (width <= 428) {
-      // Large phones (iPhone 12/13/14, Pixel 6)
-      return ResponsiveConfig.large(width, height);
+  // Helper method to get responsive padding
+  EdgeInsets _getResponsivePadding(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth < 360) {
+      return const EdgeInsets.all(12);
+    } else if (screenWidth < 414) {
+      return const EdgeInsets.all(16);
     } else {
-      // Extra large phones and small tablets
-      return ResponsiveConfig.extraLarge(width, height);
+      return const EdgeInsets.all(20);
+    }
+  }
+
+  // Helper method to get responsive font size
+  double _getResponsiveFontSize(BuildContext context, double baseSize) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final scaleFactor = screenWidth / 375; // Base width of iPhone 6/7/8
+    return (baseSize * scaleFactor).clamp(baseSize * 0.8, baseSize * 1.2);
+  }
+
+  // Helper method to get responsive avatar radius
+  double _getAvatarRadius(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth < 360) {
+      return 40;
+    } else if (screenWidth < 414) {
+      return 45;
+    } else {
+      return 50;
     }
   }
 
@@ -114,7 +120,7 @@ class _ProfileViewState extends ConsumerState<ProfileView>
     final profileAsync = ref.watch(userProfileProvider(widget.userId));
     final isFriendAsync = ref.watch(friendshipStatusProvider(widget.userId));
     final friendsCountAsync = ref.watch(friendsCountProvider(widget.userId));
-    final config = _getResponsiveConfig(context);
+    final responsivePadding = _getResponsivePadding(context);
 
     return Scaffold(
       body: Container(
@@ -141,21 +147,915 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                         child: Column(
                           children: [
                             // Enhanced Header Section
-                            _buildHeader(config),
-                            SizedBox(height: config.sectionSpacing),
-                            // Enhanced Profile Row Section - FIXED
-                            _buildProfileSection(
-                              user,
-                              isFriendAsync,
-                              friendsCountAsync,
-                              config,
+                            AnimatedBuilder(
+                              animation: _headerAnimation,
+                              builder: (context, child) {
+                                final clampedValue = _headerAnimation.value
+                                    .clamp(0.0, 1.0);
+                                return Transform.scale(
+                                  scale: clampedValue,
+                                  child: Opacity(
+                                    opacity: clampedValue,
+                                    child: Container(
+                                      padding: responsivePadding,
+                                      margin: EdgeInsets.symmetric(
+                                        horizontal: responsivePadding.left,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.05),
+                                        borderRadius: const BorderRadius.only(
+                                          bottomLeft: Radius.circular(30),
+                                          bottomRight: Radius.circular(30),
+                                        ),
+                                        border: Border(
+                                          bottom: BorderSide(
+                                            color: Colors.white.withOpacity(
+                                              0.1,
+                                            ),
+                                            width: 1,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () => Navigator.pop(context),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(
+                                                  0.1,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                border: Border.all(
+                                                  color: Colors.white24,
+                                                  width: 1,
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withOpacity(0.1),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 4),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Icon(
+                                                Icons.arrow_back_ios_new,
+                                                color: Colors.white,
+                                                size: 20,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  "Player Profile",
+                                                  style: GoogleFonts.nunito(
+                                                    color: Colors.white,
+                                                    fontSize:
+                                                        _getResponsiveFontSize(
+                                                          context,
+                                                          24,
+                                                        ),
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  "View player details and stats",
+                                                  style: GoogleFonts.nunito(
+                                                    color: Colors.white70,
+                                                    fontSize:
+                                                        _getResponsiveFontSize(
+                                                          context,
+                                                          14,
+                                                        ),
+                                                    fontWeight: FontWeight.w400,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFFE60073,
+                                              ).withOpacity(0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: const Color(
+                                                  0xFFE60073,
+                                                ).withOpacity(0.3),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: const Icon(
+                                              Icons.sports,
+                                              color: Color(0xFFE60073),
+                                              size: 24,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                            SizedBox(height: config.smallSpacing),
-                            // Bio Section
-                            _buildBioSection(user, config),
-                            SizedBox(height: config.sectionSpacing),
+
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.04,
+                            ),
+
+                            // Enhanced Profile Avatar Section
+                            AnimatedBuilder(
+                              animation: _profileAnimation,
+                              builder: (context, child) {
+                                final clampedValue = _profileAnimation.value
+                                    .clamp(0.0, 1.0);
+                                return Transform.scale(
+                                  scale: clampedValue,
+                                  child: Opacity(
+                                    opacity: clampedValue,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            Color(0xFFE60073),
+                                            Color(0xFFFF6B9D),
+                                            Color(0xFFE60073),
+                                          ],
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(
+                                              0xFFE60073,
+                                            ).withOpacity(0.4),
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Color(0xFF3D1A4A),
+                                        ),
+                                        child: CircleAvatar(
+                                          backgroundImage: NetworkImage(
+                                            user.photoUrl ?? '',
+                                          ),
+                                          radius: _getAvatarRadius(context),
+                                          backgroundColor: Colors.grey.shade800,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            SizedBox(
+                              height:
+                                  MediaQuery.of(context).size.height * 0.025,
+                            ),
+
+                            // Enhanced Name Section
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: responsivePadding.left,
+                              ),
+                              child: Text(
+                                    user.name,
+                                    style: GoogleFonts.nunito(
+                                      fontSize: _getResponsiveFontSize(
+                                        context,
+                                        28,
+                                      ),
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  )
+                                  .animate()
+                                  .fadeIn(delay: 400.ms)
+                                  .slideY(begin: 0.3),
+                            ),
+
+                            // Enhanced Bio Section
+                            if (_isEditingBio && currentUser?.uid == user.uid)
+                              Container(
+                                margin: responsivePadding,
+                                padding: responsivePadding,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.1),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(
+                                              0xFFE60073,
+                                            ).withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.edit,
+                                            color: Color(0xFFE60073),
+                                            size: 20,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            "Edit Bio",
+                                            style: GoogleFonts.nunito(
+                                              color: Colors.white,
+                                              fontSize: _getResponsiveFontSize(
+                                                context,
+                                                18,
+                                              ),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    TextField(
+                                      controller: _bioController,
+                                      maxLines: null,
+                                      style: GoogleFonts.nunito(
+                                        color: Colors.white,
+                                        fontSize: _getResponsiveFontSize(
+                                          context,
+                                          16,
+                                        ),
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: "Enter your bio...",
+                                        hintStyle: GoogleFonts.nunito(
+                                          color: Colors.white54,
+                                          fontSize: _getResponsiveFontSize(
+                                            context,
+                                            14,
+                                          ),
+                                        ),
+                                        filled: true,
+                                        fillColor: Colors.white.withOpacity(
+                                          0.08,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                            color: Colors.white.withOpacity(
+                                              0.2,
+                                            ),
+                                            width: 1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFFE60073),
+                                            width: 2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Flexible(
+                                          child: TextButton(
+                                            onPressed:
+                                                () => setState(
+                                                  () => _isEditingBio = false,
+                                                ),
+                                            style: TextButton.styleFrom(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal:
+                                                    MediaQuery.of(
+                                                      context,
+                                                    ).size.width *
+                                                    0.04,
+                                                vertical: 12,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              "Cancel",
+                                              style: GoogleFonts.nunito(
+                                                color: Colors.redAccent,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize:
+                                                    _getResponsiveFontSize(
+                                                      context,
+                                                      14,
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Flexible(
+                                          child: ElevatedButton(
+                                            onPressed: () async {
+                                              await FirebaseFirestore.instance
+                                                  .collection(
+                                                    user.uid.startsWith("phone")
+                                                        ? 'user_details_phone'
+                                                        : 'user_details_email',
+                                                  )
+                                                  .doc(user.uid)
+                                                  .update({
+                                                    'bio':
+                                                        _bioController.text
+                                                            .trim(),
+                                                  });
+                                              setState(
+                                                () => _isEditingBio = false,
+                                              );
+                                              ref.refresh(
+                                                userProfileProvider(user.uid),
+                                              );
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.green,
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal:
+                                                    MediaQuery.of(
+                                                      context,
+                                                    ).size.width *
+                                                    0.04,
+                                                vertical: 12,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              "Save",
+                                              style: GoogleFonts.nunito(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize:
+                                                    _getResponsiveFontSize(
+                                                      context,
+                                                      14,
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              Container(
+                                    margin: responsivePadding,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.05),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.1),
+                                        width: 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(
+                                                0.1,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Icon(
+                                              Icons.info_outline,
+                                              color: Color(0xFFE60073),
+                                              size: 20,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              (user.bio ?? '').isNotEmpty
+                                                  ? user.bio!
+                                                  : "No bio available.",
+                                              style: GoogleFonts.nunito(
+                                                color: Colors.white70,
+                                                fontSize:
+                                                    _getResponsiveFontSize(
+                                                      context,
+                                                      15,
+                                                    ),
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                            ),
+                                          ),
+                                          if (currentUser?.uid == user.uid)
+                                            GestureDetector(
+                                              onTap: () {
+                                                setState(() {
+                                                  _isEditingBio = true;
+                                                  _bioController.text =
+                                                      user.bio ?? "";
+                                                });
+                                              },
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  8,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white
+                                                      .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.edit,
+                                                  color: Colors.white70,
+                                                  size: 18,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                  .animate()
+                                  .fadeIn(delay: 500.ms)
+                                  .slideX(begin: -0.3),
+
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.02,
+                            ),
+
+                            // Enhanced Location Section
+                            if (user.location != null)
+                              Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal:
+                                          MediaQuery.of(context).size.width *
+                                          0.04,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.2),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.location_on,
+                                          color: Color(0xFFE60073),
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            user.location!,
+                                            style: GoogleFonts.nunito(
+                                              color: Colors.white70,
+                                              fontSize: _getResponsiveFontSize(
+                                                context,
+                                                14,
+                                              ),
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                  .animate()
+                                  .fadeIn(delay: 600.ms)
+                                  .scale(begin: const Offset(0.8, 0.8)),
+
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.02,
+                            ),
+
+                            // Enhanced Friends Count
+                            friendsCountAsync.when(
+                              data:
+                                  (count) => Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal:
+                                              MediaQuery.of(
+                                                context,
+                                              ).size.width *
+                                              0.05,
+                                          vertical: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              const Color(
+                                                0xFFE60073,
+                                              ).withOpacity(0.2),
+                                              const Color(
+                                                0xFFFF6B9D,
+                                              ).withOpacity(0.1),
+                                            ],
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(
+                                              0xFFE60073,
+                                            ).withOpacity(0.3),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              Icons.people,
+                                              color: Color(0xFFE60073),
+                                              size: 18,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '$count Friends',
+                                              style: GoogleFonts.nunito(
+                                                color: Colors.white,
+                                                fontSize:
+                                                    _getResponsiveFontSize(
+                                                      context,
+                                                      16,
+                                                    ),
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                      .animate()
+                                      .fadeIn(delay: 700.ms)
+                                      .scale(begin: const Offset(0.8, 0.8)),
+                              loading:
+                                  () => Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                              error:
+                                  (_, __) => Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal:
+                                          MediaQuery.of(context).size.width *
+                                          0.04,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: Colors.red.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      "Failed to load friends",
+                                      style: GoogleFonts.nunito(
+                                        color: Colors.redAccent,
+                                        fontSize: _getResponsiveFontSize(
+                                          context,
+                                          14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                            ),
+
+                            SizedBox(
+                              height:
+                                  MediaQuery.of(context).size.height * 0.025,
+                            ),
+
+                            // Enhanced Action Button
+                            AnimatedBuilder(
+                              animation: _actionButtonAnimation,
+                              builder: (context, child) {
+                                final clampedValue = _actionButtonAnimation
+                                    .value
+                                    .clamp(0.0, 1.0);
+                                return Transform.scale(
+                                  scale: clampedValue,
+                                  child: Opacity(
+                                    opacity: clampedValue,
+                                    child: isFriendAsync.when(
+                                      data: (isFriend) {
+                                        return isFriend
+                                            ? Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal:
+                                                    MediaQuery.of(
+                                                      context,
+                                                    ).size.width *
+                                                    0.06,
+                                                vertical: 12,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                gradient: const LinearGradient(
+                                                  colors: [
+                                                    Colors.green,
+                                                    Colors.greenAccent,
+                                                  ],
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(25),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.green
+                                                        .withOpacity(0.4),
+                                                    blurRadius: 12,
+                                                    offset: const Offset(0, 6),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.check_circle,
+                                                    color: Colors.white,
+                                                    size: 20,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    "Friend",
+                                                    style: GoogleFonts.nunito(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize:
+                                                          _getResponsiveFontSize(
+                                                            context,
+                                                            16,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            )
+                                            : Container(
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(25),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: const Color(
+                                                      0xFFE60073,
+                                                    ).withOpacity(0.4),
+                                                    blurRadius: 12,
+                                                    offset: const Offset(0, 6),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: ElevatedButton.icon(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: const Color(
+                                                    0xFFE60073,
+                                                  ),
+                                                  foregroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          25,
+                                                        ),
+                                                  ),
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal:
+                                                        MediaQuery.of(
+                                                          context,
+                                                        ).size.width *
+                                                        0.06,
+                                                    vertical: 12,
+                                                  ),
+                                                  elevation: 0,
+                                                ),
+                                                onPressed: () async {
+                                                  await sendFriendRequest(
+                                                    user.uid,
+                                                  );
+                                                  ref.invalidate(
+                                                    friendshipStatusProvider(
+                                                      user.uid,
+                                                    ),
+                                                  );
+                                                },
+                                                icon: const Icon(
+                                                  Icons.person_add,
+                                                  size: 20,
+                                                ),
+                                                label: Text(
+                                                  "Add Friend",
+                                                  style: GoogleFonts.nunito(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize:
+                                                        _getResponsiveFontSize(
+                                                          context,
+                                                          16,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                      },
+                                      loading:
+                                          () => Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(
+                                                0.1,
+                                              ),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
+                                              ),
+                                            ),
+                                          ),
+                                      error:
+                                          (_, __) => Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal:
+                                                  MediaQuery.of(
+                                                    context,
+                                                  ).size.width *
+                                                  0.05,
+                                              vertical: 12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.withOpacity(
+                                                0.2,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              border: Border.all(
+                                                color: Colors.red.withOpacity(
+                                                  0.3,
+                                                ),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              "Error checking friend status",
+                                              style: GoogleFonts.nunito(
+                                                color: Colors.redAccent,
+                                                fontSize:
+                                                    _getResponsiveFontSize(
+                                                      context,
+                                                      14,
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.04,
+                            ),
+
                             // Enhanced TabBar
-                            _buildTabBar(config),
+                            Container(
+                                  margin: responsivePadding,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(25),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.1),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: TabBar(
+                                    controller: _tabController,
+                                    labelColor: Colors.white,
+                                    unselectedLabelColor: Colors.white54,
+                                    indicator: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFFE60073),
+                                          Color(0xFFFF6B9D),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(25),
+                                    ),
+                                    indicatorSize: TabBarIndicatorSize.tab,
+                                    labelStyle: GoogleFonts.nunito(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: _getResponsiveFontSize(
+                                        context,
+                                        14,
+                                      ),
+                                    ),
+                                    unselectedLabelStyle: GoogleFonts.nunito(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: _getResponsiveFontSize(
+                                        context,
+                                        14,
+                                      ),
+                                    ),
+                                    tabs: const [
+                                      Tab(text: "Stats"),
+                                      Tab(text: "Achievements"),
+                                      Tab(text: "Clubs"),
+                                    ],
+                                  ),
+                                )
+                                .animate()
+                                .fadeIn(delay: 800.ms)
+                                .slideY(begin: 0.3),
                           ],
                         ),
                       ),
@@ -163,941 +1063,96 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                 body: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildStatsTab(user, config),
-                    _buildAchievementsTab(config),
-                    _buildClubsTab(config),
+                    _buildStatsTab(user),
+                    _buildAchievementsTab(),
+                    _buildClubsTab(),
                   ],
                 ),
               ),
             );
           },
-          loading: () => _buildLoadingState(config),
-          error: (e, _) => _buildErrorState(e, config),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(ResponsiveConfig config) {
-    return AnimatedBuilder(
-      animation: _headerAnimation,
-      builder: (context, child) {
-        final clampedValue = _headerAnimation.value.clamp(0.0, 1.0);
-        return Transform.scale(
-          scale: clampedValue,
-          child: Opacity(
-            opacity: clampedValue,
-            child: Container(
-              margin: EdgeInsets.symmetric(
-                horizontal: config.horizontalPadding,
-              ),
-              padding: EdgeInsets.all(config.contentPadding),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(config.borderRadius),
-                  bottomRight: Radius.circular(config.borderRadius),
-                ),
-                border: Border(
-                  bottom: BorderSide(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Back button
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: EdgeInsets.all(config.iconPadding),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(
-                          config.smallBorderRadius,
-                        ),
-                        border: Border.all(color: Colors.white24, width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.arrow_back_ios_new,
-                        color: Colors.white,
-                        size: config.iconSize,
+          loading:
+              () => const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFFE60073),
                       ),
                     ),
-                  ),
-                  SizedBox(width: config.mediumSpacing),
-                  // Title section
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            "Player Profile",
-                            style: GoogleFonts.nunito(
-                              color: Colors.white,
-                              fontSize: config.titleFontSize,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: config.tinySpacing),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            "View player details and stats",
-                            style: GoogleFonts.nunito(
-                              color: Colors.white70,
-                              fontSize: config.subtitleFontSize,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: config.smallSpacing),
-                  // Sports icon
-                  Container(
-                    padding: EdgeInsets.all(config.iconPadding),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE60073).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(
-                        config.smallBorderRadius,
-                      ),
-                      border: Border.all(
-                        color: const Color(0xFFE60073).withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.sports,
-                      color: const Color(0xFFE60073),
-                      size: config.iconSize,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // COMPLETELY REDESIGNED RESPONSIVE PROFILE SECTION
-  Widget _buildProfileSection(
-    UserModel user,
-    AsyncValue<bool> isFriendAsync,
-    AsyncValue<int> friendsCountAsync,
-    ResponsiveConfig config,
-  ) {
-    return AnimatedBuilder(
-      animation: _profileAnimation,
-      builder: (context, child) {
-        final clampedValue = _profileAnimation.value.clamp(0.0, 1.0);
-        return Transform.scale(
-          scale: clampedValue,
-          child: Opacity(
-            opacity: clampedValue,
-            child: Container(
-              margin: EdgeInsets.symmetric(
-                horizontal: config.horizontalPadding,
-              ),
-              padding: EdgeInsets.all(config.contentPadding),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(config.borderRadius),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Main Profile Row - Avatar, Name & Friend Button
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Profile Picture
-                      _buildProfilePicture(user, config),
-
-                      SizedBox(width: config.mediumSpacing),
-
-                      // Name and basic info - takes remaining space
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Name with proper text wrapping
-                            Text(
-                                  user.name,
-                                  style: GoogleFonts.nunito(
-                                    fontSize: config.nameFontSize,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                )
-                                .animate()
-                                .fadeIn(delay: 400.ms)
-                                .slideX(begin: 0.3),
-
-                            // Spacing between name and location
-                            if (user.location != null)
-                              SizedBox(height: config.tinySpacing),
-                          ],
-                        ),
-                      ),
-
-                      SizedBox(width: config.smallSpacing),
-
-                      // Friend Button - Fixed size, always visible
-                      _buildCompactFriendButton(user, isFriendAsync, config),
-                    ],
-                  ),
-
-                  // Location Row - Full width, properly aligned
-                  if (user.location != null) ...[
-                    SizedBox(height: config.smallSpacing),
-                    Row(
-                      children: [
-                        // Spacer to align with name (avatar width + spacing)
-                        SizedBox(
-                          width:
-                              (config.avatarRadius * 2) +
-                              config.mediumSpacing +
-                              8,
-                        ),
-                        // Location chip - takes remaining space
-                        Expanded(
-                          child: _buildCompactLocationChip(
-                            user.location!,
-                            config,
-                          ),
-                        ),
-                      ],
+                    SizedBox(height: 16),
+                    Text(
+                      "Loading profile...",
+                      style: TextStyle(color: Colors.white70),
                     ),
                   ],
-
-                  // Friends Count Row - Full width, properly aligned
-                  SizedBox(height: config.mediumSpacing),
-                  Row(
-                    children: [
-                      // Spacer to align with name
-                      SizedBox(
-                        width:
-                            (config.avatarRadius * 2) +
-                            config.mediumSpacing +
-                            8,
-                      ),
-                      // Friends count - takes only needed space
-                      _buildCompactFriendsCount(friendsCountAsync, config),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildProfilePicture(UserModel user, ResponsiveConfig config) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [Color(0xFFE60073), Color(0xFFFF6B9D), Color(0xFFE60073)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFE60073).withOpacity(0.4),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(3),
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: Color(0xFF3D1A4A),
-        ),
-        child: CircleAvatar(
-          backgroundImage: NetworkImage(user.photoUrl ?? ''),
-          radius: config.avatarRadius,
-          backgroundColor: Colors.grey.shade800,
-        ),
-      ),
-    );
-  }
-
-  // COMPACT LOCATION CHIP - Responsive and properly sized
-  Widget _buildCompactLocationChip(String location, ResponsiveConfig config) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: config.chipPadding * 0.8,
-        vertical: config.chipPadding * 0.5,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(config.chipBorderRadius),
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.location_on,
-            color: const Color(0xFFE60073),
-            size: config.chipIconSize,
-          ),
-          SizedBox(width: config.tinySpacing),
-          Flexible(
-            child: Text(
-              location,
-              style: GoogleFonts.nunito(
-                color: Colors.white70,
-                fontSize: config.chipFontSize,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // COMPACT FRIENDS COUNT - Properly sized for content
-  Widget _buildCompactFriendsCount(
-    AsyncValue<int> friendsCountAsync,
-    ResponsiveConfig config,
-  ) {
-    return friendsCountAsync.when(
-      data:
-          (count) => Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: config.chipPadding,
-              vertical: config.chipPadding * 0.6,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFFE60073).withOpacity(0.2),
-                  const Color(0xFFFF6B9D).withOpacity(0.1),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(config.chipBorderRadius),
-              border: Border.all(
-                color: const Color(0xFFE60073).withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.people,
-                  color: const Color(0xFFE60073),
-                  size: config.chipIconSize,
                 ),
-                SizedBox(width: config.tinySpacing),
-                Text(
-                  '$count Friends',
-                  style: GoogleFonts.nunito(
-                    color: Colors.white,
-                    fontSize: config.chipFontSize,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-      loading:
-          () => Container(
-            padding: EdgeInsets.all(config.chipPadding),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: SizedBox(
-              width: config.chipIconSize,
-              height: config.chipIconSize,
-              child: const CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               ),
-            ),
-          ),
-      error:
-          (_, __) => Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: config.chipPadding,
-              vertical: config.chipPadding * 0.5,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(config.chipBorderRadius),
-            ),
-            child: Text(
-              "Error",
-              style: GoogleFonts.nunito(
-                color: Colors.redAccent,
-                fontSize: config.chipFontSize,
-              ),
-            ),
-          ),
-    );
-  }
-
-  // COMPACT FRIEND BUTTON - Properly sized and responsive
-  Widget _buildCompactFriendButton(
-    UserModel user,
-    AsyncValue<bool> isFriendAsync,
-    ResponsiveConfig config,
-  ) {
-    return AnimatedBuilder(
-      animation: _actionButtonAnimation,
-      builder: (context, child) {
-        final clampedValue = _actionButtonAnimation.value.clamp(0.0, 1.0);
-        return Transform.scale(
-          scale: clampedValue,
-          child: Opacity(
-            opacity: clampedValue,
-            child: isFriendAsync.when(
-              data: (isFriend) {
-                if (isFriend) {
-                  return Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: config.buttonPadding,
-                      vertical: config.buttonPadding * 0.7,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Colors.green, Colors.greenAccent],
+          error:
+              (e, _) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.red.withOpacity(0.3)),
                       ),
-                      borderRadius: BorderRadius.circular(
-                        config.buttonBorderRadius,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.green.withOpacity(0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          color: Colors.white,
-                          size: config.buttonIconSize,
-                        ),
-                        if (config.screenWidth > 340) ...[
-                          SizedBox(width: config.tinySpacing),
-                          Text(
-                            "Friend",
-                            style: GoogleFonts.nunito(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: config.buttonFontSize,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  );
-                } else {
-                  return Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(
-                        config.buttonBorderRadius,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFE60073).withOpacity(0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE60073),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            config.buttonBorderRadius,
-                          ),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: config.buttonPadding,
-                          vertical: config.buttonPadding * 0.7,
-                        ),
-                        elevation: 0,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      onPressed: () async {
-                        await sendFriendRequest(user.uid);
-                        ref.invalidate(friendshipStatusProvider(user.uid));
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.person_add, size: config.buttonIconSize),
-                          if (config.screenWidth > 340) ...[
-                            SizedBox(width: config.tinySpacing),
-                            Text(
-                              "Add",
-                              style: GoogleFonts.nunito(
-                                fontWeight: FontWeight.w600,
-                                fontSize: config.buttonFontSize,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                }
-              },
-              loading:
-                  () => Container(
-                    padding: EdgeInsets.all(config.buttonPadding * 0.8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: SizedBox(
-                      width: config.buttonIconSize,
-                      height: config.buttonIconSize,
-                      child: const CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    ),
-                  ),
-              error:
-                  (_, __) => Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: config.buttonPadding,
-                      vertical: config.buttonPadding * 0.6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(
-                        config.buttonBorderRadius,
-                      ),
-                    ),
-                    child: Text(
-                      "Error",
-                      style: GoogleFonts.nunito(
+                      child: const Icon(
+                        Icons.error_outline,
                         color: Colors.redAccent,
-                        fontSize: config.buttonFontSize,
+                        size: 40,
                       ),
                     ),
-                  ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildBioSection(UserModel user, ResponsiveConfig config) {
-    if (_isEditingBio && currentUser?.uid == user.uid) {
-      return _buildBioEditor(user, config);
-    } else {
-      return _buildBioDisplay(user, config);
-    }
-  }
-
-  Widget _buildBioEditor(UserModel user, ResponsiveConfig config) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: config.horizontalPadding),
-      padding: EdgeInsets.all(config.contentPadding),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(config.borderRadius),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(config.iconPadding * 0.7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE60073).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(config.smallBorderRadius),
-                ),
-                child: Icon(
-                  Icons.edit,
-                  color: const Color(0xFFE60073),
-                  size: config.iconSize * 0.8,
-                ),
-              ),
-              SizedBox(width: config.smallSpacing),
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "Edit Bio",
-                    style: GoogleFonts.nunito(
-                      color: Colors.white,
-                      fontSize: config.subtitleFontSize + 2,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: config.mediumSpacing),
-          TextField(
-            controller: _bioController,
-            maxLines: null,
-            style: GoogleFonts.nunito(
-              color: Colors.white,
-              fontSize: config.bodyFontSize,
-            ),
-            decoration: InputDecoration(
-              hintText: "Enter your bio...",
-              hintStyle: GoogleFonts.nunito(
-                color: Colors.white54,
-                fontSize: config.bodyFontSize,
-              ),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.08),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(config.smallBorderRadius),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: Colors.white.withOpacity(0.2),
-                  width: 1,
-                ),
-                borderRadius: BorderRadius.circular(config.smallBorderRadius),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(
-                  color: Color(0xFFE60073),
-                  width: 2,
-                ),
-                borderRadius: BorderRadius.circular(config.smallBorderRadius),
-              ),
-              contentPadding: EdgeInsets.all(config.contentPadding),
-            ),
-          ),
-          SizedBox(height: config.mediumSpacing),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Flexible(
-                child: TextButton(
-                  onPressed: () => setState(() => _isEditingBio = false),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: config.buttonPadding,
-                      vertical: config.buttonPadding * 0.7,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        config.smallBorderRadius,
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: _getResponsivePadding(context),
+                      child: Text(
+                        "Error: $e",
+                        style: GoogleFonts.nunito(
+                          color: Colors.redAccent,
+                          fontSize: _getResponsiveFontSize(context, 16),
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    "Cancel",
-                    style: GoogleFonts.nunito(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.w600,
-                      fontSize: config.buttonFontSize,
-                    ),
-                  ),
+                  ],
                 ),
               ),
-              SizedBox(width: config.smallSpacing),
-              Flexible(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    await FirebaseFirestore.instance
-                        .collection(
-                          user.uid.startsWith("phone")
-                              ? 'user_details_phone'
-                              : 'user_details_email',
-                        )
-                        .doc(user.uid)
-                        .update({'bio': _bioController.text.trim()});
-                    setState(() => _isEditingBio = false);
-                    ref.refresh(userProfileProvider(user.uid));
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: config.buttonPadding,
-                      vertical: config.buttonPadding * 0.7,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        config.smallBorderRadius,
-                      ),
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    "Save",
-                    style: GoogleFonts.nunito(
-                      fontWeight: FontWeight.w600,
-                      fontSize: config.buttonFontSize,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildBioDisplay(UserModel user, ResponsiveConfig config) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: config.horizontalPadding),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(config.borderRadius),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(config.contentPadding),
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(config.iconPadding * 0.7),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(config.smallBorderRadius),
-              ),
-              child: Icon(
-                Icons.info_outline,
-                color: const Color(0xFFE60073),
-                size: config.iconSize * 0.8,
-              ),
-            ),
-            SizedBox(width: config.smallSpacing),
-            Expanded(
-              child: Text(
-                (user.bio ?? '').isNotEmpty ? user.bio! : "No bio available.",
-                style: GoogleFonts.nunito(
-                  color: Colors.white70,
-                  fontSize: config.bodyFontSize,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-            if (currentUser?.uid == user.uid) ...[
-              SizedBox(width: config.smallSpacing),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isEditingBio = true;
-                    _bioController.text = user.bio ?? "";
-                  });
-                },
-                child: Container(
-                  padding: EdgeInsets.all(config.iconPadding * 0.7),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(
-                      config.smallBorderRadius,
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.edit,
-                    color: Colors.white70,
-                    size: config.iconSize * 0.7,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    ).animate().fadeIn(delay: 500.ms).slideX(begin: -0.3);
-  }
-
-  Widget _buildTabBar(ResponsiveConfig config) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: config.horizontalPadding),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(config.borderRadius + 5),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.white54,
-        indicator: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFE60073), Color(0xFFFF6B9D)],
-          ),
-          borderRadius: BorderRadius.circular(config.borderRadius + 5),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        labelStyle: GoogleFonts.nunito(
-          fontWeight: FontWeight.w600,
-          fontSize: config.buttonFontSize,
-        ),
-        unselectedLabelStyle: GoogleFonts.nunito(
-          fontWeight: FontWeight.w500,
-          fontSize: config.buttonFontSize,
-        ),
-        padding: EdgeInsets.all(config.tinySpacing),
-        tabs: const [
-          Tab(text: "Stats"),
-          Tab(text: "Achievements"),
-          Tab(text: "Clubs"),
-        ],
-      ),
-    ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.3);
-  }
-
-  Widget _buildLoadingState(ResponsiveConfig config) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE60073)),
-          ),
-          SizedBox(height: config.mediumSpacing),
-          Text(
-            "Loading profile...",
-            style: GoogleFonts.nunito(
-              color: Colors.white70,
-              fontSize: config.bodyFontSize,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState(Object error, ResponsiveConfig config) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(config.contentPadding),
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.red.withOpacity(0.3)),
-            ),
-            child: Icon(
-              Icons.error_outline,
-              color: Colors.redAccent,
-              size: config.iconSize * 2,
-            ),
-          ),
-          SizedBox(height: config.mediumSpacing),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: config.horizontalPadding),
-            child: Text(
-              "Error: $error",
-              style: GoogleFonts.nunito(
-                color: Colors.redAccent,
-                fontSize: config.bodyFontSize,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsTab(UserModel user, ResponsiveConfig config) {
+  Widget _buildStatsTab(UserModel user) {
+    final responsivePadding = _getResponsivePadding(context);
     return ListView(
-      padding: EdgeInsets.all(config.horizontalPadding),
+      padding: responsivePadding,
       physics: const BouncingScrollPhysics(),
       children: [
         _buildStatsCard(
           user,
-          config,
         ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.3),
-        SizedBox(height: config.sectionSpacing),
-        _buildSportsSection(
+        SizedBox(height: MediaQuery.of(context).size.height * 0.025),
+        buildSportsSection(
           user,
-          config,
         ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.3),
       ],
     );
   }
 
-  Widget _buildAchievementsTab(ResponsiveConfig config) {
+  Widget _buildAchievementsTab() {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(config.horizontalPadding),
+        padding: _getResponsivePadding(context),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: EdgeInsets.all(config.contentPadding * 2),
+              padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.08),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.05),
                 shape: BoxShape.circle,
@@ -1106,28 +1161,25 @@ class _ProfileViewState extends ConsumerState<ProfileView>
               child: Icon(
                 Icons.emoji_events,
                 color: Colors.white54,
-                size: config.iconSize * 3,
+                size: MediaQuery.of(context).size.width * 0.16,
               ),
             ),
-            SizedBox(height: config.sectionSpacing),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                "Achievements coming soon!",
-                style: GoogleFonts.nunito(
-                  color: Colors.white70,
-                  fontSize: config.subtitleFontSize + 2,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
+            SizedBox(height: MediaQuery.of(context).size.height * 0.03),
+            Text(
+              "Achievements coming soon!",
+              style: GoogleFonts.nunito(
+                color: Colors.white70,
+                fontSize: _getResponsiveFontSize(context, 18),
+                fontWeight: FontWeight.w600,
               ),
+              textAlign: TextAlign.center,
             ),
-            SizedBox(height: config.smallSpacing),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.01),
             Text(
               "Your trophies and milestones will appear here",
               style: GoogleFonts.nunito(
                 color: Colors.white54,
-                fontSize: config.bodyFontSize,
+                fontSize: _getResponsiveFontSize(context, 14),
               ),
               textAlign: TextAlign.center,
             ),
@@ -1137,15 +1189,15 @@ class _ProfileViewState extends ConsumerState<ProfileView>
     );
   }
 
-  Widget _buildClubsTab(ResponsiveConfig config) {
+  Widget _buildClubsTab() {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(config.horizontalPadding),
+        padding: _getResponsivePadding(context),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: EdgeInsets.all(config.contentPadding * 2),
+              padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.08),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.05),
                 shape: BoxShape.circle,
@@ -1154,28 +1206,25 @@ class _ProfileViewState extends ConsumerState<ProfileView>
               child: Icon(
                 Icons.groups,
                 color: Colors.white54,
-                size: config.iconSize * 3,
+                size: MediaQuery.of(context).size.width * 0.16,
               ),
             ),
-            SizedBox(height: config.sectionSpacing),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                "Club data coming soon!",
-                style: GoogleFonts.nunito(
-                  color: Colors.white70,
-                  fontSize: config.subtitleFontSize + 2,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
+            SizedBox(height: MediaQuery.of(context).size.height * 0.03),
+            Text(
+              "Club data coming soon!",
+              style: GoogleFonts.nunito(
+                color: Colors.white70,
+                fontSize: _getResponsiveFontSize(context, 18),
+                fontWeight: FontWeight.w600,
               ),
+              textAlign: TextAlign.center,
             ),
-            SizedBox(height: config.smallSpacing),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.01),
             Text(
               "Your club memberships and activities will appear here",
               style: GoogleFonts.nunito(
                 color: Colors.white54,
-                fontSize: config.bodyFontSize,
+                fontSize: _getResponsiveFontSize(context, 14),
               ),
               textAlign: TextAlign.center,
             ),
@@ -1185,11 +1234,14 @@ class _ProfileViewState extends ConsumerState<ProfileView>
     );
   }
 
-  Widget _buildStatsCard(UserModel user, ResponsiveConfig config) {
+  Widget _buildStatsCard(UserModel user) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final responsivePadding = _getResponsivePadding(context);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(config.borderRadius),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
         boxShadow: [
           BoxShadow(
@@ -1200,226 +1252,211 @@ class _ProfileViewState extends ConsumerState<ProfileView>
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(config.contentPadding),
+        padding: responsivePadding,
         child: Column(
           children: [
             Row(
               children: [
                 Container(
-                  padding: EdgeInsets.all(config.iconPadding),
+                  padding: EdgeInsets.all(screenWidth < 360 ? 8 : 12),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFFE60073), Color(0xFFFF6B9D)],
                     ),
-                    borderRadius: BorderRadius.circular(
-                      config.smallBorderRadius,
-                    ),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     Icons.bar_chart,
                     color: Colors.white,
-                    size: config.iconSize,
+                    size: screenWidth < 360 ? 20 : 24,
                   ),
                 ),
-                SizedBox(width: config.mediumSpacing),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Match Stats",
-                      style: GoogleFonts.nunito(
-                        color: Colors.white,
-                        fontSize: config.subtitleFontSize + 2,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  child: Text(
+                    "Match Stats",
+                    style: GoogleFonts.nunito(
+                      color: Colors.white,
+                      fontSize: _getResponsiveFontSize(context, 20),
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: config.sectionSpacing),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.03),
             // Responsive stats layout
-            LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth < 300) {
-                  // Stack vertically for very narrow spaces
-                  return Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _statItem(
-                              "Played",
-                              user.gamesPlayed.toString(),
-                              Icons.sports_soccer,
-                              Colors.blue,
-                              config,
-                            ),
+            screenWidth < 360
+                ? Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _statItem(
+                            "Played",
+                            user.gamesPlayed.toString(),
+                            Icons.sports_soccer,
+                            Colors.blue,
                           ),
-                          SizedBox(width: config.smallSpacing),
-                          Expanded(
-                            child: _statItem(
-                              "Won",
-                              user.gamesWon.toString(),
-                              Icons.emoji_events,
-                              Colors.green,
-                              config,
-                            ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _statItem(
+                            "Won",
+                            user.gamesWon.toString(),
+                            Icons.emoji_events,
+                            Colors.green,
                           ),
-                        ],
-                      ),
-                      SizedBox(height: config.smallSpacing),
-                      SizedBox(
-                        width: double.infinity,
-                        child: _statItem(
-                          "Lost",
-                          (user.gamesPlayed - user.gamesWon).toString(),
-                          Icons.trending_down,
-                          Colors.red,
-                          config,
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _statItem(
+                        "Lost",
+                        (user.gamesPlayed - user.gamesWon).toString(),
+                        Icons.trending_down,
+                        Colors.red,
                       ),
-                    ],
-                  );
-                } else {
-                  // Show horizontally for normal widths
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: _statItem(
-                          "Played",
-                          user.gamesPlayed.toString(),
-                          Icons.sports_soccer,
-                          Colors.blue,
-                          config,
-                        ),
+                    ),
+                  ],
+                )
+                : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: _statItem(
+                        "Played",
+                        user.gamesPlayed.toString(),
+                        Icons.sports_soccer,
+                        Colors.blue,
                       ),
-                      SizedBox(width: config.smallSpacing),
-                      Expanded(
-                        child: _statItem(
-                          "Won",
-                          user.gamesWon.toString(),
-                          Icons.emoji_events,
-                          Colors.green,
-                          config,
-                        ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _statItem(
+                        "Won",
+                        user.gamesWon.toString(),
+                        Icons.emoji_events,
+                        Colors.green,
                       ),
-                      SizedBox(width: config.smallSpacing),
-                      Expanded(
-                        child: _statItem(
-                          "Lost",
-                          (user.gamesPlayed - user.gamesWon).toString(),
-                          Icons.trending_down,
-                          Colors.red,
-                          config,
-                        ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _statItem(
+                        "Lost",
+                        (user.gamesPlayed - user.gamesWon).toString(),
+                        Icons.trending_down,
+                        Colors.red,
                       ),
-                    ],
-                  );
-                }
-              },
-            ),
+                    ),
+                  ],
+                ),
           ],
         ),
       ),
     );
   }
 
-  Widget _statItem(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-    ResponsiveConfig config,
-  ) {
+  Widget _statItem(String label, String value, IconData icon, Color color) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Container(
-      padding: EdgeInsets.all(config.contentPadding),
+      padding: EdgeInsets.all(screenWidth < 360 ? 12 : 16),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(config.borderRadius),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withOpacity(0.3), width: 1),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: config.iconSize),
-          SizedBox(height: config.smallSpacing),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              value,
-              style: GoogleFonts.nunito(
-                color: Colors.white,
-                fontSize: config.titleFontSize,
-                fontWeight: FontWeight.bold,
-              ),
+          Icon(icon, color: color, size: screenWidth < 360 ? 20 : 24),
+          SizedBox(height: screenWidth < 360 ? 6 : 8),
+          Text(
+            value,
+            style: GoogleFonts.nunito(
+              color: Colors.white,
+              fontSize: _getResponsiveFontSize(context, 24),
+              fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: config.tinySpacing),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              label,
-              style: GoogleFonts.nunito(
-                color: Colors.white70,
-                fontSize: config.chipFontSize,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
+          SizedBox(height: screenWidth < 360 ? 2 : 4),
+          Text(
+            label,
+            style: GoogleFonts.nunito(
+              color: Colors.white70,
+              fontSize: _getResponsiveFontSize(context, 13),
+              fontWeight: FontWeight.w500,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSportsSection(UserModel user, ResponsiveConfig config) {
+  Widget buildSportsSection(UserModel user) {
+    final responsivePadding = _getResponsivePadding(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Calculate responsive height based on screen size
+    double sectionHeight;
+    if (screenWidth <= 320) {
+      sectionHeight = 170;
+    } else if (screenWidth <= 360) {
+      sectionHeight = 180;
+    } else if (screenWidth <= 375) {
+      sectionHeight = 190;
+    } else if (screenWidth <= 414) {
+      sectionHeight = 200;
+    } else {
+      sectionHeight = 210;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: config.tinySpacing),
+          padding: EdgeInsets.symmetric(horizontal: responsivePadding.left),
           child: Row(
             children: [
               Container(
-                padding: EdgeInsets.all(config.iconPadding * 0.8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE60073).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(config.smallBorderRadius),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.sports,
-                  color: const Color(0xFFE60073),
-                  size: config.iconSize * 0.8,
+                  color: Color(0xFFE60073),
+                  size: 20,
                 ),
               ),
-              SizedBox(width: config.smallSpacing),
+              const SizedBox(width: 12),
               Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "Sports & Player Position",
-                    style: GoogleFonts.nunito(
-                      color: Colors.white,
-                      fontSize: config.subtitleFontSize + 2,
-                      fontWeight: FontWeight.bold,
-                    ),
+                child: Text(
+                  "Sports & Player Position",
+                  style: GoogleFonts.nunito(
+                    color: Colors.white,
+                    fontSize: _getResponsiveFontSize(context, 20),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        SizedBox(height: config.sectionSpacing),
-        // Improved responsive card layout
+        SizedBox(height: MediaQuery.of(context).size.height * 0.025),
+
+        // Fixed height container with responsive height
         SizedBox(
-          height: config.cardHeight,
+          height: sectionHeight,
           child: ListView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            padding: EdgeInsets.symmetric(horizontal: config.tinySpacing),
+            padding: EdgeInsets.symmetric(horizontal: responsivePadding.left),
             children: [
               _playerCard(
                 icon: Icons.sports_soccer,
@@ -1428,7 +1465,6 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                 rating: 4.2,
                 games: 711,
                 mvps: 19,
-                config: config,
               ),
               _playerCard(
                 icon: Icons.sports_basketball,
@@ -1437,7 +1473,6 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                 rating: 3.8,
                 games: 420,
                 mvps: 8,
-                config: config,
               ),
             ],
           ),
@@ -1453,502 +1488,366 @@ class _ProfileViewState extends ConsumerState<ProfileView>
     required double rating,
     required int games,
     required int mvps,
-    required ResponsiveConfig config,
   }) {
-    Color skillColor;
-    switch (skill.toLowerCase()) {
-      case 'advanced':
-        skillColor = Colors.green;
-        break;
-      case 'intermediate':
-        skillColor = Colors.orange;
-        break;
-      default:
-        skillColor = Colors.blue;
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final screenHeight = MediaQuery.of(context).size.height;
 
-    return Container(
-      width: config.cardWidth,
-      height: config.cardHeight,
-      margin: EdgeInsets.only(right: config.mediumSpacing),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(config.borderRadius),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+        // Ultra responsive calculations based on actual screen size
+        double cardWidth;
+        double cardHeight;
+        double padding;
+        double headerHeight;
+        double titleHeight;
+        double ratingHeight;
+        double statsHeight;
+        double iconSize;
+        double titleFontSize;
+        double skillFontSize;
+        double ratingFontSize;
+        double statsFontSize;
+        double statsLabelFontSize;
+
+        // Define breakpoints for different device sizes
+        if (screenWidth <= 320) {
+          // iPhone SE 1st gen and very small phones
+          cardWidth = screenWidth - 40;
+          cardHeight = 160;
+          padding = 8;
+          headerHeight = 32;
+          titleHeight = 20;
+          ratingHeight = 16;
+          statsHeight = 60;
+          iconSize = 16;
+          titleFontSize = 14;
+          skillFontSize = 9;
+          ratingFontSize = 11;
+          statsFontSize = 13;
+          statsLabelFontSize = 9;
+        } else if (screenWidth <= 360) {
+          // iPhone SE 2nd/3rd gen, small Android phones
+          cardWidth = screenWidth - 50;
+          cardHeight = 170;
+          padding = 10;
+          headerHeight = 35;
+          titleHeight = 22;
+          ratingHeight = 18;
+          statsHeight = 65;
+          iconSize = 18;
+          titleFontSize = 15;
+          skillFontSize = 10;
+          ratingFontSize = 12;
+          statsFontSize = 14;
+          statsLabelFontSize = 10;
+        } else if (screenWidth <= 375) {
+          // iPhone 6/7/8, iPhone 12 mini
+          cardWidth = screenWidth - 60;
+          cardHeight = 180;
+          padding = 12;
+          headerHeight = 38;
+          titleHeight = 24;
+          ratingHeight = 20;
+          statsHeight = 70;
+          iconSize = 20;
+          titleFontSize = 16;
+          skillFontSize = 10;
+          ratingFontSize = 13;
+          statsFontSize = 15;
+          statsLabelFontSize = 10;
+        } else if (screenWidth <= 414) {
+          // iPhone 6+/7+/8+, iPhone XR/11
+          cardWidth = screenWidth - 70;
+          cardHeight = 190;
+          padding = 14;
+          headerHeight = 40;
+          titleHeight = 26;
+          ratingHeight = 22;
+          statsHeight = 75;
+          iconSize = 22;
+          titleFontSize = 17;
+          skillFontSize = 11;
+          ratingFontSize = 14;
+          statsFontSize = 16;
+          statsLabelFontSize = 11;
+        } else {
+          // Large phones and tablets
+          cardWidth = 320;
+          cardHeight = 200;
+          padding = 16;
+          headerHeight = 42;
+          titleHeight = 28;
+          ratingHeight = 24;
+          statsHeight = 80;
+          iconSize = 24;
+          titleFontSize = 18;
+          skillFontSize = 11;
+          ratingFontSize = 14;
+          statsFontSize = 16;
+          statsLabelFontSize = 11;
+        }
+
+        Color skillColor;
+        switch (skill.toLowerCase()) {
+          case 'advanced':
+            skillColor = Colors.green;
+            break;
+          case 'intermediate':
+            skillColor = Colors.orange;
+            break;
+          default:
+            skillColor = Colors.blue;
+        }
+
+        return Container(
+          width: cardWidth,
+          height: cardHeight,
+          margin: EdgeInsets.only(right: padding),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(config.contentPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Section - Fixed height
-            SizedBox(
-              height: config.iconSize + config.iconPadding,
-              child: Row(
-                children: [
-                  Container(
-                    width: config.iconSize + config.iconPadding,
-                    height: config.iconSize + config.iconPadding,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(
-                        config.smallBorderRadius,
-                      ),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: Colors.white,
-                      size: config.iconSize * 0.8,
-                    ),
-                  ),
-                  SizedBox(width: config.smallSpacing),
-                  Expanded(
-                    child: Container(
-                      height: config.iconSize + (config.iconPadding * 0.5),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: config.chipPadding,
-                        vertical: config.chipPadding * 0.3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: skillColor.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(
-                          config.chipBorderRadius,
+          child: Padding(
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Section - Fixed Height
+                SizedBox(
+                  height: headerHeight,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: headerHeight,
+                        height: headerHeight,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        border: Border.all(color: skillColor.withOpacity(0.5)),
+                        child: Icon(icon, color: Colors.white, size: iconSize),
                       ),
-                      child: Center(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            skill,
-                            style: GoogleFonts.nunito(
-                              color: skillColor,
-                              fontSize: config.chipFontSize,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: config.smallSpacing),
-
-            // Title Section - Fixed height
-            SizedBox(
-              height: config.bodyFontSize + 6,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  title,
-                  style: GoogleFonts.nunito(
-                    color: Colors.white,
-                    fontSize: config.bodyFontSize + 2,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: config.smallSpacing),
-
-            // Rating Section - Fixed height
-            SizedBox(
-              height: config.chipFontSize + 4,
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 7,
-                    child: Container(
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: FractionallySizedBox(
-                        alignment: Alignment.centerLeft,
-                        widthFactor: (rating / 5.0).clamp(0.0, 1.0),
+                      SizedBox(width: padding),
+                      Expanded(
                         child: Container(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFE60073), Color(0xFFFF6B9D)],
-                            ),
-                            borderRadius: BorderRadius.circular(3),
+                          height: headerHeight * 0.8,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: padding * 0.8,
+                            vertical: padding * 0.3,
                           ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: config.tinySpacing),
-                  Expanded(
-                    flex: 3,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              rating.toStringAsFixed(1),
-                              style: GoogleFonts.nunito(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: config.chipFontSize,
+                          decoration: BoxDecoration(
+                            color: skillColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: skillColor.withOpacity(0.5),
+                            ),
+                          ),
+                          child: Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                skill,
+                                style: GoogleFonts.nunito(
+                                  color: skillColor,
+                                  fontSize: skillFontSize,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                        SizedBox(width: config.tinySpacing * 0.5),
-                        Icon(
-                          Icons.star,
-                          color: Colors.amber,
-                          size: config.chipIconSize,
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: padding * 0.5),
+
+                // Title Section - Fixed Height
+                SizedBox(
+                  height: titleHeight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title,
+                      style: GoogleFonts.nunito(
+                        color: Colors.white,
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: padding * 0.4),
+
+                // Rating Section - Fixed Height
+                SizedBox(
+                  height: ratingHeight,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: Container(
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: (rating / 5.0).clamp(0.0, 1.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFE60073),
+                                    Color(0xFFFF6B9D),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: padding * 0.5),
+                      Expanded(
+                        flex: 2,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  rating.toStringAsFixed(1),
+                                  style: GoogleFonts.nunito(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: ratingFontSize,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 2),
+                            Icon(
+                              Icons.star,
+                              color: Colors.amber,
+                              size: ratingFontSize + 2,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: padding * 0.5),
+
+                // Stats Section - Fixed Height with guaranteed space
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(padding * 0.6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                flex: 2,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    games.toString(),
+                                    style: GoogleFonts.nunito(
+                                      color: Colors.white,
+                                      fontSize: statsFontSize,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Flexible(
+                                flex: 1,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    "Games",
+                                    style: GoogleFonts.nunito(
+                                      color: Colors.white70,
+                                      fontSize: statsLabelFontSize,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: statsHeight * 0.6,
+                          color: Colors.white24,
+                        ),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                flex: 2,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    mvps.toString(),
+                                    style: GoogleFonts.nunito(
+                                      color: Colors.white,
+                                      fontSize: statsFontSize,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Flexible(
+                                flex: 1,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    "MVPs",
+                                    style: GoogleFonts.nunito(
+                                      color: Colors.white70,
+                                      fontSize: statsLabelFontSize,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            SizedBox(height: config.smallSpacing),
-
-            // Stats Section - Takes remaining space
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(
-                  horizontal: config.chipPadding,
-                  vertical: config.chipPadding * 0.8,
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(config.smallBorderRadius),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatColumn(
-                        games.toString(),
-                        "Games",
-                        config,
-                      ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: double.infinity,
-                      margin: EdgeInsets.symmetric(
-                        vertical: config.tinySpacing,
-                      ),
-                      color: Colors.white24,
-                    ),
-                    Expanded(
-                      child: _buildStatColumn(mvps.toString(), "MVPs", config),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideX(begin: 0.3);
-  }
-
-  // Helper method for stat columns with better text handling
-  Widget _buildStatColumn(String value, String label, ResponsiveConfig config) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Value - takes more space and scales better
-        Expanded(
-          flex: 3,
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                style: GoogleFonts.nunito(
-                  color: Colors.white,
-                  fontSize: config.bodyFontSize,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
+              ],
             ),
           ),
-        ),
-
-        // Small spacing
-        SizedBox(height: config.tinySpacing * 0.5),
-
-        // Label - takes less space but ensures visibility
-        Expanded(
-          flex: 2,
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                style: GoogleFonts.nunito(
-                  color: Colors.white70,
-                  fontSize: config.chipFontSize,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// IMPROVED RESPONSIVE CONFIGURATION CLASS WITH BETTER SCALING
-class ResponsiveConfig {
-  final double screenWidth;
-  final double screenHeight;
-
-  // Spacing
-  final double tinySpacing;
-  final double smallSpacing;
-  final double mediumSpacing;
-  final double sectionSpacing;
-
-  // Padding
-  final double horizontalPadding;
-  final double contentPadding;
-  final double iconPadding;
-  final double chipPadding;
-  final double buttonPadding;
-
-  // Border Radius
-  final double borderRadius;
-  final double smallBorderRadius;
-  final double chipBorderRadius;
-  final double buttonBorderRadius;
-
-  // Font Sizes
-  final double titleFontSize;
-  final double subtitleFontSize;
-  final double nameFontSize;
-  final double bodyFontSize;
-  final double chipFontSize;
-  final double buttonFontSize;
-
-  // Icon Sizes
-  final double iconSize;
-  final double chipIconSize;
-  final double buttonIconSize;
-  final double avatarRadius;
-
-  // Card Dimensions
-  final double cardWidth;
-  final double cardHeight;
-
-  ResponsiveConfig._({
-    required this.screenWidth,
-    required this.screenHeight,
-    required this.tinySpacing,
-    required this.smallSpacing,
-    required this.mediumSpacing,
-    required this.sectionSpacing,
-    required this.horizontalPadding,
-    required this.contentPadding,
-    required this.iconPadding,
-    required this.chipPadding,
-    required this.buttonPadding,
-    required this.borderRadius,
-    required this.smallBorderRadius,
-    required this.chipBorderRadius,
-    required this.buttonBorderRadius,
-    required this.titleFontSize,
-    required this.subtitleFontSize,
-    required this.nameFontSize,
-    required this.bodyFontSize,
-    required this.chipFontSize,
-    required this.buttonFontSize,
-    required this.iconSize,
-    required this.chipIconSize,
-    required this.buttonIconSize,
-    required this.avatarRadius,
-    required this.cardWidth,
-    required this.cardHeight,
-  });
-
-  // EXTRA SMALL DEVICES (≤320px) - iPhone SE 1st gen
-  factory ResponsiveConfig.extraSmall(double width, double height) {
-    return ResponsiveConfig._(
-      screenWidth: width,
-      screenHeight: height,
-      tinySpacing: 3,
-      smallSpacing: 6,
-      mediumSpacing: 10,
-      sectionSpacing: 14,
-      horizontalPadding: 8,
-      contentPadding: 8,
-      iconPadding: 5,
-      chipPadding: 6,
-      buttonPadding: 8,
-      borderRadius: 12,
-      smallBorderRadius: 6,
-      chipBorderRadius: 8,
-      buttonBorderRadius: 10,
-      titleFontSize: 16,
-      subtitleFontSize: 12,
-      nameFontSize: 14,
-      bodyFontSize: 12,
-      chipFontSize: 10,
-      buttonFontSize: 10,
-      iconSize: 16,
-      chipIconSize: 12,
-      buttonIconSize: 14,
-      avatarRadius: 26,
-      cardWidth: (width * 0.85).clamp(240.0, 280.0), // More flexible width
-      cardHeight: 160, // Slightly increased height
-    );
-  }
-
-  // SMALL DEVICES (321-360px) - iPhone SE 2nd/3rd gen, small Android
-  factory ResponsiveConfig.small(double width, double height) {
-    return ResponsiveConfig._(
-      screenWidth: width,
-      screenHeight: height,
-      tinySpacing: 4,
-      smallSpacing: 8,
-      mediumSpacing: 12,
-      sectionSpacing: 16,
-      horizontalPadding: 10,
-      contentPadding: 10,
-      iconPadding: 6,
-      chipPadding: 8,
-      buttonPadding: 10,
-      borderRadius: 14,
-      smallBorderRadius: 7,
-      chipBorderRadius: 10,
-      buttonBorderRadius: 12,
-      titleFontSize: 18,
-      subtitleFontSize: 13,
-      nameFontSize: 16,
-      bodyFontSize: 13,
-      chipFontSize: 11,
-      buttonFontSize: 11,
-      iconSize: 18,
-      chipIconSize: 14,
-      buttonIconSize: 16,
-      avatarRadius: 30,
-      cardWidth: (width * 0.8).clamp(260.0, 300.0),
-      cardHeight: 170,
-    );
-  }
-
-  // MEDIUM DEVICES (361-390px) - iPhone 12/13 mini
-  factory ResponsiveConfig.medium(double width, double height) {
-    return ResponsiveConfig._(
-      screenWidth: width,
-      screenHeight: height,
-      tinySpacing: 5,
-      smallSpacing: 10,
-      mediumSpacing: 14,
-      sectionSpacing: 20,
-      horizontalPadding: 12,
-      contentPadding: 12,
-      iconPadding: 8,
-      chipPadding: 10,
-      buttonPadding: 12,
-      borderRadius: 16,
-      smallBorderRadius: 8,
-      chipBorderRadius: 12,
-      buttonBorderRadius: 14,
-      titleFontSize: 20,
-      subtitleFontSize: 14,
-      nameFontSize: 18,
-      bodyFontSize: 14,
-      chipFontSize: 12,
-      buttonFontSize: 12,
-      iconSize: 20,
-      chipIconSize: 16,
-      buttonIconSize: 18,
-      avatarRadius: 34,
-      cardWidth: (width * 0.75).clamp(280.0, 320.0),
-      cardHeight: 180,
-    );
-  }
-
-  // LARGE DEVICES (391-428px) - iPhone 12/13/14, Pixel 6
-  factory ResponsiveConfig.large(double width, double height) {
-    return ResponsiveConfig._(
-      screenWidth: width,
-      screenHeight: height,
-      tinySpacing: 6,
-      smallSpacing: 12,
-      mediumSpacing: 16,
-      sectionSpacing: 24,
-      horizontalPadding: 14,
-      contentPadding: 14,
-      iconPadding: 10,
-      chipPadding: 12,
-      buttonPadding: 14,
-      borderRadius: 18,
-      smallBorderRadius: 9,
-      chipBorderRadius: 14,
-      buttonBorderRadius: 16,
-      titleFontSize: 22,
-      subtitleFontSize: 15,
-      nameFontSize: 20,
-      bodyFontSize: 15,
-      chipFontSize: 13,
-      buttonFontSize: 13,
-      iconSize: 22,
-      chipIconSize: 18,
-      buttonIconSize: 20,
-      avatarRadius: 38,
-      cardWidth: 300,
-      cardHeight: 190,
-    );
-  }
-
-  // EXTRA LARGE DEVICES (>428px) - Large phones and small tablets
-  factory ResponsiveConfig.extraLarge(double width, double height) {
-    return ResponsiveConfig._(
-      screenWidth: width,
-      screenHeight: height,
-      tinySpacing: 8,
-      smallSpacing: 14,
-      mediumSpacing: 18,
-      sectionSpacing: 28,
-      horizontalPadding: 16,
-      contentPadding: 16,
-      iconPadding: 12,
-      chipPadding: 14,
-      buttonPadding: 16,
-      borderRadius: 20,
-      smallBorderRadius: 10,
-      chipBorderRadius: 16,
-      buttonBorderRadius: 18,
-      titleFontSize: 24,
-      subtitleFontSize: 16,
-      nameFontSize: 22,
-      bodyFontSize: 16,
-      chipFontSize: 14,
-      buttonFontSize: 14,
-      iconSize: 24,
-      chipIconSize: 20,
-      buttonIconSize: 22,
-      avatarRadius: 42,
-      cardWidth: 320,
-      cardHeight: 200,
+        ).animate().fadeIn(duration: 400.ms).slideX(begin: 0.3);
+      },
     );
   }
 }

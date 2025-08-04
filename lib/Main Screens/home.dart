@@ -1,25 +1,28 @@
-// ignore_for_file: unused_import, avoid_web_libraries_in_flutter, no_leading_underscores_for_local_identifiers, non_constant_identifier_names, avoid_print
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path/path.dart';
 import 'package:sports/Main%20Screens/booking_turf.dart';
+import 'package:sports/Main%20Screens/connections.dart';
 import 'package:sports/Main%20Screens/location.dart';
 import 'package:sports/Main%20Screens/profile.dart';
 import 'package:sports/Main%20Screens/turfscreen.dart';
-import 'package:sports/Providers/mvp_providers.dart';
 import 'package:sports/Providers/turfscreen_provider.dart';
 import '../Create Team/create_team.dart';
 import '../Services/privacy_policy_service.dart';
 import 'category.dart';
+import 'chat_screen.dart';
 import 'favourites.dart';
 import 'live_screen.dart';
 import 'mvp.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -33,6 +36,186 @@ final sportsProvider = FutureProvider<List<Map<String, String>>>((ref) async {
     {'image': 'assets/images/pickle_ball.png', 'text': 'Pickle Ball'},
   ];
 });
+
+// Fixed provider to listen to all unread messages for current user
+final unreadMessagesProvider = StreamProvider<List<Map<String, dynamic>>>((
+  ref,
+) async* {
+  // Get current user ID
+  String? currentUserId;
+  try {
+    final fbUser = FirebaseAuth.instance.currentUser;
+    if (fbUser != null) {
+      currentUserId = fbUser.uid;
+    } else {
+      const secureStorage = FlutterSecureStorage();
+      currentUserId = await secureStorage.read(key: 'custom_uid');
+    }
+
+    if (currentUserId == null || currentUserId.isEmpty) {
+      print('🚨 No current user ID found for notifications');
+      yield [];
+      return;
+    }
+
+    print('🔔 Setting up notification listener for user: $currentUserId');
+
+    // Step 1: Get all chats where user is a participant
+    await for (final chatSnapshot
+        in FirebaseFirestore.instance
+            .collection('chats')
+            .where('participants', arrayContains: currentUserId)
+            .snapshots()) {
+      print('🔔 Found ${chatSnapshot.docs.length} chats for user');
+
+      final allUnreadMessages = <Map<String, dynamic>>[];
+
+      // Step 2: For each chat, get unread messages
+      for (final chatDoc in chatSnapshot.docs) {
+        try {
+          final chatId = chatDoc.id;
+          print('🔔 Checking chat: $chatId');
+
+          // Get unread messages from this chat
+          final messageSnapshot =
+              await FirebaseFirestore.instance
+                  .collection('chats')
+                  .doc(chatId)
+                  .collection('messages')
+                  .where('to', isEqualTo: currentUserId)
+                  .where('read', isEqualTo: false)
+                  .orderBy('timestamp', descending: true)
+                  .limit(5) // Limit per chat
+                  .get();
+
+          print(
+            '🔔 Found ${messageSnapshot.docs.length} unread messages in chat $chatId',
+          );
+
+          for (final messageDoc in messageSnapshot.docs) {
+            final data = Map<String, dynamic>.from(messageDoc.data());
+            data['id'] = messageDoc.id;
+            data['chatId'] = chatId;
+
+            print(
+              '🔔 Unread message: ${data['id']} from ${data['from']} - "${data['text']}"',
+            );
+            allUnreadMessages.add(data);
+          }
+        } catch (e) {
+          print('🚨 Error getting messages for chat ${chatDoc.id}: $e');
+        }
+      }
+
+      // Step 3: Sort all messages by timestamp (newest first)
+      allUnreadMessages.sort((a, b) {
+        final aTime = a['timestamp'] as Timestamp?;
+        final bTime = b['timestamp'] as Timestamp?;
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
+
+      final limitedMessages = allUnreadMessages.take(10).toList();
+      print('🔔 Yielding ${limitedMessages.length} total unread messages');
+
+      yield limitedMessages;
+    }
+  } catch (e, stackTrace) {
+    print('🚨 Error in unreadMessagesProvider: $e');
+    print('🚨 Stack trace: $stackTrace');
+    yield [];
+  }
+});
+
+// Fallback provider that uses a simpler approach
+final simpleUnreadCountProvider = StreamProvider<int>((ref) async* {
+  try {
+    String? currentUserId;
+    final fbUser = FirebaseAuth.instance.currentUser;
+    if (fbUser != null) {
+      currentUserId = fbUser.uid;
+    } else {
+      const secureStorage = FlutterSecureStorage();
+      currentUserId = await secureStorage.read(key: 'custom_uid');
+    }
+
+    if (currentUserId == null) {
+      yield 0;
+      return;
+    }
+
+    print('🔔 Simple count provider for user: $currentUserId');
+
+    // Just count unread messages across all chats
+    await for (final snapshot
+        in FirebaseFirestore.instance
+            .collection('chats')
+            .where('participants', arrayContains: currentUserId)
+            .snapshots()) {
+      int totalUnread = 0;
+
+      for (final chatDoc in snapshot.docs) {
+        try {
+          final messageSnapshot =
+              await FirebaseFirestore.instance
+                  .collection('chats')
+                  .doc(chatDoc.id)
+                  .collection('messages')
+                  .where('to', isEqualTo: currentUserId)
+                  .where('read', isEqualTo: false)
+                  .get();
+
+          totalUnread += messageSnapshot.docs.length;
+        } catch (e) {
+          print('🚨 Error counting messages in chat ${chatDoc.id}: $e');
+        }
+      }
+
+      print('🔔 Total unread count: $totalUnread');
+      yield totalUnread;
+    }
+  } catch (e) {
+    print('🚨 Error in simpleUnreadCountProvider: $e');
+    yield 0;
+  }
+});
+
+// Provider to get user details for notifications
+final userDetailsProvider =
+    FutureProvider.family<Map<String, dynamic>?, String>((ref, userId) async {
+      if (userId.isEmpty) return null;
+
+      try {
+        // Try email collection first
+        final emailDoc =
+            await FirebaseFirestore.instance
+                .collection('user_details_email')
+                .doc(userId)
+                .get();
+
+        if (emailDoc.exists) {
+          return emailDoc.data();
+        }
+
+        // Try phone collection
+        final phoneDoc =
+            await FirebaseFirestore.instance
+                .collection('user_details_phone')
+                .doc(userId)
+                .get();
+
+        if (phoneDoc.exists) {
+          return phoneDoc.data();
+        }
+
+        return null;
+      } catch (e) {
+        print('Error fetching user details: $e');
+        return null;
+      }
+    });
 
 // Add providers for today's schedule
 final todayBookingsProvider = FutureProvider<List<Map<String, dynamic>>>((
@@ -725,212 +908,1042 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF452152),
-                    Color(0xFF3D1A4A),
-                    Color(0xFF200D28),
-                    Color(0xFF1B0723),
+          // Main content
+          Column(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF452152),
+                        Color(0xFF3D1A4A),
+                        Color(0xFF200D28),
+                        Color(0xFF1B0723),
+                      ],
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      top: 16,
+                      bottom: 16, // Normal bottom padding
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: _buildHeader(ref, context),
+                        ),
+                        const SizedBox(height: 20),
+                        SlideTransition(
+                          position: _slideAnimation,
+                          child: _buildHeroImage(mainImage),
+                        ),
+                        const SizedBox(height: 24),
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: ShaderMask(
+                            shaderCallback:
+                                (bounds) => const LinearGradient(
+                                  colors: [Colors.white, Color(0xFFD1C4E9)],
+                                ).createShader(bounds),
+                            child: Text(
+                              'Sports',
+                              style: GoogleFonts.poppins(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        ScaleTransition(
+                          scale: _scaleAnimation,
+                          child: _buildSportsCards(sportsAsync, context),
+                        ),
+                        const SizedBox(height: 30),
+                        SlideTransition(
+                          position: _slideAnimation,
+                          child: _buildStartPlayingCard(context),
+                        ),
+                        const SizedBox(height: 30),
+                        _buildActionCards(context),
+                        const SizedBox(height: 30),
+                        _buildSection_recent(
+                          'Recent',
+                          turfAsync,
+                          const Color(0xFFE1BEE7),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildSection_top_rating_turf(
+                          'Top Rating Turf',
+                          turfAsync,
+                          const Color(0xFFCE93D8),
+                        ),
+                        const SizedBox(height: 20),
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final nearestTurfs = ref.watch(nearestTurfProvider);
+                            final asyncTurfs = AsyncValue.data(
+                              nearestTurfs
+                                  .map(
+                                    (turf) => {
+                                      'name': turf['name']!,
+                                      'imageUrl': turf['imageUrl']!,
+                                      'location': turf['location']!,
+                                      'ownerId': turf['ownerId']!,
+                                    },
+                                  )
+                                  .toList(),
+                            );
+
+                            return _buildSection_nearest_turf(
+                              'Nearest Turf',
+                              asyncTurfs,
+                              const Color(0xFFBA68C8),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 30),
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: _buildFooter(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Bottom Navigation Bar
+              Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xff22012c),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
+                  ),
+                ),
+                child: BottomNavigationBar(
+                  backgroundColor: Colors.transparent,
+                  type: BottomNavigationBarType.shifting,
+                  currentIndex: ref.watch(navIndexProvider),
+                  onTap:
+                      (index) =>
+                          ref.read(navIndexProvider.notifier).state = index,
+                  selectedItemColor: Colors.pink,
+                  unselectedItemColor: Colors.white,
+                  selectedLabelStyle: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                  unselectedLabelStyle: GoogleFonts.outfit(
+                    fontWeight: FontWeight.normal,
+                    fontSize: 12,
+                  ),
+                  items: [
+                    const BottomNavigationBarItem(
+                      icon: Icon(Icons.home),
+                      label: 'Home',
+                      backgroundColor: Color(0xff22012c),
+                    ),
+                    BottomNavigationBarItem(
+                      icon: IconButton(
+                        onPressed: () {
+                          print('Games button clicked');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const HomePage(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.videogame_asset),
+                      ),
+                      label: 'Games',
+                      backgroundColor: const Color(0xff22012c),
+                    ),
+                    BottomNavigationBarItem(
+                      icon: IconButton(
+                        onPressed: () {
+                          print('Live button clicked');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CenterLottieScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.live_tv),
+                      ),
+                      label: 'Live',
+                      backgroundColor: const Color(0xff22012c),
+                    ),
+                    BottomNavigationBarItem(
+                      icon: IconButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const TurfHomeScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.sports_soccer),
+                      ),
+                      label: 'Turf',
+                      backgroundColor: const Color(0xff22012c),
+                    ),
+                    BottomNavigationBarItem(
+                      icon: IconButton(
+                        onPressed: () {
+                          print('Fav button clicked');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const FollowingScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.favorite),
+                      ),
+                      label: 'Fav',
+                      backgroundColor: const Color(0xff22012c),
+                    ),
                   ],
                 ),
               ),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: _buildHeader(ref, context),
-                    ),
-                    const SizedBox(height: 20),
-                    SlideTransition(
-                      position: _slideAnimation,
-                      child: _buildHeroImage(mainImage),
-                    ),
-                    const SizedBox(height: 24),
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: ShaderMask(
-                        shaderCallback:
-                            (bounds) => const LinearGradient(
-                              colors: [Colors.white, Color(0xFFD1C4E9)],
-                            ).createShader(bounds),
-                        child: Text(
-                          'Sports',
-                          style: GoogleFonts.poppins(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
+            ],
+          ),
+
+          // Positioned Floating Action Button - Right side above bottom nav
+          Positioned(
+            right: 10, // Distance from right edge
+            bottom: 100, // Distance from bottom (above bottom nav)
+            child: _buildAnimatedFloatingActionButton(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnimatedFloatingActionButton(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, child) {
+        // Try main provider first
+        final unreadMessages = ref.watch(unreadMessagesProvider);
+        final simpleCount = ref.watch(simpleUnreadCountProvider);
+
+        int unreadCount = 0;
+
+        unreadMessages.when(
+          data: (messages) {
+            unreadCount = messages.length;
+            print('🔔 FAB: Main provider - ${messages.length} messages');
+          },
+          loading: () {
+            print('🔔 FAB: Main provider loading...');
+            // Use simple count as fallback
+            simpleCount.whenData((count) {
+              unreadCount = count;
+              print('🔔 FAB: Using simple count - $count');
+            });
+          },
+          error: (error, stack) {
+            print('🚨 FAB: Main provider error: $error');
+            // Use simple count as fallback
+            simpleCount.whenData((count) {
+              unreadCount = count;
+              print('🔔 FAB: Fallback to simple count - $count');
+            });
+          },
+        );
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // Outer pulsing ring
+            TweenAnimationBuilder<double>(
+              duration: Duration(milliseconds: unreadCount > 0 ? 1000 : 2000),
+              tween: Tween(begin: 0.0, end: 1.0),
+              builder: (context, value, child) {
+                return AnimatedBuilder(
+                  animation: _rotationController,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: 1.0 + ((unreadCount > 0 ? 0.4 : 0.25) * value),
+                      child: Opacity(
+                        opacity: 1.0 - value,
+                        child: Container(
+                          width: 70,
+                          height: 70,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: (unreadCount > 0
+                                      ? const Color(0xFFFF5722)
+                                      : const Color(0xFFE91E63))
+                                  .withOpacity(0.6),
+                              width: 2,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: _buildSportsCards(sportsAsync, context),
-                    ),
-                    const SizedBox(height: 30),
-                    SlideTransition(
-                      position: _slideAnimation,
-                      child: _buildStartPlayingCard(context),
-                    ),
-                    const SizedBox(height: 30),
-                    _buildActionCards(context),
-                    const SizedBox(height: 30),
-                    _buildSection_recent(
-                      'Recent',
-                      turfAsync,
-                      const Color(0xFFE1BEE7),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildSection_top_rating_turf(
-                      'Top Rating Turf',
-                      turfAsync,
-                      const Color(0xFFCE93D8),
-                    ),
-                    const SizedBox(height: 20),
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final nearestTurfs = ref.watch(nearestTurfProvider);
-                        final asyncTurfs = AsyncValue.data(
-                          nearestTurfs
-                              .map(
-                                (turf) => {
-                                  'name': turf['name']!,
-                                  'imageUrl': turf['imageUrl']!,
-                                  'location': turf['location']!,
-                                  'ownerId': turf['ownerId']!,
-                                },
-                              )
-                              .toList(),
-                        );
+                    );
+                  },
+                );
+              },
+            ),
 
-                        return _buildSection_nearest_turf(
-                          'Nearest Turf',
-                          asyncTurfs,
-                          const Color(0xFFBA68C8),
+            // Middle glowing ring
+            TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 1500),
+              tween: Tween(begin: 0.0, end: 1.0),
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: 1.0 + (0.15 * value),
+                  child: Opacity(
+                    opacity: 0.7 - (0.7 * value),
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (unreadCount > 0
+                                    ? const Color(0xFFFF5722)
+                                    : const Color(0xFFE91E63))
+                                .withOpacity(0.4),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            // Main FAB
+            AnimatedBuilder(
+              animation: _rotationController,
+              builder: (context, child) {
+                return Transform.rotate(
+                  angle: _rotationController.value * 0.1,
+                  child: TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 3000),
+                    tween: Tween(begin: 1.0, end: 1.08),
+                    builder: (context, scaleValue, child) {
+                      return Transform.scale(
+                        scale: scaleValue,
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors:
+                                  unreadCount > 0
+                                      ? [
+                                        const Color(0xFFFF5722),
+                                        const Color(0xFFE64A19),
+                                        const Color(0xFFBF360C),
+                                      ]
+                                      : [
+                                        const Color(0xFFE91E63),
+                                        const Color(0xFFAD1457),
+                                        const Color(0xFF880E4F),
+                                      ],
+                            ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: (unreadCount > 0
+                                        ? const Color(0xFFFF5722)
+                                        : const Color(0xFFE91E63))
+                                    .withOpacity(0.4),
+                                blurRadius: 15,
+                                offset: const Offset(0, 8),
+                                spreadRadius: 2,
+                              ),
+                              BoxShadow(
+                                color: (unreadCount > 0
+                                        ? const Color(0xFFFF5722)
+                                        : const Color(0xFFE91E63))
+                                    .withOpacity(0.2),
+                                blurRadius: 30,
+                                offset: const Offset(0, 15),
+                                spreadRadius: 5,
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(28),
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                _showSimpleNotificationDialog(context, ref);
+                              },
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Animated bell icon
+                                    TweenAnimationBuilder<double>(
+                                      duration: Duration(
+                                        milliseconds:
+                                            unreadCount > 0 ? 500 : 1000,
+                                      ),
+                                      tween: Tween(begin: 0.0, end: 1.0),
+                                      builder: (context, bellValue, child) {
+                                        return Transform.rotate(
+                                          angle:
+                                              (bellValue *
+                                                  (unreadCount > 0
+                                                      ? 0.4
+                                                      : 0.2)) -
+                                              (unreadCount > 0 ? 0.2 : 0.1),
+                                          child: Icon(
+                                            unreadCount > 0
+                                                ? Icons.notifications_active
+                                                : Icons.notifications,
+                                            color: Colors.white,
+                                            size: 24,
+                                          ),
+                                        );
+                                      },
+                                    ),
+
+                                    // Dynamic notification badge
+                                    if (unreadCount > 0)
+                                      Positioned(
+                                        right: 10,
+                                        top: 10,
+                                        child: TweenAnimationBuilder<double>(
+                                          duration: const Duration(
+                                            milliseconds: 800,
+                                          ),
+                                          tween: Tween(begin: 0.8, end: 1.3),
+                                          builder: (
+                                            context,
+                                            badgeValue,
+                                            child,
+                                          ) {
+                                            return Transform.scale(
+                                              scale: badgeValue,
+                                              child: Container(
+                                                width: 14,
+                                                height: 14,
+                                                decoration: BoxDecoration(
+                                                  color: const Color(
+                                                    0xFFFFD700,
+                                                  ),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: Colors.white,
+                                                    width: 1.5,
+                                                  ),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: const Color(
+                                                        0xFFFFD700,
+                                                      ).withOpacity(0.8),
+                                                      blurRadius: 10,
+                                                      spreadRadius: 3,
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    unreadCount > 9
+                                                        ? '9+'
+                                                        : unreadCount
+                                                            .toString(),
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 7,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+
+            // Particle effects
+            ...List.generate(6, (index) {
+              return AnimatedBuilder(
+                animation: _rotationController,
+                builder: (context, child) {
+                  final angle =
+                      (index * 60.0) + (_rotationController.value * 360);
+                  final radians = angle * (3.14159 / 180);
+                  final radius = 40.0;
+
+                  return Transform.translate(
+                    offset: Offset(
+                      radius * math.cos(radians),
+                      radius * math.sin(radians),
+                    ),
+                    child: TweenAnimationBuilder<double>(
+                      duration: Duration(
+                        milliseconds:
+                            (unreadCount > 0 ? 600 : 1000) + (index * 200),
+                      ),
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      builder: (context, sparkleValue, child) {
+                        return Opacity(
+                          opacity: sparkleValue * (unreadCount > 0 ? 0.9 : 0.7),
+                          child: Container(
+                            width: unreadCount > 0 ? 4 : 3,
+                            height: unreadCount > 0 ? 4 : 3,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFD700).withOpacity(0.8),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFFFFD700,
+                                  ).withOpacity(0.5),
+                                  blurRadius: unreadCount > 0 ? 6 : 4,
+                                  spreadRadius: unreadCount > 0 ? 2 : 1,
+                                ),
+                              ],
+                            ),
+                          ),
                         );
                       },
                     ),
-                    const SizedBox(height: 30),
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: _buildFooter(context),
+                  );
+                },
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
+  // Simplified notification dialog
+  void _showSimpleNotificationDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder:
+          (context) => Consumer(
+            builder: (context, ref, _) {
+              final unreadMessagesAsync = ref.watch(unreadMessagesProvider);
+
+              return AlertDialog(
+                backgroundColor: const Color(0xFF452152),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE91E63).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.notifications_active,
+                        color: Color(0xFFE91E63),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Notifications',
+                        style: GoogleFonts.robotoSlab(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Container(
+                  width: double.maxFinite,
+                  constraints: const BoxConstraints(maxHeight: 400),
+                  child: unreadMessagesAsync.when(
+                    loading:
+                        () => const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Color(0xFFE91E63),
+                                ),
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Loading notifications...',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ],
+                          ),
+                        ),
+                    error:
+                        (error, stack) => Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: Colors.red.withOpacity(0.7),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Error loading notifications',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Please check your connection',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFE91E63),
+                                ),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  // Force refresh
+                                  ref.invalidate(unreadMessagesProvider);
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                    data: (messages) {
+                      if (messages.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.notifications_off,
+                                size: 48,
+                                color: Colors.white.withOpacity(0.5),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No new notifications',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white70,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                'You\'re all caught up!',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: messages.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final message = messages[index];
+                          return _buildSimpleNotificationItem(
+                            context,
+                            ref,
+                            message,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'Close',
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFFE91E63),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
+  }
+
+  Widget _buildSimpleNotificationItem(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> message,
+  ) {
+    final messageText = message['text'] ?? 'New message';
+    final time = _formatNotificationTime(message['timestamp']);
+    final senderId = message['from'] ?? '';
+
+    return Consumer(
+      builder: (context, ref, _) {
+        // Watch the user details for this specific sender
+        final userDetailsAsync = ref.watch(userDetailsProvider(senderId));
+
+        return userDetailsAsync.when(
+          loading:
+              () => _buildShimmerNotificationItemSkeleton(
+                context,
+                messageText,
+                time,
+              ),
+          error: (error, stack) {
+            print('Error fetching user details for $senderId: $error');
+            return _buildNotificationItemContent(
+              context,
+              ref,
+              message,
+              'Unknown User', // Fallback name
+              messageText,
+              time,
+            );
+          },
+          data: (userDetails) {
+            // Extract the name from user details
+            String senderName = 'Unknown User'; // Default fallback
+
+            if (userDetails != null) {
+              // Try different possible name fields
+              senderName =
+                  userDetails['name'] ??
+                  userDetails['displayName'] ??
+                  userDetails['username'] ??
+                  userDetails['email']?.split('@')[0] ??
+                  'User';
+            }
+
+            return _buildNotificationItemContent(
+              context,
+              ref,
+              message,
+              senderName,
+              messageText,
+              time,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Extract the actual notification item content to avoid duplication
+  Widget _buildNotificationItemContent(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> message,
+    String senderName,
+    String messageText,
+    String time,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          Navigator.of(context).pop();
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => ChatPage(
+                    chatId: message['chatId'] ?? '',
+                    peerUid: message['from'] ?? '',
+                    peerName: senderName, // Use the actual sender name
+                    peerEmail: '',
+                  ),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withOpacity(0.1),
+                Colors.white.withOpacity(0.05),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2196F3).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.message,
+                  color: Color(0xFF2196F3),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            senderName,
+                            style: GoogleFonts.robotoSlab(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          time,
+                          style: GoogleFonts.poppins(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      messageText.length > 50
+                          ? '${messageText.substring(0, 50)}...'
+                          : messageText,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
+              const Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white30,
+                size: 12,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Loading skeleton while fetching user details
+  Widget _buildShimmerNotificationItemSkeleton(
+    BuildContext context,
+    String messageText,
+    String time,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.05),
+            Colors.white.withOpacity(0.02),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Row(
+        children: [
+          // Icon container
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2196F3).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.message,
+              color: Color(0xFF2196F3),
+              size: 16,
             ),
           ),
-          Container(
-            decoration: const BoxDecoration(
-              color: Color(0xff22012c),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(30),
-                topRight: Radius.circular(30),
-              ),
-            ),
-            child: BottomNavigationBar(
-              backgroundColor: Colors.transparent,
-              type: BottomNavigationBarType.shifting,
-              currentIndex: ref.watch(navIndexProvider),
-              onTap:
-                  (index) => ref.read(navIndexProvider.notifier).state = index,
-              selectedItemColor: Colors.pink,
-              unselectedItemColor: Colors.white,
-              selectedLabelStyle: GoogleFonts.outfit(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-              unselectedLabelStyle: GoogleFonts.outfit(
-                fontWeight: FontWeight.normal,
-                fontSize: 12,
-              ),
-              items: [
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.home),
-                  label: 'Home',
-                  backgroundColor: Color(0xff22012c),
-                ),
-                BottomNavigationBarItem(
-                  icon: IconButton(
-                    onPressed: () {
-                      print('Games button clicked');
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const HomePage(),
+          const SizedBox(width: 12),
+
+          // Content area
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header row with name skeleton and time
+                Row(
+                  children: [
+                    // Name skeleton with shimmer
+                    Expanded(
+                      flex: 2,
+                      child: TweenAnimationBuilder<double>(
+                        duration: const Duration(milliseconds: 1500),
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        builder: (context, value, child) {
+                          return Container(
+                            height: 14,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment(-1.0 + (2.0 * value), 0.0),
+                                end: Alignment(1.0 + (2.0 * value), 0.0),
+                                colors: [
+                                  Colors.white.withOpacity(0.1),
+                                  Colors.white.withOpacity(0.3),
+                                  Colors.white.withOpacity(0.1),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    // Time - constrained to prevent overflow
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.2,
+                      ),
+                      child: Text(
+                        time,
+                        style: GoogleFonts.poppins(
+                          color: Colors.white.withOpacity(0.6),
+                          fontSize: 11,
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.videogame_asset),
-                  ),
-                  label: 'Games',
-                  backgroundColor: const Color(0xff22012c),
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                      ),
+                    ),
+                  ],
                 ),
-                BottomNavigationBarItem(
-                  icon: IconButton(
-                    onPressed: () {
-                      print('Live button clicked');
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const CenterLottieScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.live_tv),
+
+                const SizedBox(height: 8),
+
+                // Message text
+                Text(
+                  messageText.length > 50
+                      ? '${messageText.substring(0, 50)}...'
+                      : messageText,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white70,
+                    fontSize: 12,
                   ),
-                  label: 'Live',
-                  backgroundColor: const Color(0xff22012c),
-                ),
-                BottomNavigationBarItem(
-                  icon: IconButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const TurfHomeScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.sports_soccer),
-                  ),
-                  label: 'Turf',
-                  backgroundColor: const Color(0xff22012c),
-                ),
-                BottomNavigationBarItem(
-                  icon: IconButton(
-                    onPressed: () {
-                      print('Fav button clicked');
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const FollowingScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.favorite),
-                  ),
-                  label: 'Fav',
-                  backgroundColor: const Color(0xff22012c),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
+            ),
+          ),
+
+          // Arrow icon with padding
+          const Padding(
+            padding: EdgeInsets.only(left: 8.0),
+            child: Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white30,
+              size: 12,
             ),
           ),
         ],
       ),
     );
+  }
+
+  // Time formatting function
+  String _formatNotificationTime(dynamic timestamp) {
+    if (timestamp == null) return 'Now';
+
+    try {
+      final DateTime messageTime;
+      if (timestamp is Timestamp) {
+        messageTime = timestamp.toDate();
+      } else if (timestamp is DateTime) {
+        messageTime = timestamp;
+      } else {
+        return 'Now';
+      }
+
+      final now = DateTime.now();
+      final difference = now.difference(messageTime);
+
+      if (difference.inMinutes < 1) {
+        return 'Just now';
+      } else if (difference.inMinutes < 60) {
+        return '${difference.inMinutes}m ago';
+      } else if (difference.inHours < 24) {
+        return '${difference.inHours}h ago';
+      } else {
+        return '${difference.inDays}d ago';
+      }
+    } catch (e) {
+      return 'Now';
+    }
   }
 
   Widget _buildEnhancedTurfCard(
@@ -1345,6 +2358,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  // Updated helper functions with smaller font sizes
+  double getResponsiveFontSize(BuildContext context, double baseSize) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Using a base width of 375 (iPhone 8 width)
+    final scaleFactor = screenWidth / 375;
+
+    // More aggressive scaling down for smaller screens
+    double clampedScaleFactor;
+    if (screenWidth < 320) {
+      clampedScaleFactor = scaleFactor.clamp(0.7, 0.85); // Very small screens
+    } else if (screenWidth < 360) {
+      clampedScaleFactor = scaleFactor.clamp(0.75, 0.9); // Small screens
+    } else if (screenWidth < 400) {
+      clampedScaleFactor = scaleFactor.clamp(0.8, 0.95); // Medium small screens
+    } else {
+      clampedScaleFactor = scaleFactor.clamp(
+        0.85,
+        1.1,
+      ); // Normal and large screens
+    }
+
+    return baseSize * clampedScaleFactor;
+  }
+
+  // Helper function to get responsive padding
+  double getResponsivePadding(BuildContext context, double basePadding) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // More aggressive padding reduction for smaller screens
+    if (screenWidth < 320) return basePadding * 0.5; // Very small screens
+    if (screenWidth < 360) return basePadding * 0.7; // Small screens
+    if (screenWidth < 400) return basePadding * 0.8; // Medium small screens
+    if (screenWidth > 600) return basePadding * 1.2; // Large screens/tablets
+    return basePadding; // Normal screens
+  }
+
   Widget _buildHeader(WidgetRef ref, BuildContext context) {
     final userProfileAsync = ref.watch(userProfileProvider);
 
@@ -1357,11 +2405,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         final imageUrl = profile['photoUrl'] ?? 'https://i.pravatar.cc/300';
 
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: EdgeInsets.symmetric(
+            vertical: getResponsivePadding(context, 12),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              GestureDetector(
+              InkWell(
                 onTap: () async {
                   await Navigator.push(
                     context,
@@ -1394,7 +2444,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   );
                 },
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(
+                    getResponsivePadding(context, 10),
+                  ), // Reduced from 12
+                  constraints: BoxConstraints(
+                    minWidth:
+                        MediaQuery.of(context).size.width *
+                        0.32, // Reduced from 0.35
+                    maxWidth:
+                        MediaQuery.of(context).size.width *
+                        0.50, // Reduced from 0.55
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -1402,7 +2462,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         Colors.white.withOpacity(0.05),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(
+                      getResponsivePadding(
+                        context,
+                        14,
+                      ), // Responsive border radius
+                    ),
                     border: Border.all(
                       color: Colors.white.withOpacity(0.2),
                       width: 1,
@@ -1410,29 +2475,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         "Your location",
                         style: GoogleFonts.poppins(
                           color: Colors.white60,
-                          fontSize: 12,
+                          fontSize: getResponsiveFontSize(
+                            context,
+                            10,
+                          ), // Reduced from 12
+                          fontWeight: FontWeight.w400,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(
+                        height: getResponsivePadding(context, 3),
+                      ), // Reduced from 4
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.location_on,
                             color: const Color(0xFFE91E63),
-                            size: 16,
+                            size: getResponsiveFontSize(
+                              context,
+                              14,
+                            ), // Reduced from 16
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            location,
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                          SizedBox(
+                            width: getResponsivePadding(context, 3),
+                          ), // Reduced from 4
+                          Flexible(
+                            child: Text(
+                              location,
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: getResponsiveFontSize(
+                                  context,
+                                  12,
+                                ), // Reduced from 14
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
                         ],
@@ -1441,8 +2527,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
               ),
+              SizedBox(
+                width: getResponsivePadding(context, 8),
+              ), // Responsive spacing
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // MVP Button
                   TweenAnimationBuilder<double>(
                     duration: const Duration(milliseconds: 1500),
                     tween: Tween(begin: 0.0, end: 1.0),
@@ -1457,7 +2548,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 const Color(0xFFFFA500).withOpacity(0.2),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(
+                              getResponsivePadding(context, 14),
+                            ),
                             border: Border.all(
                               color: const Color(0xFFFFD700).withOpacity(0.4),
                               width: 1,
@@ -1496,30 +2589,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 ),
                               );
                             },
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(
+                              getResponsivePadding(context, 14),
+                            ),
                             child: Padding(
-                              padding: const EdgeInsets.all(12),
+                              padding: EdgeInsets.all(
+                                getResponsivePadding(context, 7),
+                              ), // Reduced from 8
                               child: Column(
                                 children: [
                                   RotationTransition(
                                     turns: _rotationAnimation,
-                                    child: const Icon(
+                                    child: Icon(
                                       Icons.emoji_events,
-                                      color: Color(0xFFFFD700),
-                                      size: 24,
+                                      color: const Color(0xFFFFD700),
+                                      size: getResponsiveFontSize(
+                                        context,
+                                        16,
+                                      ), // Reduced from 18
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  SizedBox(
+                                    height: getResponsivePadding(context, 2),
+                                  ),
                                   Consumer(
                                     builder: (context, ref, _) {
-                                      // final points = ref.watch(
-                                      //   mvpPointsProvider,
-                                      // );
                                       return Text(
                                         'MVP',
                                         style: GoogleFonts.poppins(
                                           color: Colors.white,
-                                          fontSize: 12,
+                                          fontSize: getResponsiveFontSize(
+                                            context,
+                                            10,
+                                          ), // Reduced from 12
                                           fontWeight: FontWeight.w600,
                                         ),
                                       );
@@ -1533,7 +2635,118 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       );
                     },
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: getResponsivePadding(context, 8),
+                  ), // Reduced spacing
+                  // Chat Button
+                  TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 1200),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    builder: (context, value, child) {
+                      return Transform.scale(
+                        scale: 0.8 + (0.2 * value),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF2196F3).withOpacity(0.3),
+                                const Color(0xFF1976D2).withOpacity(0.2),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              getResponsivePadding(context, 14),
+                            ),
+                            border: Border.all(
+                              color: const Color(0xFF2196F3).withOpacity(0.4),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF2196F3).withOpacity(0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                PageRouteBuilder(
+                                  pageBuilder:
+                                      (
+                                        context,
+                                        animation,
+                                        secondaryAnimation,
+                                      ) => const ConnectionsPage(),
+                                  transitionsBuilder: (
+                                    context,
+                                    animation,
+                                    secondaryAnimation,
+                                    child,
+                                  ) {
+                                    return SlideTransition(
+                                      position: Tween<Offset>(
+                                        begin: const Offset(0.0, -1.0),
+                                        end: Offset.zero,
+                                      ).animate(
+                                        CurvedAnimation(
+                                          parent: animation,
+                                          curve: Curves.easeInOutCubic,
+                                        ),
+                                      ),
+                                      child: child,
+                                    );
+                                  },
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(
+                              getResponsivePadding(context, 14),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(
+                                getResponsivePadding(context, 7),
+                              ), // Reduced from 8
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.message_rounded,
+                                    color: const Color(0xFF2196F3),
+                                    size: getResponsiveFontSize(
+                                      context,
+                                      18,
+                                    ), // Reduced from 20
+                                  ),
+                                  SizedBox(
+                                    height: getResponsivePadding(context, 3),
+                                  ), // Reduced from 4
+                                  Text(
+                                    'Chat',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontSize: getResponsiveFontSize(
+                                        context,
+                                        9,
+                                      ), // Reduced from 10
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  SizedBox(
+                    width: getResponsivePadding(context, 8),
+                  ), // Reduced spacing
+                  // Profile Avatar
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -1583,7 +2796,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ],
                       ),
                       child: CircleAvatar(
-                        radius: 24,
+                        radius: getResponsiveFontSize(
+                          context,
+                          20,
+                        ), // Responsive avatar size, reduced from 24
                         backgroundImage: NetworkImage(imageUrl),
                       ),
                     ),
