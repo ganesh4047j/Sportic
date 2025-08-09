@@ -30,6 +30,7 @@ class _ProfileViewState extends ConsumerState<ProfileView>
   final currentUser = FirebaseAuth.instance.currentUser;
   final TextEditingController _bioController = TextEditingController();
   bool _isEditingBio = false;
+  bool _isSendingFriendRequest = false; // Added loading state
 
   @override
   void initState() {
@@ -112,6 +113,128 @@ class _ProfileViewState extends ConsumerState<ProfileView>
       return 45;
     } else {
       return 50;
+    }
+  }
+
+  // Enhanced friend request handling with proper error management
+  Future<void> _handleFriendRequest(String userId) async {
+    if (_isSendingFriendRequest) return; // Prevent multiple requests
+
+    setState(() {
+      _isSendingFriendRequest = true;
+    });
+
+    try {
+      // Send friend request with proper error handling
+      await sendFriendRequest(userId);
+
+      // Show success feedback
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Friend request sent successfully!',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w500),
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+
+      // Refresh all related providers with proper timing
+      ref.invalidate(friendshipStatusProvider(userId));
+      ref.invalidate(friendsCountProvider(userId));
+
+      // Force rebuild after a short delay to ensure state updates
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        ref.refresh(friendshipStatusProvider(userId));
+        ref.refresh(friendsCountProvider(userId));
+      }
+    } catch (e) {
+      // Show error feedback
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to send friend request: ${e.toString()}',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w500),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+
+      // Log error for debugging
+      debugPrint('Friend request error: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSendingFriendRequest = false;
+        });
+      }
+    }
+  }
+
+  // Enhanced bio update with better error handling
+  Future<void> _updateBio(UserModel user) async {
+    try {
+      final bioText = _bioController.text.trim();
+
+      await FirebaseFirestore.instance
+          .collection(
+            user.uid.startsWith("phone")
+                ? 'user_details_phone'
+                : 'user_details_email',
+          )
+          .doc(user.uid)
+          .update({'bio': bioText});
+
+      setState(() => _isEditingBio = false);
+
+      // Refresh user profile
+      ref.refresh(userProfileProvider(user.uid));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Bio updated successfully!',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w500),
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update bio: ${e.toString()}',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w500),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+      debugPrint('Bio update error: $e');
     }
   }
 
@@ -504,26 +627,7 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                                         const SizedBox(width: 12),
                                         Flexible(
                                           child: ElevatedButton(
-                                            onPressed: () async {
-                                              await FirebaseFirestore.instance
-                                                  .collection(
-                                                    user.uid.startsWith("phone")
-                                                        ? 'user_details_phone'
-                                                        : 'user_details_email',
-                                                  )
-                                                  .doc(user.uid)
-                                                  .update({
-                                                    'bio':
-                                                        _bioController.text
-                                                            .trim(),
-                                                  });
-                                              setState(
-                                                () => _isEditingBio = false,
-                                              );
-                                              ref.refresh(
-                                                userProfileProvider(user.uid),
-                                              );
-                                            },
+                                            onPressed: () => _updateBio(user),
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: Colors.green,
                                               padding: EdgeInsets.symmetric(
@@ -812,7 +916,7 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                                   MediaQuery.of(context).size.height * 0.025,
                             ),
 
-                            // Enhanced Action Button
+                            // Enhanced Action Button with improved state management
                             AnimatedBuilder(
                               animation: _actionButtonAnimation,
                               builder: (context, child) {
@@ -823,9 +927,8 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                                   scale: clampedValue,
                                   child: Opacity(
                                     opacity: clampedValue,
-                                    child: isFriendAsync.when(
-                                      data: (isFriend) {
-                                        return isFriend
+                                    child:
+                                        currentUser?.uid == user.uid
                                             ? Container(
                                               padding: EdgeInsets.symmetric(
                                                 horizontal:
@@ -838,15 +941,15 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                                               decoration: BoxDecoration(
                                                 gradient: const LinearGradient(
                                                   colors: [
-                                                    Colors.green,
-                                                    Colors.greenAccent,
+                                                    Colors.blueGrey,
+                                                    Colors.grey,
                                                   ],
                                                 ),
                                                 borderRadius:
                                                     BorderRadius.circular(25),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: Colors.green
+                                                    color: Colors.grey
                                                         .withOpacity(0.4),
                                                     blurRadius: 12,
                                                     offset: const Offset(0, 6),
@@ -857,13 +960,13 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   const Icon(
-                                                    Icons.check_circle,
+                                                    Icons.person,
                                                     color: Colors.white,
                                                     size: 20,
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Text(
-                                                    "Friend",
+                                                    "Your Profile",
                                                     style: GoogleFonts.nunito(
                                                       color: Colors.white,
                                                       fontWeight:
@@ -878,126 +981,263 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                                                 ],
                                               ),
                                             )
-                                            : Container(
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(25),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: const Color(
-                                                      0xFFE60073,
-                                                    ).withOpacity(0.4),
-                                                    blurRadius: 12,
-                                                    offset: const Offset(0, 6),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: ElevatedButton.icon(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: const Color(
-                                                    0xFFE60073,
-                                                  ),
-                                                  foregroundColor: Colors.white,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          25,
+                                            : isFriendAsync.when(
+                                              data: (isFriend) {
+                                                return _isSendingFriendRequest
+                                                    ? Container(
+                                                      padding:
+                                                          EdgeInsets.symmetric(
+                                                            horizontal:
+                                                                MediaQuery.of(
+                                                                  context,
+                                                                ).size.width *
+                                                                0.06,
+                                                            vertical: 12,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.grey
+                                                            .withOpacity(0.3),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              25,
+                                                            ),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          const SizedBox(
+                                                            width: 20,
+                                                            height: 20,
+                                                            child: CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                              valueColor:
+                                                                  AlwaysStoppedAnimation<
+                                                                    Color
+                                                                  >(
+                                                                    Colors
+                                                                        .white,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+                                                          Text(
+                                                            "Sending...",
+                                                            style: GoogleFonts.nunito(
+                                                              color:
+                                                                  Colors.white,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              fontSize:
+                                                                  _getResponsiveFontSize(
+                                                                    context,
+                                                                    16,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    )
+                                                    : isFriend
+                                                    ? Container(
+                                                      padding:
+                                                          EdgeInsets.symmetric(
+                                                            horizontal:
+                                                                MediaQuery.of(
+                                                                  context,
+                                                                ).size.width *
+                                                                0.06,
+                                                            vertical: 12,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        gradient:
+                                                            const LinearGradient(
+                                                              colors: [
+                                                                Colors.green,
+                                                                Colors
+                                                                    .greenAccent,
+                                                              ],
+                                                            ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              25,
+                                                            ),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.green
+                                                                .withOpacity(
+                                                                  0.4,
+                                                                ),
+                                                            blurRadius: 12,
+                                                            offset:
+                                                                const Offset(
+                                                                  0,
+                                                                  6,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons.check_circle,
+                                                            color: Colors.white,
+                                                            size: 20,
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+                                                          Text(
+                                                            "Friend",
+                                                            style: GoogleFonts.nunito(
+                                                              color:
+                                                                  Colors.white,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              fontSize:
+                                                                  _getResponsiveFontSize(
+                                                                    context,
+                                                                    16,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    )
+                                                    : Container(
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              25,
+                                                            ),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: const Color(
+                                                              0xFFE60073,
+                                                            ).withOpacity(0.4),
+                                                            blurRadius: 12,
+                                                            offset:
+                                                                const Offset(
+                                                                  0,
+                                                                  6,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: ElevatedButton.icon(
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              const Color(
+                                                                0xFFE60073,
+                                                              ),
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  25,
+                                                                ),
+                                                          ),
+                                                          padding:
+                                                              EdgeInsets.symmetric(
+                                                                horizontal:
+                                                                    MediaQuery.of(
+                                                                      context,
+                                                                    ).size.width *
+                                                                    0.06,
+                                                                vertical: 12,
+                                                              ),
+                                                          elevation: 0,
                                                         ),
-                                                  ),
-                                                  padding: EdgeInsets.symmetric(
-                                                    horizontal:
-                                                        MediaQuery.of(
-                                                          context,
-                                                        ).size.width *
-                                                        0.06,
-                                                    vertical: 12,
-                                                  ),
-                                                  elevation: 0,
-                                                ),
-                                                onPressed: () async {
-                                                  await sendFriendRequest(
-                                                    user.uid,
-                                                  );
-                                                  ref.invalidate(
-                                                    friendshipStatusProvider(
-                                                      user.uid,
-                                                    ),
-                                                  );
-                                                },
-                                                icon: const Icon(
-                                                  Icons.person_add,
-                                                  size: 20,
-                                                ),
-                                                label: Text(
-                                                  "Add Friend",
-                                                  style: GoogleFonts.nunito(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize:
-                                                        _getResponsiveFontSize(
-                                                          context,
-                                                          16,
+                                                        onPressed:
+                                                            () =>
+                                                                _handleFriendRequest(
+                                                                  user.uid,
+                                                                ),
+                                                        icon: const Icon(
+                                                          Icons.person_add,
+                                                          size: 20,
                                                         ),
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                      },
-                                      loading:
-                                          () => Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(
-                                                0.1,
-                                              ),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const SizedBox(
-                                              width: 24,
-                                              height: 24,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                      Color
-                                                    >(Colors.white),
-                                              ),
-                                            ),
-                                          ),
-                                      error:
-                                          (_, __) => Container(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal:
-                                                  MediaQuery.of(
-                                                    context,
-                                                  ).size.width *
-                                                  0.05,
-                                              vertical: 12,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red.withOpacity(
-                                                0.2,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                              border: Border.all(
-                                                color: Colors.red.withOpacity(
-                                                  0.3,
-                                                ),
-                                              ),
-                                            ),
-                                            child: Text(
-                                              "Error checking friend status",
-                                              style: GoogleFonts.nunito(
-                                                color: Colors.redAccent,
-                                                fontSize:
-                                                    _getResponsiveFontSize(
-                                                      context,
-                                                      14,
+                                                        label: Text(
+                                                          "Add Friend",
+                                                          style: GoogleFonts.nunito(
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            fontSize:
+                                                                _getResponsiveFontSize(
+                                                                  context,
+                                                                  16,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                              },
+                                              loading:
+                                                  () => Container(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                          12,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withOpacity(0.1),
+                                                      shape: BoxShape.circle,
                                                     ),
-                                              ),
+                                                    child: const SizedBox(
+                                                      width: 24,
+                                                      height: 24,
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        valueColor:
+                                                            AlwaysStoppedAnimation<
+                                                              Color
+                                                            >(Colors.white),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              error:
+                                                  (_, __) => Container(
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                          horizontal:
+                                                              MediaQuery.of(
+                                                                context,
+                                                              ).size.width *
+                                                              0.05,
+                                                          vertical: 12,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.red
+                                                          .withOpacity(0.2),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: Colors.red
+                                                            .withOpacity(0.3),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      "Error checking friend status",
+                                                      style: GoogleFonts.nunito(
+                                                        color: Colors.redAccent,
+                                                        fontSize:
+                                                            _getResponsiveFontSize(
+                                                              context,
+                                                              14,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ),
                                             ),
-                                          ),
-                                    ),
                                   ),
                                 );
                               },
@@ -1399,7 +1639,6 @@ class _ProfileViewState extends ConsumerState<ProfileView>
   Widget buildSportsSection(UserModel user) {
     final responsivePadding = _getResponsivePadding(context);
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
 
     // Calculate responsive height based on screen size
     double sectionHeight;
@@ -1492,7 +1731,6 @@ class _ProfileViewState extends ConsumerState<ProfileView>
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = MediaQuery.of(context).size.width;
-        final screenHeight = MediaQuery.of(context).size.height;
 
         // Ultra responsive calculations based on actual screen size
         double cardWidth;
@@ -1501,7 +1739,6 @@ class _ProfileViewState extends ConsumerState<ProfileView>
         double headerHeight;
         double titleHeight;
         double ratingHeight;
-        double statsHeight;
         double iconSize;
         double titleFontSize;
         double skillFontSize;
@@ -1518,7 +1755,6 @@ class _ProfileViewState extends ConsumerState<ProfileView>
           headerHeight = 32;
           titleHeight = 20;
           ratingHeight = 16;
-          statsHeight = 60;
           iconSize = 16;
           titleFontSize = 14;
           skillFontSize = 9;
@@ -1533,7 +1769,6 @@ class _ProfileViewState extends ConsumerState<ProfileView>
           headerHeight = 35;
           titleHeight = 22;
           ratingHeight = 18;
-          statsHeight = 65;
           iconSize = 18;
           titleFontSize = 15;
           skillFontSize = 10;
@@ -1548,7 +1783,6 @@ class _ProfileViewState extends ConsumerState<ProfileView>
           headerHeight = 38;
           titleHeight = 24;
           ratingHeight = 20;
-          statsHeight = 70;
           iconSize = 20;
           titleFontSize = 16;
           skillFontSize = 10;
@@ -1563,7 +1797,6 @@ class _ProfileViewState extends ConsumerState<ProfileView>
           headerHeight = 40;
           titleHeight = 26;
           ratingHeight = 22;
-          statsHeight = 75;
           iconSize = 22;
           titleFontSize = 17;
           skillFontSize = 11;
@@ -1578,7 +1811,6 @@ class _ProfileViewState extends ConsumerState<ProfileView>
           headerHeight = 42;
           titleHeight = 28;
           ratingHeight = 24;
-          statsHeight = 80;
           iconSize = 24;
           titleFontSize = 18;
           skillFontSize = 11;
@@ -1738,7 +1970,7 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                                 ),
                               ),
                             ),
-                            SizedBox(width: 2),
+                            const SizedBox(width: 2),
                             Icon(
                               Icons.star,
                               color: Colors.amber,
@@ -1782,7 +2014,7 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                                   ),
                                 ),
                               ),
-                              SizedBox(height: 2),
+                              const SizedBox(height: 2),
                               Flexible(
                                 flex: 1,
                                 child: FittedBox(
@@ -1799,11 +2031,7 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                             ],
                           ),
                         ),
-                        Container(
-                          width: 1,
-                          height: statsHeight * 0.6,
-                          color: Colors.white24,
-                        ),
+                        Container(width: 1, height: 30, color: Colors.white24),
                         Expanded(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -1822,7 +2050,7 @@ class _ProfileViewState extends ConsumerState<ProfileView>
                                   ),
                                 ),
                               ),
-                              SizedBox(height: 2),
+                              const SizedBox(height: 2),
                               Flexible(
                                 flex: 1,
                                 child: FittedBox(

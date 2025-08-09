@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lottie/lottie.dart';
 import '../Providers/connection_provider.dart';
 import '../Providers/search_friends_providers.dart';
 import '../Providers/view_request_provider.dart';
@@ -170,7 +169,14 @@ class FriendRequestsScreen extends ConsumerWidget {
                               fontSize: screenWidth * 0.04,
                             ),
                           ),
-                      error: (_, __) => const SizedBox.shrink(),
+                      error:
+                          (error, _) => Text(
+                            'Error loading requests',
+                            style: GoogleFonts.poppins(
+                              color: Colors.redAccent.withOpacity(0.8),
+                              fontSize: screenWidth * 0.04,
+                            ),
+                          ),
                     ),
                   ),
                   // Requests list
@@ -229,6 +235,21 @@ class FriendRequestsScreen extends ConsumerWidget {
                               (_, __) => SizedBox(height: screenHeight * 0.015),
                           itemBuilder: (context, index) {
                             final user = requests[index];
+
+                            // Safely extract user data with null safety
+                            final userName =
+                                user['name']?.toString() ?? 'Unknown User';
+                            final userEmail = user['email']?.toString() ?? '';
+                            final userLocation =
+                                user['location']?.toString() ?? '';
+                            final userPhotoUrl =
+                                user['photoUrl']?.toString() ?? '';
+                            final userUid = user['uid']?.toString() ?? '';
+
+                            if (userUid.isEmpty) {
+                              // Skip this item if no valid UID
+                              return const SizedBox.shrink();
+                            }
 
                             return TweenAnimationBuilder<double>(
                               duration: Duration(
@@ -292,11 +313,10 @@ class FriendRequestsScreen extends ConsumerWidget {
                                                     ),
                                                     child: CircleAvatar(
                                                       backgroundImage:
-                                                          (user['photoUrl'] ??
-                                                                      '')
+                                                          userPhotoUrl
                                                                   .isNotEmpty
                                                               ? NetworkImage(
-                                                                user['photoUrl'],
+                                                                userPhotoUrl,
                                                               )
                                                               : const NetworkImage(
                                                                 'https://i.pravatar.cc/150',
@@ -306,6 +326,12 @@ class FriendRequestsScreen extends ConsumerWidget {
                                                       backgroundColor: Colors
                                                           .white
                                                           .withOpacity(0.1),
+                                                      onBackgroundImageError: (
+                                                        _,
+                                                        __,
+                                                      ) {
+                                                        // Handle image loading errors
+                                                      },
                                                     ),
                                                   ),
                                                   const SizedBox(width: 16),
@@ -317,8 +343,7 @@ class FriendRequestsScreen extends ConsumerWidget {
                                                               .start,
                                                       children: [
                                                         Text(
-                                                          user['name'] ??
-                                                              'Unknown',
+                                                          userName,
                                                           style:
                                                               GoogleFonts.poppins(
                                                                 color:
@@ -332,8 +357,7 @@ class FriendRequestsScreen extends ConsumerWidget {
                                                                     0.045,
                                                               ),
                                                         ),
-                                                        if ((user['location'] ??
-                                                                '')
+                                                        if (userLocation
                                                             .isNotEmpty) ...[
                                                           const SizedBox(
                                                             height: 4,
@@ -355,8 +379,7 @@ class FriendRequestsScreen extends ConsumerWidget {
                                                               ),
                                                               Expanded(
                                                                 child: Text(
-                                                                  user['location'] ??
-                                                                      '',
+                                                                  userLocation,
                                                                   style: GoogleFonts.poppins(
                                                                     color: Colors
                                                                         .white
@@ -375,8 +398,7 @@ class FriendRequestsScreen extends ConsumerWidget {
                                                             ],
                                                           ),
                                                         ],
-                                                        if ((user['email'] ??
-                                                                '')
+                                                        if (userEmail
                                                             .isNotEmpty) ...[
                                                           const SizedBox(
                                                             height: 4,
@@ -398,8 +420,7 @@ class FriendRequestsScreen extends ConsumerWidget {
                                                               ),
                                                               Expanded(
                                                                 child: Text(
-                                                                  user['email'] ??
-                                                                      '',
+                                                                  userEmail,
                                                                   style: GoogleFonts.poppins(
                                                                     fontSize:
                                                                         screenWidth *
@@ -430,275 +451,24 @@ class FriendRequestsScreen extends ConsumerWidget {
                                               Row(
                                                 children: [
                                                   Expanded(
-                                                    child: Container(
-                                                      height: 45,
-                                                      decoration: BoxDecoration(
-                                                        gradient: LinearGradient(
-                                                          colors: [
-                                                            Colors.green
-                                                                .withOpacity(
-                                                                  0.8,
-                                                                ),
-                                                            Colors.green
-                                                                .withOpacity(
-                                                                  0.6,
-                                                                ),
-                                                          ],
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12,
-                                                            ),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: Colors.green
-                                                                .withOpacity(
-                                                                  0.3,
-                                                                ),
-                                                            blurRadius: 8,
-                                                            offset:
-                                                                const Offset(
-                                                                  0,
-                                                                  4,
-                                                                ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      child: Material(
-                                                        color:
-                                                            Colors.transparent,
-                                                        child: InkWell(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                12,
-                                                              ),
-                                                          onTap: () async {
-                                                            await ref.read(
-                                                              acceptRequestProvider(
-                                                                user['uid'],
-                                                              ),
-                                                            );
-                                                            ref.invalidate(
-                                                              viewRequestsProvider,
-                                                            );
-                                                            ref.invalidate(
-                                                              searchFriendsProvider,
-                                                            );
-                                                            ref.invalidate(
-                                                              connectionsProvider,
-                                                            );
-                                                            ScaffoldMessenger.of(
-                                                              context,
-                                                            ).showSnackBar(
-                                                              SnackBar(
-                                                                content: Row(
-                                                                  children: [
-                                                                    const Icon(
-                                                                      Icons
-                                                                          .check_circle,
-                                                                      color:
-                                                                          Colors
-                                                                              .white,
-                                                                    ),
-                                                                    const SizedBox(
-                                                                      width: 8,
-                                                                    ),
-                                                                    Text(
-                                                                      'Friend request accepted',
-                                                                      style: GoogleFonts.poppins(
-                                                                        fontSize:
-                                                                            14,
-                                                                        color:
-                                                                            Colors.white,
-                                                                        fontWeight:
-                                                                            FontWeight.w500,
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                                backgroundColor:
-                                                                    Colors
-                                                                        .green,
-                                                                behavior:
-                                                                    SnackBarBehavior
-                                                                        .floating,
-                                                                shape: RoundedRectangleBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                ),
-                                                              ),
-                                                            );
-                                                          },
-                                                          child: Row(
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .center,
-                                                            children: [
-                                                              const Icon(
-                                                                Icons.check,
-                                                                color:
-                                                                    Colors
-                                                                        .white,
-                                                                size: 20,
-                                                              ),
-                                                              const SizedBox(
-                                                                width: 8,
-                                                              ),
-                                                              Text(
-                                                                'Accept',
-                                                                style: GoogleFonts.nunito(
-                                                                  color:
-                                                                      Colors
-                                                                          .white,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                  fontSize:
-                                                                      screenWidth *
-                                                                      0.038,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
+                                                    child: _buildActionButton(
+                                                      context: context,
+                                                      ref: ref,
+                                                      screenWidth: screenWidth,
+                                                      userUid: userUid,
+                                                      userName: userName,
+                                                      isAccept: true,
                                                     ),
                                                   ),
                                                   const SizedBox(width: 12),
                                                   Expanded(
-                                                    child: Container(
-                                                      height: 45,
-                                                      decoration: BoxDecoration(
-                                                        gradient: LinearGradient(
-                                                          colors: [
-                                                            Colors.red
-                                                                .withOpacity(
-                                                                  0.8,
-                                                                ),
-                                                            Colors.red
-                                                                .withOpacity(
-                                                                  0.6,
-                                                                ),
-                                                          ],
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12,
-                                                            ),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: Colors.red
-                                                                .withOpacity(
-                                                                  0.3,
-                                                                ),
-                                                            blurRadius: 8,
-                                                            offset:
-                                                                const Offset(
-                                                                  0,
-                                                                  4,
-                                                                ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      child: Material(
-                                                        color:
-                                                            Colors.transparent,
-                                                        child: InkWell(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                12,
-                                                              ),
-                                                          onTap: () async {
-                                                            await ref.read(
-                                                              rejectRequestProvider(
-                                                                user['uid'],
-                                                              ),
-                                                            );
-                                                            ref.invalidate(
-                                                              viewRequestsProvider,
-                                                            );
-                                                            ref.invalidate(
-                                                              searchFriendsProvider,
-                                                            );
-                                                            ScaffoldMessenger.of(
-                                                              context,
-                                                            ).showSnackBar(
-                                                              SnackBar(
-                                                                content: Row(
-                                                                  children: [
-                                                                    const Icon(
-                                                                      Icons
-                                                                          .cancel,
-                                                                      color:
-                                                                          Colors
-                                                                              .white,
-                                                                    ),
-                                                                    const SizedBox(
-                                                                      width: 8,
-                                                                    ),
-                                                                    Text(
-                                                                      'Friend request rejected',
-                                                                      style: GoogleFonts.poppins(
-                                                                        fontSize:
-                                                                            14,
-                                                                        color:
-                                                                            Colors.white,
-                                                                        fontWeight:
-                                                                            FontWeight.w500,
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                                backgroundColor:
-                                                                    Colors
-                                                                        .redAccent,
-                                                                behavior:
-                                                                    SnackBarBehavior
-                                                                        .floating,
-                                                                shape: RoundedRectangleBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                ),
-                                                              ),
-                                                            );
-                                                          },
-                                                          child: Row(
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .center,
-                                                            children: [
-                                                              const Icon(
-                                                                Icons.close,
-                                                                color:
-                                                                    Colors
-                                                                        .white,
-                                                                size: 20,
-                                                              ),
-                                                              const SizedBox(
-                                                                width: 8,
-                                                              ),
-                                                              Text(
-                                                                'Reject',
-                                                                style: GoogleFonts.nunito(
-                                                                  color:
-                                                                      Colors
-                                                                          .white,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                  fontSize:
-                                                                      screenWidth *
-                                                                      0.038,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
+                                                    child: _buildActionButton(
+                                                      context: context,
+                                                      ref: ref,
+                                                      screenWidth: screenWidth,
+                                                      userUid: userUid,
+                                                      userName: userName,
+                                                      isAccept: false,
                                                     ),
                                                   ),
                                                 ],
@@ -720,10 +490,11 @@ class FriendRequestsScreen extends ConsumerWidget {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Lottie.asset(
-                                  'assets/loading_spinner.json',
-                                  width: 120,
-                                  height: 120,
+                                // Use CircularProgressIndicator if Lottie asset is not available
+                                const CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
@@ -737,7 +508,7 @@ class FriendRequestsScreen extends ConsumerWidget {
                             ),
                           ),
                       error:
-                          (e, _) => Center(
+                          (e, stackTrace) => Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -763,13 +534,39 @@ class FriendRequestsScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  'Error: $e',
-                                  style: GoogleFonts.cutive(
-                                    color: Colors.redAccent.withOpacity(0.7),
-                                    fontSize: screenWidth * 0.035,
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
                                   ),
-                                  textAlign: TextAlign.center,
+                                  child: Text(
+                                    e.toString(),
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.redAccent.withOpacity(0.7),
+                                      fontSize: screenWidth * 0.035,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    ref.refresh(viewRequestsProvider);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white.withOpacity(
+                                      0.1,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Retry',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -781,6 +578,130 @@ class FriendRequestsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required WidgetRef ref,
+    required double screenWidth,
+    required String userUid,
+    required String userName,
+    required bool isAccept,
+  }) {
+    return Container(
+      height: 45,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors:
+              isAccept
+                  ? [
+                    Colors.green.withOpacity(0.8),
+                    Colors.green.withOpacity(0.6),
+                  ]
+                  : [Colors.red.withOpacity(0.8), Colors.red.withOpacity(0.6)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: (isAccept ? Colors.green : Colors.red).withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () async {
+            try {
+              if (isAccept) {
+                await ref.read(acceptRequestProvider(userUid));
+                _showSnackBar(
+                  context,
+                  'Friend request accepted',
+                  Icons.check_circle,
+                  Colors.green,
+                );
+              } else {
+                await ref.read(rejectRequestProvider(userUid));
+                _showSnackBar(
+                  context,
+                  'Friend request rejected',
+                  Icons.cancel,
+                  Colors.redAccent,
+                );
+              }
+
+              // Refresh providers
+              ref.invalidate(viewRequestsProvider);
+              ref.invalidate(searchFriendsProvider);
+              if (isAccept) {
+                ref.invalidate(connectionsProvider);
+              }
+            } catch (e) {
+              _showSnackBar(
+                context,
+                'Failed to ${isAccept ? 'accept' : 'reject'} request: ${e.toString()}',
+                Icons.error,
+                Colors.redAccent,
+              );
+            }
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isAccept ? Icons.check : Icons.close,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isAccept ? 'Accept' : 'Reject',
+                style: GoogleFonts.nunito(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: screenWidth * 0.038,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSnackBar(
+    BuildContext context,
+    String message,
+    IconData icon,
+    Color color,
+  ) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

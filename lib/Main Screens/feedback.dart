@@ -19,9 +19,11 @@ class FeedbackPage extends ConsumerStatefulWidget {
 class _FeedbackPageState extends ConsumerState<FeedbackPage>
     with TickerProviderStateMixin {
   final List<String> selectableOptions = const [
-    "Select topic",
-    "Something wrong in this app",
-    "Something wrong with network",
+    "App is easy to use and navigate",
+    "Booking process was smooth and fast",
+    "Loved the UI and animations",
+    "Great customer support response",
+    "Enjoyed the group/team booking feature",
     "Others",
   ];
 

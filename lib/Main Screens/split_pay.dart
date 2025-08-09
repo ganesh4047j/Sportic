@@ -191,8 +191,9 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
   Future<void> _preloadUserProfiles() async {
     if (teamData == null) return;
 
-    // Get creator profile
-    final creatorUserId = teamData!['creator_user_id'];
+    // Get creator profile - handle both creator_user_id and creator_id
+    final creatorUserId =
+        teamData!['creator_user_id'] ?? teamData!['creator_id'];
     if (creatorUserId != null && !userProfileCache.containsKey(creatorUserId)) {
       final creatorProfile = await getUserProfileById(creatorUserId);
       if (mounted) {
@@ -214,6 +215,25 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
               userProfileCache[userId] = playerProfile;
             });
           }
+        }
+      }
+    }
+
+    // Also preload current user profile
+    final currentUserAsync = ref.read(currentUserProvider);
+    final currentUser = currentUserAsync.when(
+      data: (user) => user,
+      loading: () => null,
+      error: (error, stack) => null,
+    );
+
+    if (currentUser != null) {
+      final currentUserId = currentUser['user_id'];
+      if (!userProfileCache.containsKey(currentUserId)) {
+        if (mounted) {
+          setState(() {
+            userProfileCache[currentUserId] = currentUser;
+          });
         }
       }
     }
@@ -305,14 +325,6 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
     super.dispose();
   }
 
-  // Calculate joined players count from joined_players array
-  int get joinedPlayersCount {
-    if (teamData?['joined_players'] is List) {
-      return (teamData!['joined_players'] as List).length;
-    }
-    return 1; // At least the creator
-  }
-
   // Calculate needed players
   int get needPlayersCount {
     return (teamData?['need_players'] as int?) ?? 0;
@@ -329,31 +341,48 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
   List<Map<String, dynamic>> get joinedPlayersList {
     List<Map<String, dynamic>> players = [];
 
-    // Add creator first with actual profile data
-    final creatorUserId = teamData?['creator_user_id'];
+    // Get current user data first
+    final currentUserAsync = ref.read(currentUserProvider);
+    final currentUser = currentUserAsync.when(
+      data: (user) => user,
+      loading: () => null,
+      error: (error, stack) => null,
+    );
+
+    // Get creator ID (handle both field names)
+    final creatorUserId =
+        teamData?['creator_user_id'] ?? teamData?['creator_id'];
     final creatorProfile = userProfileCache[creatorUserId];
 
+    // Add creator first
     players.add({
       'name':
           creatorProfile?['name'] ??
           teamData?['creator_name'] ??
           'Team Captain',
       'avatar_url': creatorProfile?['photoUrl'] ?? '',
-      'status': 'paid', // Assume creator has paid
+      'status': 'paid', // Creator is assumed to have paid
       'is_creator': true,
       'user_id': creatorUserId,
     });
 
-    // Add joined players with actual profile data
+    // Add joined players (excluding creator to avoid duplicates)
     if (teamData?['joined_players'] is List) {
       final joinedPlayers = teamData!['joined_players'] as List;
       for (var player in joinedPlayers) {
         final userId = player['user_id'];
+
+        // Skip if this player is the creator (to avoid duplicates)
+        if (userId == creatorUserId) {
+          continue;
+        }
+
         final playerProfile = userProfileCache[userId];
 
         players.add({
           'name': playerProfile?['name'] ?? player['name'] ?? 'Player',
-          'avatar_url': playerProfile?['photoUrl'] ?? '',
+          'avatar_url':
+              playerProfile?['photoUrl'] ?? player['avatar_url'] ?? '',
           'status': player['payment_status'] ?? 'pending',
           'is_creator': false,
           'user_id': userId,
@@ -361,7 +390,60 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
       }
     }
 
+    // Add current user ONLY if they're not already in the list
+    if (currentUser != null) {
+      final currentUserId = currentUser['user_id'];
+
+      // Check if current user is already in the list
+      final isAlreadyInList = players.any(
+        (player) => player['user_id'] == currentUserId,
+      );
+
+      if (!isAlreadyInList) {
+        // Add current user as pending
+        players.add({
+          'name': currentUser['name'] ?? 'You',
+          'avatar_url': currentUser['avatar_url'] ?? '',
+          'status': 'pending',
+          'is_creator': false,
+          'user_id': currentUserId,
+        });
+      }
+    }
+
+    print('DEBUG: Final players list:');
+    for (var player in players) {
+      print(
+        '- ${player['name']} (${player['user_id']}) - Status: ${player['status']} - Creator: ${player['is_creator']}',
+      );
+    }
+
     return players;
+  }
+
+  // Also update the joinedPlayersCount getter to be more accurate
+  int get joinedPlayersCount {
+    // Count unique players (creator + joined players, avoiding duplicates)
+    Set<String> uniqueUserIds = {};
+
+    // Add creator
+    final creatorUserId =
+        teamData?['creator_user_id'] ?? teamData?['creator_id'];
+    if (creatorUserId != null) {
+      uniqueUserIds.add(creatorUserId);
+    }
+
+    // Add joined players
+    if (teamData?['joined_players'] is List) {
+      final joinedPlayers = teamData!['joined_players'] as List;
+      for (var player in joinedPlayers) {
+        if (player['user_id'] != null) {
+          uniqueUserIds.add(player['user_id']);
+        }
+      }
+    }
+
+    return uniqueUserIds.length;
   }
 
   @override
@@ -1363,7 +1445,8 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '₹${amountPerPlayer.toDouble()} per player',
+                                  // Fix: Round off the price to remove long decimals
+                                  '₹${amountPerPlayer.round()} per player',
                                   style: GoogleFonts.poppins(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -1419,10 +1502,8 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
               },
             );
           },
-          loading: () => const SizedBox.shrink(), // Show nothing while loading
-          error:
-              (error, stack) =>
-                  const SizedBox.shrink(), // Show nothing on error
+          loading: () => const SizedBox.shrink(),
+          error: (error, stack) => const SizedBox.shrink(),
         );
       },
     );
@@ -1768,21 +1849,33 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
         throw Exception('Team document not found');
       }
 
-      final teamData = teamDoc.data()!;
-      final currentNeedPlayers = (teamData['need_players'] as int?) ?? 0;
+      final teamDataFromDb = teamDoc.data()!;
+      final currentNeedPlayers = (teamDataFromDb['need_players'] as int?) ?? 0;
       final joinedPlayers = List<Map<String, dynamic>>.from(
-        teamData['joined_players'] ?? [],
+        teamDataFromDb['joined_players'] ?? [],
       );
+
+      final creatorUserId =
+          teamDataFromDb['creator_user_id'] ?? teamDataFromDb['creator_id'];
+      final currentUserId = currentUser['user_id'];
+
+      // Check if current user is the creator
+      if (currentUserId == creatorUserId) {
+        // If current user is the creator, don't add to joined_players
+        // Just update their payment status in a separate field or handle differently
+        print('Current user is the creator - not adding to joined_players');
+        return; // or handle creator payment differently
+      }
 
       // Check if user is already in the team
       final userExists = joinedPlayers.any(
-        (player) => player['user_id'] == currentUser['user_id'],
+        (player) => player['user_id'] == currentUserId,
       );
 
       if (!userExists && currentNeedPlayers > 0) {
         // Add user to joined_players array
         joinedPlayers.add({
-          'user_id': currentUser['user_id'],
+          'user_id': currentUserId,
           'name': currentUser['name'],
           'avatar_url': currentUser['avatar_url'] ?? '',
           'payment_status': 'paid',
@@ -1799,7 +1892,7 @@ class _SplitPaymentScreenState extends ConsumerState<SplitPaymentScreen>
       } else if (userExists) {
         // Update existing user's payment status
         final userIndex = joinedPlayers.indexWhere(
-          (player) => player['user_id'] == currentUser['user_id'],
+          (player) => player['user_id'] == currentUserId,
         );
 
         if (userIndex != -1) {

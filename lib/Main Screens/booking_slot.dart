@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:scroll_date_picker/scroll_date_picker.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -11,6 +12,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:share_plus/share_plus.dart';
+import 'package:intl/intl.dart'; // For DateFormat
 import 'dart:ui';
 
 class TimingPage extends StatefulWidget {
@@ -29,6 +31,7 @@ class TimingPage extends StatefulWidget {
 }
 
 class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
+  final List<int> hours = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   String? selectedSport;
   DateTime _selectedDate = DateTime.now();
   int selectedStartHour =
@@ -58,6 +61,8 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
   late Animation<double> _scaleAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _bounceAnimation;
+  late AnimationController _floatingAnimationController;
+  late Animation<double> _floatingAnimation;
 
   // Razorpay and Firestore related variables
   late Razorpay _razorpay;
@@ -68,13 +73,13 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
   String? bookingId;
   double bookingAmount = 500.0;
 
-  List<String> sports = [
-    'Football',
-    'Cricket',
-    'Basketball',
-    'Tennis',
-    'Hockey',
-    'Pickleball',
+  final List<Map<String, dynamic>> sports = [
+    {'name': 'Football', 'icon': '⚽', 'color': Colors.green},
+    {'name': 'Cricket', 'icon': '🏏', 'color': Colors.deepOrange},
+    {'name': 'Basketball', 'icon': '🏀', 'color': Colors.redAccent},
+    {'name': 'Tennis', 'icon': '🎾', 'color': Colors.pink},
+    {'name': 'Hockey', 'icon': '🏒', 'color': Colors.blue},
+    {'name': 'Pickleball', 'icon': '🏓', 'color': Colors.purple},
   ];
 
   @override
@@ -164,12 +169,25 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
       ),
     );
 
+    _floatingAnimationController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    );
+
+    _floatingAnimation = Tween<double>(begin: -2.0, end: 2.0).animate(
+      CurvedAnimation(
+        parent: _floatingAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
     _cardAnimationController.forward();
     _fadeAnimationController.forward();
     _scaleAnimationController.forward();
     _slideAnimationController.forward();
     _bounceAnimationController.forward();
     _pulseAnimationController.repeat(reverse: true);
+    _floatingAnimationController.repeat(reverse: true);
   }
 
   @override
@@ -180,6 +198,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     _scaleAnimationController.dispose();
     _slideAnimationController.dispose();
     _bounceAnimationController.dispose();
+    _floatingAnimationController.dispose();
     _razorpay.clear();
     super.dispose();
   }
@@ -882,82 +901,122 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
   }
 
   Widget _buildSportSelectionCard(List<String> filteredSports) {
+    // Convert filteredSports to match the sports map structure
+    final filteredSportsMap =
+        sports
+            .where((sport) => filteredSports.contains(sport['name']))
+            .toList();
+
     return AnimatedBuilder(
-      animation: _cardSlideAnimation,
+      animation: _scaleAnimation,
       builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _cardSlideAnimation.value),
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final screenWidth = MediaQuery.of(context).size.width;
-                final isSmallScreen = screenWidth < 360;
-                final isMediumScreen = screenWidth < 400;
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final screenWidth = MediaQuery.of(context).size.width;
+              final screenHeight = MediaQuery.of(context).size.height;
+              final isSmallScreen = screenWidth < 360;
+              final isMediumScreen = screenWidth < 400;
+              final isLargeScreen = screenWidth >= 600;
+              final isTablet = screenWidth >= 768;
 
-                return _buildModernGlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Section Header
-                      Text(
-                        'Select Sport',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: isSmallScreen ? 22 : 24,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
+              // Calculate responsive grid parameters
+              int crossAxisCount;
+              double childAspectRatio;
+              double crossAxisSpacing;
+              double mainAxisSpacing;
+
+              if (isTablet) {
+                // Tablet: 4 columns
+                crossAxisCount = 4;
+                childAspectRatio = 1.1;
+                crossAxisSpacing = 20;
+                mainAxisSpacing = 20;
+              } else if (isLargeScreen) {
+                // Large phones: 3 columns
+                crossAxisCount = 3;
+                childAspectRatio = 1.0;
+                crossAxisSpacing = 16;
+                mainAxisSpacing = 16;
+              } else if (isMediumScreen) {
+                // Medium phones: 2 columns
+                crossAxisCount = 2;
+                childAspectRatio = 0.85;
+                crossAxisSpacing = 12;
+                mainAxisSpacing = 12;
+              } else if (isSmallScreen) {
+                // Small phones: 2 columns, more compact
+                crossAxisCount = 2;
+                childAspectRatio = 0.75;
+                crossAxisSpacing = 10;
+                mainAxisSpacing = 10;
+              } else {
+                // Default: 2 columns
+                crossAxisCount = 2;
+                childAspectRatio = 0.8;
+                crossAxisSpacing = 14;
+                mainAxisSpacing = 14;
+              }
+
+              return _buildModernGlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Section Header
+                    Text(
+                      'Select Sport',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize:
+                            isSmallScreen
+                                ? 20
+                                : isTablet
+                                ? 28
+                                : 24,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
                       ),
+                    ),
 
-                      SizedBox(height: isSmallScreen ? 16 : 20),
+                    SizedBox(height: isSmallScreen ? 16 : 20),
 
-                      // Sports Grid
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 1,
-                          crossAxisSpacing: 0,
-                          mainAxisSpacing: isSmallScreen ? 12 : 16,
-                          childAspectRatio: 4.5,
-                        ),
-                        itemCount: filteredSports.length,
-                        itemBuilder: (context, index) {
-                          final sport = filteredSports[index];
-                          final isSelected = selectedSport == sport;
+                    // Responsive Sports Grid
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        childAspectRatio: childAspectRatio,
+                        crossAxisSpacing: crossAxisSpacing,
+                        mainAxisSpacing: mainAxisSpacing,
+                      ),
+                      itemCount: filteredSportsMap.length,
+                      itemBuilder: (context, index) {
+                        final sport = filteredSportsMap[index];
+                        final bool isSelected = selectedSport == sport['name'];
 
-                          return TweenAnimationBuilder<double>(
-                            duration: Duration(
-                              milliseconds: 300 + (index * 50),
-                            ),
-                            tween: Tween(begin: 0.0, end: 1.0),
-                            builder: (context, value, child) {
-                              return Transform.scale(
-                                scale: 0.8 + (0.2 * value),
-                                child: Opacity(
-                                  opacity: value,
+                        return AnimatedBuilder(
+                          animation: _pulseAnimation,
+                          builder: (context, child) {
+                            return TweenAnimationBuilder<double>(
+                              duration: const Duration(milliseconds: 300),
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              curve: Curves.easeOutBack,
+                              builder: (context, animValue, child) {
+                                return Transform.scale(
+                                  scale:
+                                      isSelected
+                                          ? _pulseAnimation.value * animValue
+                                          : 1.0 * animValue,
                                   child: GestureDetector(
                                     onTap: () {
-                                      setState(() => selectedSport = sport);
-                                      if (isSelected) {
-                                        _pulseAnimationController
-                                            .forward()
-                                            .then((_) {
-                                              _pulseAnimationController
-                                                  .reverse();
-                                            });
-                                      }
+                                      HapticFeedback.lightImpact();
+                                      setState(() {
+                                        selectedSport = sport['name'];
+                                      });
                                     },
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      curve: Curves.easeInOut,
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: isSmallScreen ? 16 : 20,
-                                        vertical: isSmallScreen ? 14 : 16,
-                                      ),
+                                    child: Container(
                                       decoration: BoxDecoration(
                                         gradient:
                                             isSelected
@@ -965,10 +1024,12 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                                   begin: Alignment.topLeft,
                                                   end: Alignment.bottomRight,
                                                   colors: [
-                                                    Colors.green.shade400
-                                                        .withOpacity(0.8),
-                                                    Colors.green.shade600
-                                                        .withOpacity(0.8),
+                                                    sport['color'].withOpacity(
+                                                      0.9,
+                                                    ),
+                                                    sport['color'].withOpacity(
+                                                      0.6,
+                                                    ),
                                                   ],
                                                 )
                                                 : LinearGradient(
@@ -983,178 +1044,286 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                                     ),
                                                   ],
                                                 ),
-                                        borderRadius: BorderRadius.circular(20),
+                                        borderRadius: BorderRadius.circular(
+                                          isSmallScreen ? 18 : 22,
+                                        ),
                                         border: Border.all(
                                           color:
                                               isSelected
-                                                  ? Colors.green.withOpacity(
-                                                    0.6,
+                                                  ? sport['color'].withOpacity(
+                                                    0.8,
                                                   )
                                                   : Colors.white.withOpacity(
-                                                    0.25,
+                                                    0.3,
                                                   ),
-                                          width: isSelected ? 2 : 1,
+                                          width: isSelected ? 2.5 : 1.5,
                                         ),
                                         boxShadow:
                                             isSelected
                                                 ? [
                                                   BoxShadow(
-                                                    color: Colors.green
-                                                        .withOpacity(0.3),
+                                                    color: sport['color']
+                                                        .withOpacity(0.4),
+                                                    spreadRadius: 2,
                                                     blurRadius: 15,
-                                                    offset: const Offset(0, 6),
+                                                    offset: const Offset(0, 4),
+                                                  ),
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withOpacity(0.1),
+                                                    spreadRadius: 1,
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 2),
                                                   ),
                                                 ]
                                                 : [
                                                   BoxShadow(
                                                     color: Colors.black
-                                                        .withOpacity(0.05),
+                                                        .withOpacity(0.1),
                                                     blurRadius: 8,
                                                     offset: const Offset(0, 2),
                                                   ),
                                                 ],
                                       ),
-                                      child: Row(
-                                        children: [
-                                          // Sport Icon
-                                          Container(
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(
+                                            isSmallScreen ? 18 : 22,
+                                          ),
+                                          onTap: () {
+                                            HapticFeedback.lightImpact();
+                                            setState(() {
+                                              selectedSport = sport['name'];
+                                            });
+                                          },
+                                          child: Container(
                                             padding: EdgeInsets.all(
-                                              isSmallScreen ? 8 : 10,
+                                              isSmallScreen
+                                                  ? 12
+                                                  : isTablet
+                                                  ? 20
+                                                  : 16,
                                             ),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  isSelected
-                                                      ? Colors.white
-                                                          .withOpacity(0.2)
-                                                      : Colors.white
-                                                          .withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: _getSportIcon(
-                                              sport,
-                                              isSelected,
-                                              isSmallScreen,
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                // Sport Icon
+                                                Container(
+                                                  padding: EdgeInsets.all(
+                                                    isSmallScreen
+                                                        ? 8
+                                                        : isTablet
+                                                        ? 12
+                                                        : 10,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        isSelected
+                                                            ? Colors.white
+                                                                .withOpacity(
+                                                                  0.2,
+                                                                )
+                                                            : Colors.white
+                                                                .withOpacity(
+                                                                  0.1,
+                                                                ),
+                                                    shape: BoxShape.circle,
+                                                    border:
+                                                        isSelected
+                                                            ? Border.all(
+                                                              color: Colors
+                                                                  .white
+                                                                  .withOpacity(
+                                                                    0.3,
+                                                                  ),
+                                                            )
+                                                            : null,
+                                                  ),
+                                                  child: Text(
+                                                    sport['icon'],
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          isSmallScreen
+                                                              ? 20
+                                                              : isTablet
+                                                              ? 32
+                                                              : 26,
+                                                    ),
+                                                  ),
+                                                ),
+
+                                                SizedBox(
+                                                  height:
+                                                      isSmallScreen ? 8 : 12,
+                                                ),
+
+                                                // Sport Name
+                                                Flexible(
+                                                  child: Text(
+                                                    sport['name'],
+                                                    style: GoogleFonts.poppins(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          isSelected
+                                                              ? FontWeight.bold
+                                                              : FontWeight.w600,
+                                                      fontSize:
+                                                          isSmallScreen
+                                                              ? 12
+                                                              : isTablet
+                                                              ? 18
+                                                              : 14,
+                                                      letterSpacing: 0.5,
+                                                      shadows:
+                                                          isSelected
+                                                              ? [
+                                                                Shadow(
+                                                                  color: Colors
+                                                                      .black
+                                                                      .withOpacity(
+                                                                        0.3,
+                                                                      ),
+                                                                  offset:
+                                                                      const Offset(
+                                                                        0,
+                                                                        1,
+                                                                      ),
+                                                                  blurRadius: 2,
+                                                                ),
+                                                              ]
+                                                              : null,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+
+                                                // Selection Indicator
+                                                if (isSelected)
+                                                  Container(
+                                                    margin:
+                                                        const EdgeInsets.only(
+                                                          top: 6,
+                                                        ),
+                                                    child: Icon(
+                                                      Icons.check_circle,
+                                                      color: Colors.white,
+                                                      size:
+                                                          isSmallScreen
+                                                              ? 16
+                                                              : 20,
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
                                           ),
-
-                                          SizedBox(
-                                            width: isSmallScreen ? 12 : 16,
-                                          ),
-
-                                          // Sport Name
-                                          Expanded(
-                                            child: Text(
-                                              sport,
-                                              style: GoogleFonts.poppins(
-                                                color: Colors.white,
-                                                fontWeight:
-                                                    isSelected
-                                                        ? FontWeight.bold
-                                                        : FontWeight.w600,
-                                                fontSize:
-                                                    isSmallScreen ? 16 : 18,
-                                                letterSpacing: 0.5,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-
-                                          // Selection Indicator
-                                          if (isSelected)
-                                            AnimatedContainer(
-                                              duration: const Duration(
-                                                milliseconds: 300,
-                                              ),
-                                              padding: EdgeInsets.all(
-                                                isSmallScreen ? 6 : 8,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                              ),
-                                              child: Icon(
-                                                Icons.check,
-                                                color: Colors.green.shade600,
-                                                size: isSmallScreen ? 16 : 18,
-                                              ),
-                                            ),
-                                        ],
+                                        ),
                                       ),
                                     ),
                                   ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+
+                    // Optional: Add search functionality for large lists
+                    if (sports.length > 8) ...[
+                      SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.search, color: Colors.white70, size: 20),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                onChanged: (value) {
+                                  setState(() {
+                                    searchText = value;
+                                  });
+                                },
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
                                 ),
-                              );
-                            },
-                          );
-                        },
+                                decoration: InputDecoration(
+                                  hintText: 'Search sports...',
+                                  hintStyle: TextStyle(
+                                    color: Colors.white60,
+                                    fontSize: 14,
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            if (searchText.isNotEmpty)
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    searchText = '';
+                                  });
+                                },
+                                child: Icon(
+                                  Icons.clear,
+                                  color: Colors.white70,
+                                  size: 18,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ],
-                  ),
-                );
-              },
-            ),
+                  ],
+                ),
+              );
+            },
           ),
         );
       },
     );
   }
 
-  // Helper method to get sport icons
-  Widget _getSportIcon(String sport, bool isSelected, bool isSmallScreen) {
-    IconData iconData;
-    Color iconColor = Colors.white;
-
-    switch (sport.toLowerCase()) {
-      case 'football':
-        iconData = Icons.sports_soccer;
-        break;
-      case 'cricket':
-        iconData = Icons.sports_cricket;
-        break;
-      case 'basketball':
-        iconData = Icons.sports_basketball;
-        break;
-      case 'tennis':
-        iconData = Icons.sports_tennis;
-        break;
-      case 'hockey':
-        iconData = Icons.sports_hockey;
-        break;
-      case 'pickleball':
-        iconData = Icons.sports_tennis;
-        break;
-      default:
-        iconData = Icons.sports;
-    }
-
-    return Icon(iconData, color: iconColor, size: isSmallScreen ? 20 : 24);
-  }
-
   Widget _buildDateTimeCard() {
     return AnimatedBuilder(
-      animation: _cardSlideAnimation,
+      animation: _fadeAnimation,
       builder: (context, child) {
         return Transform.translate(
-          offset: Offset(0, _cardSlideAnimation.value + 20),
-          child: FadeTransition(
-            opacity: _fadeAnimation,
+          offset: Offset(0, (1 - _fadeAnimation.value) * 50),
+          child: Opacity(
+            opacity: _fadeAnimation.value,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final screenWidth = MediaQuery.of(context).size.width;
                 final screenHeight = MediaQuery.of(context).size.height;
+                final textScaleFactor = MediaQuery.of(context).textScaleFactor;
 
                 // Define breakpoints for different screen sizes
                 final isExtraSmallScreen =
                     screenWidth < 320; // Very small phones
                 final isSmallScreen = screenWidth < 360; // Small phones
                 final isMediumScreen = screenWidth < 400; // Medium phones
-                final isLargeScreen = screenWidth >= 400; // Large phones
+                final isLargeScreen = screenWidth < 600; // Large phones
+                final isTablet = screenWidth >= 600; // Tablets
 
                 // Dynamic sizing based on screen dimensions
-                final horizontalPadding =
-                    screenWidth * 0.05; // 5% of screen width
                 final cardPadding =
                     isExtraSmallScreen
                         ? 12.0
@@ -1164,127 +1333,253 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                         ? 20.0
                         : 24.0;
 
-                final titleFontSize = screenWidth * 0.06; // 6% of screen width
-                final subtitleFontSize =
-                    screenWidth * 0.04; // 4% of screen width
+                final titleFontSize = (screenWidth * 0.06).clamp(18.0, 28.0);
 
                 return _buildModernGlassCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Section Header
-                      Text(
-                        'Select Date',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: titleFontSize.clamp(20.0, 26.0),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+                      // Animated Title with Glow Effect
+                      ShaderMask(
+                        shaderCallback:
+                            (bounds) => LinearGradient(
+                              colors: [
+                                Colors.white,
+                                Colors.purple.shade200,
+                                Colors.blue.shade200,
+                              ],
+                            ).createShader(bounds),
+                        child: Text(
+                          'Select Date',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+
+                      // Animated underline
+                      AnimatedContainer(
+                        duration: Duration(milliseconds: 800),
+                        width: _fadeAnimation.value * 100,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.purple, Colors.blue],
+                          ),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      SizedBox(height: 20),
+
+                      // Main Date Picker Container with Enhanced Design
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: 120,
+                          maxHeight: isTablet ? 180 : 150,
+                        ),
+                        child: AnimatedContainer(
+                          duration: Duration(milliseconds: 600),
+                          curve: Curves.easeInOut,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withOpacity(0.15),
+                                Colors.purple.withOpacity(0.1),
+                                Colors.blue.withOpacity(0.08),
+                                Colors.white.withOpacity(0.05),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              isExtraSmallScreen ? 20 : 30,
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.4),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.purple.withOpacity(0.3),
+                                spreadRadius: 3,
+                                blurRadius: 20,
+                                offset: Offset(0, 8),
+                              ),
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.2),
+                                spreadRadius: 1,
+                                blurRadius: 15,
+                                offset: Offset(0, -4),
+                              ),
+                              // Inner glow effect
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.1),
+                                spreadRadius: -2,
+                                blurRadius: 10,
+                                offset: Offset(0, 0),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(
+                              isExtraSmallScreen ? 18 : 28,
+                            ),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.white.withOpacity(0.1),
+                                      Colors.transparent,
+                                    ],
+                                  ),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    // Animated background particles
+                                    ...List.generate(
+                                      5,
+                                      (index) => AnimatedPositioned(
+                                        duration: Duration(
+                                          milliseconds: 2000 + (index * 200),
+                                        ),
+                                        curve: Curves.easeInOut,
+                                        left:
+                                            _fadeAnimation.value *
+                                            (index * 60.0),
+                                        top:
+                                            _fadeAnimation.value *
+                                            (index * 20.0),
+                                        child: Container(
+                                          width: 4,
+                                          height: 4,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(
+                                              0.3,
+                                            ),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Date Picker Content
+                                    Container(
+                                      width: double.infinity,
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: isExtraSmallScreen ? 8 : 16,
+                                        vertical: isExtraSmallScreen ? 8 : 12,
+                                      ),
+                                      child: ScrollDatePicker(
+                                        selectedDate: _selectedDate,
+                                        minimumDate: DateTime(
+                                          DateTime.now().year,
+                                        ),
+                                        maximumDate: DateTime(
+                                          DateTime.now().year + 10,
+                                        ),
+                                        locale: const Locale('en'),
+                                        onDateTimeChanged: (DateTime value) {
+                                          setState(() {
+                                            _selectedDate = value;
+                                          });
+                                          // Add haptic feedback
+                                          HapticFeedback.lightImpact();
+                                        },
+                                        options: DatePickerOptions(
+                                          backgroundColor: Colors.transparent,
+                                          itemExtent:
+                                              isExtraSmallScreen
+                                                  ? 35.0
+                                                  : isSmallScreen
+                                                  ? 40.0
+                                                  : isTablet
+                                                  ? 60.0
+                                                  : 50.0,
+                                          diameterRatio:
+                                              isExtraSmallScreen
+                                                  ? 2.2
+                                                  : isSmallScreen
+                                                  ? 2.5
+                                                  : 3.0,
+                                          perspective: 0.01,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
 
-                      SizedBox(height: cardPadding),
+                      SizedBox(height: 15),
 
-                      // Date Picker Container
-                      Container(
-                        padding: EdgeInsets.all(cardPadding),
+                      // Selected Date Display with Animation - Responsive
+                      AnimatedContainer(
+                        duration: Duration(milliseconds: 500),
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isExtraSmallScreen ? 12 : 16,
+                          vertical: isExtraSmallScreen ? 8 : 12,
+                        ),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
                             colors: [
-                              Colors.purple.withOpacity(0.15),
-                              Colors.purple.withOpacity(0.08),
+                              Colors.white.withOpacity(0.1),
+                              Colors.purple.withOpacity(0.05),
                             ],
                           ),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(
+                            isExtraSmallScreen ? 15 : 20,
+                          ),
                           border: Border.all(
-                            color: Colors.purple.withOpacity(0.3),
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1,
                           ),
                         ),
-                        child: Column(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Date Display
-                            Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: cardPadding,
-                                vertical: cardPadding * 0.75,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.white.withOpacity(0.15),
-                                    Colors.white.withOpacity(0.08),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.2),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today_outlined,
-                                    color: Colors.white,
-                                    size: (screenWidth * 0.05).clamp(
-                                      16.0,
-                                      22.0,
-                                    ),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Flexible(
-                                    child: Text(
-                                      '${_getWeekday(_selectedDate.weekday)}, ${_getMonthName(_selectedDate.month)} ${_selectedDate.day}, ${_selectedDate.year}',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: subtitleFontSize.clamp(
-                                          14.0,
-                                          18.0,
-                                        ),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            Icon(
+                              Icons.calendar_today,
+                              color: Colors.white.withOpacity(0.8),
+                              size: isExtraSmallScreen ? 14 : 16,
                             ),
-
-                            SizedBox(height: cardPadding),
-
-                            // Date Picker with dynamic height
-                            Container(
-                              height: (screenHeight * 0.12).clamp(80.0, 120.0),
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.15),
-                                ),
-                              ),
-                              child: ScrollDatePicker(
-                                selectedDate: _selectedDate,
-                                minimumDate: DateTime(DateTime.now().year),
-                                maximumDate: DateTime(DateTime.now().year + 10),
-                                locale: Locale('en'),
-                                onDateTimeChanged: (DateTime value) {
-                                  setState(() {
-                                    _selectedDate = value;
-                                  });
-                                },
-                                options: DatePickerOptions(
-                                  backgroundColor: Colors.transparent,
-                                  itemExtent: (screenHeight * 0.08).clamp(
-                                    40.0,
-                                    70.0,
+                            SizedBox(width: 8),
+                            Flexible(
+                              child: AnimatedSwitcher(
+                                duration: Duration(milliseconds: 300),
+                                child: Text(
+                                  DateFormat(
+                                    isExtraSmallScreen
+                                        ? 'MMM dd, yyyy' // Shorter format for small screens
+                                        : 'EEEE, MMMM dd, yyyy',
+                                  ).format(_selectedDate),
+                                  key: ValueKey(_selectedDate),
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize:
+                                        isExtraSmallScreen
+                                            ? 12
+                                            : isSmallScreen
+                                            ? 13
+                                            : 14,
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: 0.5,
                                   ),
-                                  diameterRatio: isExtraSmallScreen ? 2.5 : 3.0,
-                                  perspective: 0.01,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
@@ -1295,19 +1590,43 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                       SizedBox(height: cardPadding * 1.2),
 
                       // Time Section Header
-                      Text(
-                        'Select Time',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: titleFontSize.clamp(20.0, 26.0),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+                      ShaderMask(
+                        shaderCallback:
+                            (bounds) => LinearGradient(
+                              colors: [
+                                Colors.white,
+                                Colors.purple.shade200,
+                                Colors.blue.shade200,
+                              ],
+                            ).createShader(bounds),
+                        child: Text(
+                          'Select Time',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+
+                      // Animated underline for time
+                      AnimatedContainer(
+                        duration: Duration(milliseconds: 800),
+                        width: _fadeAnimation.value * 100,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.purple, Colors.blue],
+                          ),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
 
                       SizedBox(height: cardPadding),
 
-                      // Time Pickers - Responsive Layout
+                      // Use the new responsive time pickers
                       _buildResponsiveTimePickers(
                         screenWidth,
                         screenHeight,
@@ -1329,343 +1648,426 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     double screenHeight,
     double cardPadding,
   ) {
-    final isExtraSmallScreen = screenWidth < 320;
-    final isSmallScreen = screenWidth < 360;
-
-    // For very small screens, stack the time pickers vertically
-    if (isExtraSmallScreen) {
-      return Column(
-        children: [
-          _buildTimePickerCard(
-            title: 'Start Time',
-            icon: Icons.access_time_outlined,
-            selectedHour: selectedStartHour,
-            isAM: isStartAM,
-            color: Colors.green,
-            onChanged:
-                (hour, isAM) => setState(() {
-                  selectedStartHour = hour;
-                  isStartAM = isAM;
-                }),
-            screenWidth: screenWidth,
-            screenHeight: screenHeight,
-            cardPadding: cardPadding,
-          ),
-          SizedBox(height: cardPadding),
-          _buildTimePickerCard(
-            title: 'End Time',
-            icon: Icons.access_time_filled_outlined,
-            selectedHour: selectedEndHour,
-            isAM: isEndAM,
-            color: Colors.orange,
-            onChanged:
-                (hour, isAM) => setState(() {
-                  selectedEndHour = hour;
-                  isEndAM = isAM;
-                }),
-            screenWidth: screenWidth,
-            screenHeight: screenHeight,
-            cardPadding: cardPadding,
-          ),
-        ],
-      );
-    }
-
-    // For other screens, use row layout with responsive spacing
-    return Row(
+    // Always use vertical stacked layout for consistent experience across all devices
+    return Column(
       children: [
-        Expanded(
-          child: _buildTimePickerCard(
-            title: 'Start Time',
-            icon: Icons.access_time_outlined,
-            selectedHour: selectedStartHour,
-            isAM: isStartAM,
-            color: Colors.green,
-            onChanged:
-                (hour, isAM) => setState(() {
-                  selectedStartHour = hour;
-                  isStartAM = isAM;
-                }),
-            screenWidth: screenWidth,
-            screenHeight: screenHeight,
-            cardPadding: cardPadding,
-          ),
-        ),
-        SizedBox(width: isSmallScreen ? 8 : cardPadding * 0.75),
-        Expanded(
-          child: _buildTimePickerCard(
-            title: 'End Time',
-            icon: Icons.access_time_filled_outlined,
-            selectedHour: selectedEndHour,
-            isAM: isEndAM,
-            color: Colors.orange,
-            onChanged:
-                (hour, isAM) => setState(() {
-                  selectedEndHour = hour;
-                  isEndAM = isAM;
-                }),
-            screenWidth: screenWidth,
-            screenHeight: screenHeight,
-            cardPadding: cardPadding,
-          ),
-        ),
+        _buildStackedTimePicker('Start Time', true, screenWidth, screenHeight),
+        SizedBox(height: cardPadding),
+        _buildStackedTimePicker('End Time', false, screenWidth, screenHeight),
       ],
     );
   }
 
-  Widget _buildTimePickerCard({
-    required String title,
-    required IconData icon,
-    required int selectedHour,
-    required bool isAM,
-    required MaterialColor color,
-    required Function(int, bool) onChanged,
-    required double screenWidth,
-    required double screenHeight,
-    required double cardPadding,
-  }) {
-    final isExtraSmallScreen = screenWidth < 320;
-    final isSmallScreen = screenWidth < 360;
-
-    // Dynamic font sizes based on screen width
-    final titleFontSize = (screenWidth * 0.035).clamp(12.0, 16.0);
-    final timeFontSize = (screenWidth * 0.045).clamp(14.0, 18.0);
-    final iconSize = (screenWidth * 0.04).clamp(14.0, 18.0);
-
-    return Container(
-      padding: EdgeInsets.all(cardPadding * 0.75),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [color.withOpacity(0.15), color.withOpacity(0.08)],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header
-          Row(
-            children: [
-              Icon(icon, color: Colors.white, size: iconSize),
-              SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: titleFontSize,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-
-          SizedBox(height: cardPadding * 0.75),
-
-          // Time Display
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(
-              horizontal: cardPadding * 0.75,
-              vertical: cardPadding * 0.5,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: Text(
-              formatHour(selectedHour, isAM),
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: timeFontSize,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-
-          SizedBox(height: cardPadding * 0.5),
-
-          // Time Picker with responsive height
-          _buildResponsiveTimePicker(
-            selectedHour,
-            isAM,
-            onChanged,
-            screenWidth,
-            screenHeight,
-            cardPadding,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResponsiveTimePicker(
-    int selectedHour,
-    bool isAM,
-    Function(int, bool) onChanged,
+  Widget _buildStackedTimePicker(
+    String label,
+    bool isStartTime,
     double screenWidth,
     double screenHeight,
-    double cardPadding,
   ) {
-    final isExtraSmallScreen = screenWidth < 320;
-    final isSmallScreen = screenWidth < 360;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textScaleFactor = MediaQuery.of(context).textScaleFactor;
 
-    // Dynamic dimensions
-    final pickerHeight = (screenHeight * 0.15).clamp(100.0, 140.0);
-    final itemExtent = (screenHeight * 0.05).clamp(30.0, 45.0);
-    final fontSize = (screenWidth * 0.04).clamp(14.0, 18.0);
+        // Comprehensive screen size detection
+        final isExtraSmallScreen = screenWidth < 320; // iPhone 5s
+        final isSmallScreen = screenWidth < 360; // iPhone SE
+        final isMediumScreen = screenWidth < 400; // iPhone 12 mini
+        final isLargeScreen = screenWidth < 500; // Most modern phones
+        final isTablet = screenWidth >= 600; // Tablets
 
-    return Container(
-      height: pickerHeight,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.15)),
-      ),
-      child: Row(
-        children: [
-          // Hour Picker
-          Expanded(
-            flex: isExtraSmallScreen ? 3 : 2,
-            child: ListWheelScrollView.useDelegate(
-              itemExtent: itemExtent,
-              perspective: 0.005,
-              diameterRatio: isExtraSmallScreen ? 1.2 : 1.5,
-              physics: const FixedExtentScrollPhysics(),
-              childDelegate: ListWheelChildBuilderDelegate(
-                childCount: 12,
-                builder: (context, index) {
-                  final hour = index + 1;
-                  final displayHour = hour == 13 ? 12 : hour;
-                  final isSelected = displayHour == selectedHour;
-                  return Container(
-                    margin: EdgeInsets.symmetric(
-                      vertical: 1,
-                      horizontal: cardPadding * 0.25,
+        // Responsive container dimensions
+        final containerHeight =
+            isExtraSmallScreen
+                ? 200.0
+                : isSmallScreen
+                ? 220.0
+                : isMediumScreen
+                ? 240.0
+                : isLargeScreen
+                ? 260.0
+                : 300.0; // Tablet
+
+        // Dynamic sizing
+        final headerPadding = (screenWidth * 0.03).clamp(12.0, 18.0);
+        final borderRadius = (screenWidth * 0.045).clamp(16.0, 24.0);
+        final contentPadding = (screenWidth * 0.025).clamp(12.0, 18.0);
+
+        // Typography scaling
+        final iconSize =
+            (screenWidth * 0.05).clamp(18.0, 26.0) / textScaleFactor;
+        final headerFontSize =
+            (screenWidth * 0.038).clamp(14.0, 20.0) / textScaleFactor;
+
+        // Hour picker dimensions
+        final hourPickerHeight = containerHeight * 0.75; // 75% for hour picker
+        final itemExtent = (hourPickerHeight * 0.25).clamp(35.0, 55.0);
+        final selectedFontSize =
+            (screenWidth * 0.055).clamp(18.0, 28.0) / textScaleFactor;
+        final unselectedFontSize =
+            (screenWidth * 0.042).clamp(15.0, 22.0) / textScaleFactor;
+
+        // AM/PM button dimensions - these need to be LARGE and VISIBLE
+        final amPmButtonWidth = (screenWidth * 0.18).clamp(60.0, 95.0);
+        final amPmButtonHeight = (containerHeight * 0.18).clamp(38.0, 55.0);
+        final amPmFontSize =
+            (screenWidth * 0.035).clamp(13.0, 20.0) / textScaleFactor;
+        final amPmSpacing = (containerHeight * 0.04).clamp(8.0, 15.0);
+
+        return AnimatedBuilder(
+          animation: _floatingAnimation,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, _floatingAnimation.value * 0.5),
+              child: Container(
+                height: containerHeight,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF452152).withOpacity(0.95),
+                      Color(0xFF3D1A4A).withOpacity(0.9),
+                      Color(0xFF200D28).withOpacity(0.85),
+                      Color(0xFF1B0723).withOpacity(0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(borderRadius),
+                  border: Border.all(
+                    color: Colors.purpleAccent.withOpacity(0.4),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFF452152).withOpacity(0.3),
+                      spreadRadius: 2,
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
                     ),
-                    decoration: BoxDecoration(
-                      color:
-                          isSelected
-                              ? Colors.white.withOpacity(0.2)
-                              : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Header with icon and title
+                    Container(
+                      padding: EdgeInsets.all(headerPadding),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF563062).withOpacity(0.8),
+                            Color(0xFF452152).withOpacity(0.7),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(borderRadius - 2),
+                          topRight: Radius.circular(borderRadius - 2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.schedule_outlined,
+                              color: Colors.white.withOpacity(0.9),
+                              size: iconSize,
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            label,
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: headerFontSize,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Center(
-                      child: Text(
-                        displayHour.toString().padLeft(2, '0'),
-                        style: GoogleFonts.poppins(
-                          fontSize: fontSize,
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: Colors.white,
+
+                    // Main content area
+                    Expanded(
+                      child: Container(
+                        padding: EdgeInsets.all(contentPadding),
+                        child: Row(
+                          children: [
+                            // Hour picker section (left side)
+                            Expanded(
+                              flex: 3,
+                              child: Container(
+                                height: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.1),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: ListWheelScrollView.useDelegate(
+                                    itemExtent: itemExtent,
+                                    perspective: 0.003,
+                                    diameterRatio: 1.8,
+                                    physics: FixedExtentScrollPhysics(),
+                                    controller: FixedExtentScrollController(
+                                      initialItem:
+                                          (isStartTime
+                                              ? selectedStartHour
+                                              : selectedEndHour) -
+                                          1,
+                                    ),
+                                    onSelectedItemChanged: (index) {
+                                      HapticFeedback.lightImpact();
+                                      setState(() {
+                                        if (isStartTime) {
+                                          selectedStartHour = hours[index];
+                                        } else {
+                                          selectedEndHour = hours[index];
+                                        }
+                                      });
+                                    },
+                                    childDelegate:
+                                        ListWheelChildBuilderDelegate(
+                                          builder: (context, index) {
+                                            if (index < 0 ||
+                                                index >= hours.length)
+                                              return null;
+
+                                            bool isSelected =
+                                                isStartTime
+                                                    ? selectedStartHour ==
+                                                        hours[index]
+                                                    : selectedEndHour ==
+                                                        hours[index];
+
+                                            return Container(
+                                              alignment: Alignment.center,
+                                              margin: EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                gradient:
+                                                    isSelected
+                                                        ? LinearGradient(
+                                                          begin:
+                                                              Alignment.topLeft,
+                                                          end:
+                                                              Alignment
+                                                                  .bottomRight,
+                                                          colors: [
+                                                            Color(
+                                                              0xFFAB47BC,
+                                                            ), // Purple
+                                                            Color(
+                                                              0xFF8E24AA,
+                                                            ), // Darker purple
+                                                          ],
+                                                        )
+                                                        : null,
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                boxShadow:
+                                                    isSelected
+                                                        ? [
+                                                          BoxShadow(
+                                                            color: Color(
+                                                              0xFFAB47BC,
+                                                            ).withOpacity(0.4),
+                                                            blurRadius: 8,
+                                                            offset: Offset(
+                                                              0,
+                                                              2,
+                                                            ),
+                                                          ),
+                                                        ]
+                                                        : [],
+                                              ),
+                                              child: Text(
+                                                '${hours[index]}',
+                                                style: GoogleFonts.poppins(
+                                                  color:
+                                                      isSelected
+                                                          ? Colors.white
+                                                          : Colors.white
+                                                              .withOpacity(0.6),
+                                                  fontSize:
+                                                      isSelected
+                                                          ? selectedFontSize
+                                                          : unselectedFontSize,
+                                                  fontWeight:
+                                                      isSelected
+                                                          ? FontWeight.bold
+                                                          : FontWeight.w500,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          childCount: hours.length,
+                                        ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            SizedBox(width: contentPadding),
+
+                            // AM/PM section (right side) - LARGE AND VISIBLE
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                children: [
+                                  // Large AM Button
+                                  Expanded(
+                                    child: _buildClearAMPMButton(
+                                      'AM',
+                                      isStartTime ? isStartAM : isEndAM,
+                                      () {
+                                        HapticFeedback.mediumImpact();
+                                        setState(() {
+                                          if (isStartTime) {
+                                            isStartAM = true;
+                                          } else {
+                                            isEndAM = true;
+                                          }
+                                        });
+                                      },
+                                      amPmButtonWidth,
+                                      amPmFontSize,
+                                      Colors.pinkAccent,
+                                      Colors.pinkAccent,
+                                      screenWidth,
+                                    ),
+                                  ),
+
+                                  SizedBox(height: amPmSpacing),
+
+                                  // Large PM Button
+                                  Expanded(
+                                    child: _buildClearAMPMButton(
+                                      'PM',
+                                      !(isStartTime ? isStartAM : isEndAM),
+                                      () {
+                                        HapticFeedback.mediumImpact();
+                                        setState(() {
+                                          if (isStartTime) {
+                                            isStartAM = false;
+                                          } else {
+                                            isEndAM = false;
+                                          }
+                                        });
+                                      },
+                                      amPmButtonWidth,
+                                      amPmFontSize,
+                                      // Blue colors for PM
+                                      Color(0xFF5C6BC0),
+                                      Color(0xFF3949AB),
+                                      screenWidth,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
-              onSelectedItemChanged: (index) {
-                final hour = index + 1;
-                final displayHour = hour == 13 ? 12 : hour;
-                onChanged(displayHour, isAM);
-              },
-            ),
-          ),
-
-          // Separator
-          Container(
-            width: 1,
-            height: pickerHeight * 0.6,
-            color: Colors.white.withOpacity(0.2),
-          ),
-
-          // AM/PM Picker
-          Expanded(
-            flex: 1,
-            child: ListWheelScrollView.useDelegate(
-              itemExtent: itemExtent,
-              perspective: 0.005,
-              diameterRatio: isExtraSmallScreen ? 1.2 : 1.5,
-              physics: const FixedExtentScrollPhysics(),
-              childDelegate: ListWheelChildBuilderDelegate(
-                childCount: 2,
-                builder: (context, index) {
-                  final period = index == 0 ? 'AM' : 'PM';
-                  final isSelected = (period == 'AM') == isAM;
-                  return Container(
-                    margin: EdgeInsets.symmetric(
-                      vertical: 1,
-                      horizontal: cardPadding * 0.25,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          isSelected
-                              ? Colors.white.withOpacity(0.2)
-                              : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Text(
-                        period,
-                        style: GoogleFonts.poppins(
-                          fontSize: fontSize * 0.85,
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              onSelectedItemChanged: (index) {
-                onChanged(selectedHour, index == 0);
-              },
-            ),
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
-  // Helper methods for date formatting
-  String _getWeekday(int weekday) {
-    const weekdays = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    return weekdays[weekday - 1];
-  }
-
-  String _getMonthName(int month) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return months[month - 1];
+  Widget _buildClearAMPMButton(
+    String text,
+    bool isSelected,
+    VoidCallback onTap,
+    double buttonWidth,
+    double fontSize,
+    Color selectedColor,
+    Color selectedBorder,
+    double screenWidth,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 200),
+        width: buttonWidth,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          // Solid colors for maximum visibility
+          color: isSelected ? selectedColor : Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? selectedBorder : Colors.white.withOpacity(0.3),
+            width: isSelected ? 2.5 : 1.5,
+          ),
+          boxShadow:
+              isSelected
+                  ? [
+                    BoxShadow(
+                      color: selectedColor.withOpacity(0.4),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                      offset: Offset(0, 3),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                  : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTap,
+            child: Container(
+              alignment: Alignment.center,
+              child: Text(
+                text,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.5),
+                      offset: Offset(1, 1),
+                      blurRadius: 3,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildBookingCard() {
@@ -2470,11 +2872,14 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     // Filter sports based on search text
-    final filteredSports =
+    final filteredSportsNames =
         sports
             .where(
-              (sport) => sport.toLowerCase().contains(searchText.toLowerCase()),
+              (sport) => sport['name'].toString().toLowerCase().contains(
+                searchText.toLowerCase(),
+              ),
             )
+            .map((sport) => sport['name'] as String)
             .toList();
 
     return Scaffold(
@@ -2500,7 +2905,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
             child: Column(
               children: [
                 _buildHeader(),
-                _buildSportSelectionCard(filteredSports),
+                _buildSportSelectionCard(filteredSportsNames),
                 _buildDateTimeCard(),
                 _buildBookingCard(),
                 SizedBox(

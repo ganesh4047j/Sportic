@@ -2,12 +2,16 @@
 
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:sports/Create%20Team/create_team.dart';
+import '../Services/user_utils.dart';
 import 'split_pay.dart';
 
 // Only keeping the providers we actually need
@@ -132,12 +136,58 @@ class _JoinTeamPageState extends ConsumerState<JoinTeamPage>
     });
 
     try {
-      print('Starting to fetch available teams...');
+      print('=== DEBUG: Starting to fetch available teams ===');
 
-      // First, check if we can connect to Firestore at all
+      // Get current user ID using your existing provider
+      final currentUserAsyncValue = ref.read(currentUserIdProvider);
+
+      String? currentUserId;
+
+      // Handle the AsyncValue properly
+      currentUserAsyncValue.when(
+        data: (userId) {
+          currentUserId = userId;
+          print('DEBUG: Got user ID from provider: $userId');
+        },
+        loading: () {
+          currentUserId = null;
+          print('DEBUG: Provider is loading');
+        },
+        error: (error, stackTrace) {
+          print('DEBUG: Provider error: $error');
+          currentUserId = null;
+        },
+      );
+
+      // If we still don't have a user ID, try to get it directly
+      if (currentUserId == null) {
+        print('DEBUG: No user ID from provider, trying fallbacks...');
+
+        // Fallback: try to get from Firebase Auth directly
+        final fbUser = FirebaseAuth.instance.currentUser;
+        if (fbUser != null) {
+          currentUserId = fbUser.uid;
+          print('DEBUG: Got user ID from Firebase Auth: $currentUserId');
+        } else {
+          print('DEBUG: No Firebase Auth user');
+
+          // Fallback: try to get from secure storage
+          const storage = FlutterSecureStorage();
+          currentUserId = await storage.read(key: 'custom_uid');
+          print('DEBUG: Got user ID from secure storage: $currentUserId');
+        }
+      }
+
+      if (currentUserId == null) {
+        print('DEBUG: ERROR - No user ID found anywhere!');
+        throw Exception('User not authenticated');
+      }
+
+      print('DEBUG: Final current user ID: $currentUserId');
+
       final firestoreInstance = FirebaseFirestore.instance;
 
-      // Add timeout and better error handling
+      // Fetch all active teams that need players
       final querySnapshot = await firestoreInstance
           .collection('created_team')
           .where('status', isEqualTo: 'active')
@@ -150,7 +200,9 @@ class _JoinTeamPageState extends ConsumerState<JoinTeamPage>
             },
           );
 
-      print('Query completed. Found ${querySnapshot.docs.length} documents');
+      print(
+        'DEBUG: Query completed. Found ${querySnapshot.docs.length} documents',
+      );
 
       if (!mounted) return;
 
@@ -159,8 +211,32 @@ class _JoinTeamPageState extends ConsumerState<JoinTeamPage>
       for (var doc in querySnapshot.docs) {
         try {
           final data = doc.data();
-          print('Processing team document: ${doc.id}');
-          print('Team data keys: ${data.keys.toList()}');
+          print('=== DEBUG: Processing team document: ${doc.id} ===');
+          print('DEBUG: Team creator_user_id: "${data['creator_user_id']}"');
+          print('DEBUG: Team creator_name: "${data['creator_name']}"');
+          print('DEBUG: Current user ID: "$currentUserId"');
+          print('DEBUG: creator_id type: ${data['creator_id'].runtimeType}');
+          print('DEBUG: currentUserId type: ${currentUserId.runtimeType}');
+
+          // Convert both to strings for comparison
+          final teamCreatorId = data['creator_user_id']?.toString();
+          final currentUserIdStr = currentUserId.toString();
+
+          print('DEBUG: Team creator_user_id (string): "$teamCreatorId"');
+          print('DEBUG: Current user ID (string): "$currentUserIdStr"');
+          print('DEBUG: Are they equal? ${teamCreatorId == currentUserIdStr}');
+
+          // Skip teams created by the current user
+          if (teamCreatorId == currentUserIdStr) {
+            print(
+              'DEBUG: ✅ SKIPPING team created by current user: ${data['creator_name']}',
+            );
+            continue;
+          } else {
+            print(
+              'DEBUG: ✅ KEEPING team created by other user: ${data['creator_name']}',
+            );
+          }
 
           // More flexible validation - check for essential fields only
           if (_isValidTeamData(data)) {
@@ -189,28 +265,31 @@ class _JoinTeamPageState extends ConsumerState<JoinTeamPage>
                 'status': data['status']?.toString() ?? 'active',
                 'created_at': data['created_at'],
                 'updated_at': data['updated_at'],
-                // Add any other fields that might be needed by SplitPaymentScreen
                 'turf_image': data['turf_image']?.toString() ?? '',
                 'description': data['description']?.toString() ?? '',
                 'rules': data['rules'] ?? [],
               };
 
               teams.add(teamData);
-              print('Successfully added team: ${teamData['creator_name']}');
+              print(
+                'DEBUG: Successfully added team to display list: ${teamData['creator_name']}',
+              );
             } else {
-              print('Team slot expired: ${data['creator_name']}');
+              print('DEBUG: Team slot expired: ${data['creator_name']}');
             }
           } else {
-            print('Team data validation failed for doc: ${doc.id}');
-            print('Missing or invalid required fields');
+            print('DEBUG: Team data validation failed for doc: ${doc.id}');
           }
         } catch (e) {
-          print('Error processing individual team doc ${doc.id}: $e');
+          print('DEBUG: Error processing individual team doc ${doc.id}: $e');
           // Continue processing other documents
         }
       }
 
-      print('Final processed teams count: ${teams.length}');
+      print('DEBUG: Final processed teams count: ${teams.length}');
+      print(
+        'DEBUG: Teams to display: ${teams.map((t) => t['creator_name']).toList()}',
+      );
 
       if (mounted) {
         setState(() {
@@ -220,7 +299,7 @@ class _JoinTeamPageState extends ConsumerState<JoinTeamPage>
         });
       }
     } on TimeoutException catch (e) {
-      print('Timeout error: $e');
+      print('DEBUG: Timeout error: $e');
       if (mounted) {
         setState(() {
           availableTeams = [];
@@ -230,7 +309,7 @@ class _JoinTeamPageState extends ConsumerState<JoinTeamPage>
         });
       }
     } on FirebaseException catch (e) {
-      print('Firebase error: ${e.code} - ${e.message}');
+      print('DEBUG: Firebase error: ${e.code} - ${e.message}');
       String userFriendlyMessage;
 
       switch (e.code) {
@@ -259,7 +338,7 @@ class _JoinTeamPageState extends ConsumerState<JoinTeamPage>
         });
       }
     } catch (e) {
-      print('Unexpected error fetching teams: $e');
+      print('DEBUG: Unexpected error fetching teams: $e');
       if (mounted) {
         setState(() {
           availableTeams = [];
@@ -1885,21 +1964,28 @@ class _JoinTeamPageState extends ConsumerState<JoinTeamPage>
                           availableTeams.isNotEmpty
                               ? () {
                                 // Navigate to create team screen or show message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Create team feature coming soon! Join an existing team above.',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    backgroundColor: Colors.purple.withOpacity(
-                                      0.8,
-                                    ),
-                                    behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                                // ScaffoldMessenger.of(context).showSnackBar(
+                                //   SnackBar(
+                                //     content: Text(
+                                //       'Create team feature coming soon! Join an existing team above.',
+                                //       style: GoogleFonts.poppins(
+                                //         color: Colors.white,
+                                //       ),
+                                //     ),
+                                //     backgroundColor: Colors.purple.withOpacity(
+                                //       0.8,
+                                //     ),
+                                //     behavior: SnackBarBehavior.floating,
+                                //     shape: RoundedRectangleBorder(
+                                //       borderRadius: BorderRadius.circular(12),
+                                //     ),
+                                //   ),
+                                // );
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => const CreateTeamScreen(),
                                   ),
                                 );
                               }

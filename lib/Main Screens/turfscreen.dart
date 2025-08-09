@@ -31,6 +31,8 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  final Set<String> _loadingFavorites = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +78,98 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen>
     _slideController.dispose();
     _staggerController.dispose();
     super.dispose();
+  }
+
+  Widget _buildFavoriteButton(TurfModel turf, bool isSmallScreen) {
+    final isLoading = _loadingFavorites.contains(turf.id);
+
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black.withOpacity(0.3),
+      ),
+      child: IconButton(
+        icon:
+            isLoading
+                ? SizedBox(
+                  width: isSmallScreen ? 16 : 20,
+                  height: isSmallScreen ? 16 : 20,
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                  ),
+                )
+                : Icon(
+                  turf.isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: Colors.red,
+                  size: isSmallScreen ? 20 : 24,
+                ),
+        onPressed:
+            isLoading
+                ? null
+                : () async {
+                  // Add turf ID to loading set
+                  setState(() {
+                    _loadingFavorites.add(turf.id);
+                  });
+
+                  try {
+                    // Call the async toggleFavorite method
+                    await ref
+                        .read(turfListProvider.notifier)
+                        .toggleFavorite(turf.id);
+
+                    // Show success message
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            turf.isFavorite
+                                ? 'Removed from favorites'
+                                : 'Added to favorites',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          backgroundColor:
+                              turf.isFavorite
+                                  ? Colors.red.withOpacity(0.8)
+                                  : Colors.green.withOpacity(0.8),
+                          duration: const Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    // Show error message
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Failed to update favorites: $e',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          backgroundColor: Colors.red.withOpacity(0.8),
+                          duration: const Duration(seconds: 3),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      );
+                    }
+                  } finally {
+                    // Remove turf ID from loading set
+                    if (mounted) {
+                      setState(() {
+                        _loadingFavorites.remove(turf.id);
+                      });
+                    }
+                  }
+                },
+      ),
+    );
   }
 
   Widget _buildAnimatedCard({
@@ -580,6 +674,8 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen>
                       turfName: turf.name,
                       location: turf.location,
                       owner_id: turf.ownerId,
+                      managerName: turf.managerName,
+                      managerNumber: turf.managerNumber,
                     ),
               ),
             );
@@ -688,25 +784,10 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen>
                     Positioned(
                       top: 8,
                       right: 8,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.3),
-                        ),
-                        child: IconButton(
-                          icon: Icon(
-                            turf.isFavorite
-                                ? Icons.favorite
-                                : Icons.favorite_border,
-                            color: Colors.red,
-                            size: isSmallScreen ? 20 : 24,
-                          ),
-                          onPressed:
-                              () => ref
-                                  .read(turfListProvider.notifier)
-                                  .toggleFavorite(turf.id),
-                        ),
-                      ),
+                      child: _buildFavoriteButton(
+                        turf,
+                        isSmallScreen,
+                      ), // Use the new method
                     ),
                   ],
                 ),

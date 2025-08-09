@@ -381,7 +381,7 @@ class _PinCodeVerificationScreenState
       height: MediaQuery.of(context).size.height / 3.2,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
-        child: Lottie.asset('password.json'),
+        child: Lottie.asset('assets/password.json'),
       ),
     );
   }

@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -11,9 +10,11 @@ import 'package:sports/Main%20Screens/booking_turf.dart';
 import 'package:sports/Main%20Screens/connections.dart';
 import 'package:sports/Main%20Screens/location.dart';
 import 'package:sports/Main%20Screens/profile.dart';
+import 'package:sports/Main%20Screens/request_view.dart';
 import 'package:sports/Main%20Screens/turfscreen.dart';
 import 'package:sports/Providers/turfscreen_provider.dart';
 import '../Create Team/create_team.dart';
+import '../Providers/notification_provider.dart';
 import '../Services/privacy_policy_service.dart';
 import 'category.dart';
 import 'chat_screen.dart';
@@ -292,10 +293,72 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late Animation<double> _scaleAnimation;
   late Animation<double> _rotationAnimation;
 
+  Future<void> _loadCurrentUserLocation() async {
+    try {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      String? uid;
+      String? loginMethod;
+      const storage = FlutterSecureStorage();
+
+      if (firebaseUser != null) {
+        uid = firebaseUser.uid;
+        loginMethod = "email";
+      } else {
+        uid = await storage.read(key: 'custom_uid');
+        loginMethod = "phone";
+      }
+
+      if (uid == null) {
+        debugPrint("❌ UID not found during location load in home screen");
+        return;
+      }
+
+      // Load from SharedPreferences first (user-specific)
+      final prefs = await SharedPreferences.getInstance();
+      String? localLocation = prefs.getString('user_location_$uid');
+
+      if (localLocation != null && localLocation.isNotEmpty) {
+        ref.read(userLocationProvider.notifier).state = localLocation;
+        debugPrint(
+          "✅ Home: Loaded location from SharedPreferences: $localLocation",
+        );
+        return;
+      }
+
+      // If not found locally, try Firestore
+      final collectionName =
+          loginMethod == "email" ? "user_details_email" : "user_details_phone";
+
+      final docSnapshot =
+          await FirebaseFirestore.instance
+              .collection(collectionName)
+              .doc(uid)
+              .get();
+
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data() as Map<String, dynamic>;
+        final location = data['location'] as String?;
+
+        if (location != null && location.isNotEmpty) {
+          // Save to SharedPreferences with user-specific key
+          await prefs.setString('user_location_$uid', location);
+
+          // Update provider
+          ref.read(userLocationProvider.notifier).state = location;
+
+          debugPrint("✅ Home: Loaded location from Firestore: $location");
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ Error loading user location in home screen: $e");
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
+    // Initialize animation controllers (keep your existing code)
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
@@ -344,6 +407,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _scaleController.forward();
     });
     _rotationController.repeat();
+
+    // ADD THIS: Load current user location
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCurrentUserLocation();
+    });
   }
 
   @override
@@ -372,13 +440,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     const mainImage =
         'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2670&q=80';
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final prefs = await SharedPreferences.getInstance();
-      final savedLocation = prefs.getString('user_location');
-      if (savedLocation != null) {
-        ref.read(userLocationProvider.notifier).state = savedLocation;
-      }
-    });
+    // WidgetsBinding.instance.addPostFrameCallback((_) async {
+    //   final prefs = await SharedPreferences.getInstance();
+    //   final savedLocation = prefs.getString('user_location');
+    //   if (savedLocation != null) {
+    //     ref.read(userLocationProvider.notifier).state = savedLocation;
+    //   }
+    // });
 
     Widget _buildSection_recent(
       String title,
@@ -445,6 +513,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                               turfName: turf.name,
                                               location: turf.location,
                                               owner_id: turf.ownerId,
+                                              managerName: turf.managerName,
+                                              managerNumber: turf.managerNumber,
                                             ),
                                         transitionsBuilder: (
                                           context,
@@ -908,229 +978,237 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // Main content
-          Column(
-            children: [
-              Expanded(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF452152),
-                        Color(0xFF3D1A4A),
-                        Color(0xFF200D28),
-                        Color(0xFF1B0723),
-                      ],
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // Main content
+            Column(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF452152),
+                          Color(0xFF3D1A4A),
+                          Color(0xFF200D28),
+                          Color(0xFF1B0723),
+                        ],
+                      ),
                     ),
-                  ),
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      top: 16,
-                      bottom: 16, // Normal bottom padding
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: _buildHeader(ref, context),
-                        ),
-                        const SizedBox(height: 20),
-                        SlideTransition(
-                          position: _slideAnimation,
-                          child: _buildHeroImage(mainImage),
-                        ),
-                        const SizedBox(height: 24),
-                        FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: ShaderMask(
-                            shaderCallback:
-                                (bounds) => const LinearGradient(
-                                  colors: [Colors.white, Color(0xFFD1C4E9)],
-                                ).createShader(bounds),
-                            child: Text(
-                              'Sports',
-                              style: GoogleFonts.poppins(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        top: 16,
+                        bottom: 16, // Normal bottom padding
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: _buildHeader(ref, context),
+                          ),
+                          const SizedBox(height: 20),
+                          SlideTransition(
+                            position: _slideAnimation,
+                            child: _buildHeroImage(mainImage),
+                          ),
+                          const SizedBox(height: 24),
+                          FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: ShaderMask(
+                              shaderCallback:
+                                  (bounds) => const LinearGradient(
+                                    colors: [Colors.white, Color(0xFFD1C4E9)],
+                                  ).createShader(bounds),
+                              child: Text(
+                                'Sports',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        ScaleTransition(
-                          scale: _scaleAnimation,
-                          child: _buildSportsCards(sportsAsync, context),
-                        ),
-                        const SizedBox(height: 30),
-                        SlideTransition(
-                          position: _slideAnimation,
-                          child: _buildStartPlayingCard(context),
-                        ),
-                        const SizedBox(height: 30),
-                        _buildActionCards(context),
-                        const SizedBox(height: 30),
-                        _buildSection_recent(
-                          'Recent',
-                          turfAsync,
-                          const Color(0xFFE1BEE7),
-                        ),
-                        const SizedBox(height: 20),
-                        _buildSection_top_rating_turf(
-                          'Top Rating Turf',
-                          turfAsync,
-                          const Color(0xFFCE93D8),
-                        ),
-                        const SizedBox(height: 20),
-                        Consumer(
-                          builder: (context, ref, _) {
-                            final nearestTurfs = ref.watch(nearestTurfProvider);
-                            final asyncTurfs = AsyncValue.data(
-                              nearestTurfs
-                                  .map(
-                                    (turf) => {
-                                      'name': turf['name']!,
-                                      'imageUrl': turf['imageUrl']!,
-                                      'location': turf['location']!,
-                                      'ownerId': turf['ownerId']!,
-                                    },
-                                  )
-                                  .toList(),
-                            );
+                          const SizedBox(height: 20),
+                          ScaleTransition(
+                            scale: _scaleAnimation,
+                            child: _buildSportsCards(sportsAsync, context),
+                          ),
+                          const SizedBox(height: 30),
+                          SlideTransition(
+                            position: _slideAnimation,
+                            child: _buildStartPlayingCard(context),
+                          ),
+                          const SizedBox(height: 30),
+                          _buildActionCards(context),
+                          const SizedBox(height: 30),
+                          _buildSection_recent(
+                            'Recent',
+                            turfAsync,
+                            const Color(0xFFE1BEE7),
+                          ),
+                          const SizedBox(height: 20),
+                          _buildSection_top_rating_turf(
+                            'Top Rating Turf',
+                            turfAsync,
+                            const Color(0xFFCE93D8),
+                          ),
+                          const SizedBox(height: 20),
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final nearestTurfs = ref.watch(
+                                nearestTurfProvider,
+                              );
+                              final asyncTurfs = AsyncValue.data(
+                                nearestTurfs
+                                    .map(
+                                      (turf) => {
+                                        'name': turf['name']!,
+                                        'imageUrl': turf['imageUrl']!,
+                                        'location': turf['location']!,
+                                        'ownerId': turf['ownerId']!,
+                                        'manager_name': turf['manager_name']!,
+                                        'manager_number':
+                                            turf['manager_number']!,
+                                      },
+                                    )
+                                    .toList(),
+                              );
 
-                            return _buildSection_nearest_turf(
-                              'Nearest Turf',
-                              asyncTurfs,
-                              const Color(0xFFBA68C8),
+                              return _buildSection_nearest_turf(
+                                'Nearest Turf',
+                                asyncTurfs,
+                                const Color(0xFFBA68C8),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 30),
+                          FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: _buildFooter(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Bottom Navigation Bar
+                Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xff22012c),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(30),
+                      topRight: Radius.circular(30),
+                    ),
+                  ),
+                  child: BottomNavigationBar(
+                    backgroundColor: Colors.transparent,
+                    type: BottomNavigationBarType.shifting,
+                    currentIndex: ref.watch(navIndexProvider),
+                    onTap:
+                        (index) =>
+                            ref.read(navIndexProvider.notifier).state = index,
+                    selectedItemColor: Colors.pink,
+                    unselectedItemColor: Colors.white,
+                    selectedLabelStyle: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                    unselectedLabelStyle: GoogleFonts.outfit(
+                      fontWeight: FontWeight.normal,
+                      fontSize: 12,
+                    ),
+                    items: [
+                      const BottomNavigationBarItem(
+                        icon: Icon(Icons.home),
+                        label: 'Home',
+                        backgroundColor: Color(0xff22012c),
+                      ),
+                      BottomNavigationBarItem(
+                        icon: IconButton(
+                          onPressed: () {
+                            print('Games button clicked');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const HomePage(),
+                              ),
                             );
                           },
+                          icon: const Icon(Icons.videogame_asset),
                         ),
-                        const SizedBox(height: 30),
-                        FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: _buildFooter(context),
+                        label: 'Games',
+                        backgroundColor: const Color(0xff22012c),
+                      ),
+                      BottomNavigationBarItem(
+                        icon: IconButton(
+                          onPressed: () {
+                            print('Live button clicked');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => const CenterLottieScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.live_tv),
                         ),
-                      ],
-                    ),
+                        label: 'Live',
+                        backgroundColor: const Color(0xff22012c),
+                      ),
+                      BottomNavigationBarItem(
+                        icon: IconButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const TurfHomeScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.sports_soccer),
+                        ),
+                        label: 'Turf',
+                        backgroundColor: const Color(0xff22012c),
+                      ),
+                      BottomNavigationBarItem(
+                        icon: IconButton(
+                          onPressed: () {
+                            print('Fav button clicked');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const FollowingScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.favorite),
+                        ),
+                        label: 'Fav',
+                        backgroundColor: const Color(0xff22012c),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              // Bottom Navigation Bar
-              Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xff22012c),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
-                  ),
-                ),
-                child: BottomNavigationBar(
-                  backgroundColor: Colors.transparent,
-                  type: BottomNavigationBarType.shifting,
-                  currentIndex: ref.watch(navIndexProvider),
-                  onTap:
-                      (index) =>
-                          ref.read(navIndexProvider.notifier).state = index,
-                  selectedItemColor: Colors.pink,
-                  unselectedItemColor: Colors.white,
-                  selectedLabelStyle: GoogleFonts.outfit(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                  unselectedLabelStyle: GoogleFonts.outfit(
-                    fontWeight: FontWeight.normal,
-                    fontSize: 12,
-                  ),
-                  items: [
-                    const BottomNavigationBarItem(
-                      icon: Icon(Icons.home),
-                      label: 'Home',
-                      backgroundColor: Color(0xff22012c),
-                    ),
-                    BottomNavigationBarItem(
-                      icon: IconButton(
-                        onPressed: () {
-                          print('Games button clicked');
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const HomePage(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.videogame_asset),
-                      ),
-                      label: 'Games',
-                      backgroundColor: const Color(0xff22012c),
-                    ),
-                    BottomNavigationBarItem(
-                      icon: IconButton(
-                        onPressed: () {
-                          print('Live button clicked');
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CenterLottieScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.live_tv),
-                      ),
-                      label: 'Live',
-                      backgroundColor: const Color(0xff22012c),
-                    ),
-                    BottomNavigationBarItem(
-                      icon: IconButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const TurfHomeScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.sports_soccer),
-                      ),
-                      label: 'Turf',
-                      backgroundColor: const Color(0xff22012c),
-                    ),
-                    BottomNavigationBarItem(
-                      icon: IconButton(
-                        onPressed: () {
-                          print('Fav button clicked');
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const FollowingScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.favorite),
-                      ),
-                      label: 'Fav',
-                      backgroundColor: const Color(0xff22012c),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
 
-          // Positioned Floating Action Button - Right side above bottom nav
-          Positioned(
-            right: 10, // Distance from right edge
-            bottom: 100, // Distance from bottom (above bottom nav)
-            child: _buildAnimatedFloatingActionButton(context),
-          ),
-        ],
+            // Positioned Floating Action Button - Right side above bottom nav
+            Positioned(
+              right: 10, // Distance from right edge
+              bottom: 100, // Distance from bottom (above bottom nav)
+              child: _buildAnimatedFloatingActionButton(context),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1138,34 +1216,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildAnimatedFloatingActionButton(BuildContext context) {
     return Consumer(
       builder: (context, ref, child) {
-        // Try main provider first
-        final unreadMessages = ref.watch(unreadMessagesProvider);
-        final simpleCount = ref.watch(simpleUnreadCountProvider);
+        // Use the combined notification count
+        final totalCountAsync = ref.watch(totalNotificationCountProvider);
 
         int unreadCount = 0;
-
-        unreadMessages.when(
-          data: (messages) {
-            unreadCount = messages.length;
-            print('🔔 FAB: Main provider - ${messages.length} messages');
-          },
-          loading: () {
-            print('🔔 FAB: Main provider loading...');
-            // Use simple count as fallback
-            simpleCount.whenData((count) {
-              unreadCount = count;
-              print('🔔 FAB: Using simple count - $count');
-            });
-          },
-          error: (error, stack) {
-            print('🚨 FAB: Main provider error: $error');
-            // Use simple count as fallback
-            simpleCount.whenData((count) {
-              unreadCount = count;
-              print('🔔 FAB: Fallback to simple count - $count');
-            });
-          },
-        );
+        totalCountAsync.whenData((count) {
+          unreadCount = count;
+          print('🔔 FAB: Total notifications - $count');
+        });
 
         return Stack(
           alignment: Alignment.center,
@@ -1294,7 +1352,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               borderRadius: BorderRadius.circular(28),
                               onTap: () {
                                 HapticFeedback.lightImpact();
-                                _showSimpleNotificationDialog(context, ref);
+                                _showCombinedNotificationDialog(context, ref);
                               },
                               child: Container(
                                 decoration: const BoxDecoration(
@@ -1400,7 +1458,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               },
             ),
 
-            // Particle effects
+            // Particle effects (same as before)
             ...List.generate(6, (index) {
               return AnimatedBuilder(
                 animation: _rotationController,
@@ -1454,15 +1512,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Simplified notification dialog
-  void _showSimpleNotificationDialog(BuildContext context, WidgetRef ref) {
+  // Updated notification dialog - replace your existing _showSimpleNotificationDialog
+  void _showCombinedNotificationDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       barrierDismissible: true,
       builder:
           (context) => Consumer(
             builder: (context, ref, _) {
-              final unreadMessagesAsync = ref.watch(unreadMessagesProvider);
+              final allNotificationsAsync = ref.watch(allNotificationsProvider);
 
               return AlertDialog(
                 backgroundColor: const Color(0xFF452152),
@@ -1499,7 +1557,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 content: Container(
                   width: double.maxFinite,
                   constraints: const BoxConstraints(maxHeight: 400),
-                  child: unreadMessagesAsync.when(
+                  child: allNotificationsAsync.when(
                     loading:
                         () => const Center(
                           child: Column(
@@ -1537,14 +1595,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Please check your connection',
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
                               const SizedBox(height: 16),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
@@ -1552,16 +1602,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 ),
                                 onPressed: () {
                                   Navigator.pop(context);
-                                  // Force refresh
-                                  ref.invalidate(unreadMessagesProvider);
+                                  ref.invalidate(allNotificationsProvider);
                                 },
                                 child: const Text('Retry'),
                               ),
                             ],
                           ),
                         ),
-                    data: (messages) {
-                      if (messages.isEmpty) {
+                    data: (notifications) {
+                      if (notifications.isEmpty) {
                         return Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -1593,15 +1642,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
                       return ListView.separated(
                         shrinkWrap: true,
-                        itemCount: messages.length,
+                        itemCount: notifications.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
-                          final message = messages[index];
-                          return _buildSimpleNotificationItem(
-                            context,
-                            ref,
-                            message,
-                          );
+                          final notification = notifications[index];
+                          final notificationType =
+                              notification['notificationType'];
+
+                          if (notificationType == 'friend_request') {
+                            return _buildFriendRequestNotificationItem(
+                              context,
+                              ref,
+                              notification,
+                            );
+                          } else {
+                            return _buildMessageNotificationItem(
+                              context,
+                              ref,
+                              notification,
+                            );
+                          }
                         },
                       );
                     },
@@ -1625,75 +1685,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildSimpleNotificationItem(
+  // Friend request notification item
+  Widget _buildFriendRequestNotificationItem(
     BuildContext context,
     WidgetRef ref,
-    Map<String, dynamic> message,
+    Map<String, dynamic> notification,
   ) {
-    final messageText = message['text'] ?? 'New message';
-    final time = _formatNotificationTime(message['timestamp']);
-    final senderId = message['from'] ?? '';
+    final senderName = notification['senderName'] ?? 'Unknown User';
+    final time = _formatNotificationTime(notification['timestamp']);
 
-    return Consumer(
-      builder: (context, ref, _) {
-        // Watch the user details for this specific sender
-        final userDetailsAsync = ref.watch(userDetailsProvider(senderId));
-
-        return userDetailsAsync.when(
-          loading:
-              () => _buildShimmerNotificationItemSkeleton(
-                context,
-                messageText,
-                time,
-              ),
-          error: (error, stack) {
-            print('Error fetching user details for $senderId: $error');
-            return _buildNotificationItemContent(
-              context,
-              ref,
-              message,
-              'Unknown User', // Fallback name
-              messageText,
-              time,
-            );
-          },
-          data: (userDetails) {
-            // Extract the name from user details
-            String senderName = 'Unknown User'; // Default fallback
-
-            if (userDetails != null) {
-              // Try different possible name fields
-              senderName =
-                  userDetails['name'] ??
-                  userDetails['displayName'] ??
-                  userDetails['username'] ??
-                  userDetails['email']?.split('@')[0] ??
-                  'User';
-            }
-
-            return _buildNotificationItemContent(
-              context,
-              ref,
-              message,
-              senderName,
-              messageText,
-              time,
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // Extract the actual notification item content to avoid duplication
-  Widget _buildNotificationItemContent(
-    BuildContext context,
-    WidgetRef ref,
-    Map<String, dynamic> message,
-    String senderName,
-    String messageText,
-    String time,
-  ) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1702,15 +1702,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Navigator.of(context).pop();
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder:
-                  (_) => ChatPage(
-                    chatId: message['chatId'] ?? '',
-                    peerUid: message['from'] ?? '',
-                    peerName: senderName, // Use the actual sender name
-                    peerEmail: '',
-                  ),
-            ),
+            MaterialPageRoute(builder: (_) => const FriendRequestsScreen()),
           );
         },
         child: Container(
@@ -1718,24 +1710,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Colors.white.withOpacity(0.1),
-                Colors.white.withOpacity(0.05),
+                const Color(0xFF4CAF50).withOpacity(0.15),
+                const Color(0xFF4CAF50).withOpacity(0.05),
               ],
             ),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.3)),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2196F3).withOpacity(0.2),
+                  color: const Color(0xFF4CAF50).withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
-                  Icons.message,
-                  color: Color(0xFF2196F3),
+                  Icons.person_add,
+                  color: Color(0xFF4CAF50),
                   size: 16,
                 ),
               ),
@@ -1769,15 +1761,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      messageText.length > 50
-                          ? '${messageText.substring(0, 50)}...'
-                          : messageText,
+                      'sent you a friend request',
                       style: GoogleFonts.poppins(
                         color: Colors.white70,
                         fontSize: 12,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -1794,7 +1782,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Loading skeleton while fetching user details
+  // Message notification item (same as before but renamed for clarity)
+  Widget _buildMessageNotificationItem(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> message,
+  ) {
+    final messageText = message['text'] ?? 'New message';
+    final time = _formatNotificationTime(message['timestamp']);
+    final senderId = message['from'] ?? '';
+
+    return Consumer(
+      builder: (context, ref, _) {
+        final userDetailsAsync = ref.watch(userDetailsProvider(senderId));
+
+        return userDetailsAsync.when(
+          loading:
+              () => _buildShimmerNotificationItemSkeleton(
+                context,
+                messageText,
+                time,
+              ),
+          error: (error, stack) {
+            print('Error fetching user details for $senderId: $error');
+            return _buildMessageNotificationItemContent(
+              context,
+              ref,
+              message,
+              'Unknown User',
+              messageText,
+              time,
+            );
+          },
+          data: (userDetails) {
+            String senderName = 'Unknown User';
+
+            if (userDetails != null) {
+              senderName =
+                  userDetails['name'] ??
+                  userDetails['displayName'] ??
+                  userDetails['username'] ??
+                  userDetails['email']?.split('@')[0] ??
+                  'User';
+            }
+
+            return _buildMessageNotificationItemContent(
+              context,
+              ref,
+              message,
+              senderName,
+              messageText,
+              time,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Loading skeleton while fetching user details (if not already in your code)
   Widget _buildShimmerNotificationItemSkeleton(
     BuildContext context,
     String messageText,
@@ -1966,6 +2012,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       turfName: turf.name,
                       location: turf.location,
                       owner_id: turf.ownerId,
+                      managerName: turf.managerName,
+                      managerNumber: turf.managerNumber,
                     ),
                 transitionsBuilder: (
                   context,
@@ -2156,6 +2204,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         turf['imageUrl'] ??
         'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
     final location = turf['location'] ?? 'Unknown';
+    // print('Turf Manager Name : ${turf['manager_name']}');
+    // print('Turf Manager Number : ${turf['manager_number']}');
 
     return Hero(
       tag: 'turf_nearest_${name}_$index',
@@ -2172,6 +2222,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       turfName: turf['name']!,
                       location: turf['location']!,
                       owner_id: turf['ownerId']!,
+                      managerName: turf['manager_name']!,
+                      managerNumber: turf['manager_number']!,
                     ),
                 transitionsBuilder: (
                   context,
@@ -2393,6 +2445,116 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return basePadding; // Normal screens
   }
 
+  Widget _buildMessageNotificationItemContent(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> message,
+    String senderName,
+    String messageText,
+    String time,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          Navigator.of(context).pop();
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => ChatPage(
+                    chatId: message['chatId'] ?? '',
+                    peerUid: message['from'] ?? '',
+                    peerName: senderName,
+                    peerEmail: '',
+                  ),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withOpacity(0.1),
+                Colors.white.withOpacity(0.05),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2196F3).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.message,
+                  color: Color(0xFF2196F3),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            senderName,
+                            style: GoogleFonts.robotoSlab(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          time,
+                          style: GoogleFonts.poppins(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      messageText.length > 50
+                          ? '${messageText.substring(0, 50)}...'
+                          : messageText,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white30,
+                size: 12,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Replace your existing _buildHeader method with this fixed version
+
   Widget _buildHeader(WidgetRef ref, BuildContext context) {
     final userProfileAsync = ref.watch(userProfileProvider);
 
@@ -2400,8 +2562,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => const SizedBox(),
       data: (profile) {
-        final globalLocation = ref.watch(userLocationProvider);
-        final location = globalLocation ?? profile['location'] ?? 'Unknown';
+        // Watch the location provider for real-time updates
+        final currentLocation = ref.watch(userLocationProvider);
+
+        // Debug logging
+        debugPrint("🏠 Header: currentLocation = $currentLocation");
+        debugPrint("🏠 Header: profile location = ${profile['location']}");
+
+        // Priority: currentLocation > profile location > default
+        String location;
+        if (currentLocation != null && currentLocation.isNotEmpty) {
+          location = currentLocation;
+        } else if (profile['location'] != null &&
+            profile['location'].toString().isNotEmpty) {
+          location = profile['location'];
+        } else {
+          location = 'Unknown';
+        }
+
+        debugPrint("🏠 Header: Final location = $location");
+
         final imageUrl = profile['photoUrl'] ?? 'https://i.pravatar.cc/300';
 
         return Container(
@@ -2413,13 +2593,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             children: [
               InkWell(
                 onTap: () async {
-                  await Navigator.push(
+                  final result = await Navigator.push(
                     context,
                     PageRouteBuilder(
                       pageBuilder:
                           (context, animation, secondaryAnimation) =>
                               const LocationInputScreen(
-                                shouldRedirectToHome: true,
+                                shouldRedirectToHome:
+                                    false, // Don't replace home screen
                               ),
                       transitionsBuilder: (
                         context,
@@ -2442,18 +2623,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       },
                     ),
                   );
+
+                  // After returning from location screen, reload the location
+                  if (result == null) {
+                    // User came back, refresh location
+                    await _loadCurrentUserLocation();
+                  }
                 },
                 child: Container(
-                  padding: EdgeInsets.all(
-                    getResponsivePadding(context, 10),
-                  ), // Reduced from 12
+                  padding: EdgeInsets.all(getResponsivePadding(context, 12)),
                   constraints: BoxConstraints(
-                    minWidth:
-                        MediaQuery.of(context).size.width *
-                        0.32, // Reduced from 0.35
-                    maxWidth:
-                        MediaQuery.of(context).size.width *
-                        0.50, // Reduced from 0.55
+                    minWidth: MediaQuery.of(context).size.width * 0.32,
+                    maxWidth: MediaQuery.of(context).size.width * 0.50,
                   ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -2463,10 +2644,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ],
                     ),
                     borderRadius: BorderRadius.circular(
-                      getResponsivePadding(
-                        context,
-                        14,
-                      ), // Responsive border radius
+                      getResponsivePadding(context, 14),
                     ),
                     border: Border.all(
                       color: Colors.white.withOpacity(0.2),
@@ -2481,41 +2659,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         "Your location",
                         style: GoogleFonts.poppins(
                           color: Colors.white60,
-                          fontSize: getResponsiveFontSize(
-                            context,
-                            10,
-                          ), // Reduced from 12
+                          fontSize: getResponsiveFontSize(context, 12),
                           fontWeight: FontWeight.w400,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(
-                        height: getResponsivePadding(context, 3),
-                      ), // Reduced from 4
+                      SizedBox(height: getResponsivePadding(context, 2)),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.location_on,
                             color: const Color(0xFFE91E63),
-                            size: getResponsiveFontSize(
-                              context,
-                              14,
-                            ), // Reduced from 16
+                            size: getResponsiveFontSize(context, 16),
                           ),
-                          SizedBox(
-                            width: getResponsivePadding(context, 3),
-                          ), // Reduced from 4
+                          SizedBox(width: getResponsivePadding(context, 5)),
                           Flexible(
                             child: Text(
                               location,
                               style: GoogleFonts.poppins(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
-                                fontSize: getResponsiveFontSize(
-                                  context,
-                                  12,
-                                ), // Reduced from 14
+                                fontSize: getResponsiveFontSize(context, 14),
                               ),
                               overflow: TextOverflow.ellipsis,
                               maxLines: 1,
@@ -2527,13 +2692,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
               ),
-              SizedBox(
-                width: getResponsivePadding(context, 8),
-              ), // Responsive spacing
+              SizedBox(width: getResponsivePadding(context, 8)),
+              // Rest of your header widgets (MVP, Chat, Profile) - keep existing code
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // MVP Button
+                  // MVP Button - keep your existing code
                   TweenAnimationBuilder<double>(
                     duration: const Duration(milliseconds: 1500),
                     tween: Tween(begin: 0.0, end: 1.0),
@@ -2594,8 +2758,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                             child: Padding(
                               padding: EdgeInsets.all(
-                                getResponsivePadding(context, 7),
-                              ), // Reduced from 8
+                                getResponsivePadding(context, 9),
+                              ),
                               child: Column(
                                 children: [
                                   RotationTransition(
@@ -2603,14 +2767,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     child: Icon(
                                       Icons.emoji_events,
                                       color: const Color(0xFFFFD700),
-                                      size: getResponsiveFontSize(
-                                        context,
-                                        16,
-                                      ), // Reduced from 18
+                                      size: getResponsiveFontSize(context, 16),
                                     ),
                                   ),
                                   SizedBox(
-                                    height: getResponsivePadding(context, 2),
+                                    height: getResponsivePadding(context, 4),
                                   ),
                                   Consumer(
                                     builder: (context, ref, _) {
@@ -2620,8 +2781,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                           color: Colors.white,
                                           fontSize: getResponsiveFontSize(
                                             context,
-                                            10,
-                                          ), // Reduced from 12
+                                            12,
+                                          ),
                                           fontWeight: FontWeight.w600,
                                         ),
                                       );
@@ -2635,10 +2796,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       );
                     },
                   ),
-                  SizedBox(
-                    width: getResponsivePadding(context, 8),
-                  ), // Reduced spacing
-                  // Chat Button
+                  SizedBox(width: getResponsivePadding(context, 10)),
+                  // Chat Button - keep your existing code
                   TweenAnimationBuilder<double>(
                     duration: const Duration(milliseconds: 1200),
                     tween: Tween(begin: 0.0, end: 1.0),
@@ -2709,29 +2868,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             child: Padding(
                               padding: EdgeInsets.all(
                                 getResponsivePadding(context, 7),
-                              ), // Reduced from 8
+                              ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
                                     Icons.message_rounded,
                                     color: const Color(0xFF2196F3),
-                                    size: getResponsiveFontSize(
-                                      context,
-                                      18,
-                                    ), // Reduced from 20
+                                    size: getResponsiveFontSize(context, 20),
                                   ),
                                   SizedBox(
-                                    height: getResponsivePadding(context, 3),
-                                  ), // Reduced from 4
+                                    height: getResponsivePadding(context, 4),
+                                  ),
                                   Text(
                                     'Chat',
                                     style: GoogleFonts.poppins(
                                       color: Colors.white,
                                       fontSize: getResponsiveFontSize(
                                         context,
-                                        9,
-                                      ), // Reduced from 10
+                                        11,
+                                      ),
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -2743,10 +2899,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       );
                     },
                   ),
-                  SizedBox(
-                    width: getResponsivePadding(context, 8),
-                  ), // Reduced spacing
-                  // Profile Avatar
+                  SizedBox(width: getResponsivePadding(context, 10)),
+                  // Profile Avatar - keep your existing code
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -2796,10 +2950,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ],
                       ),
                       child: CircleAvatar(
-                        radius: getResponsiveFontSize(
-                          context,
-                          20,
-                        ), // Responsive avatar size, reduced from 24
+                        radius: getResponsiveFontSize(context, 25),
                         backgroundImage: NetworkImage(imageUrl),
                       ),
                     ),
@@ -3388,6 +3539,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     padding: EdgeInsets.all(padding),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize:
+                          MainAxisSize.min, // Added this to prevent overflow
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -3417,7 +3570,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                           ),
                         ),
-                        SizedBox(height: padding * 0.6),
+                        SizedBox(height: padding * 0.4), // Reduced from 0.6
                         Expanded(
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3426,16 +3579,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min, // Added this
                                   children: [
-                                    Text(
-                                      'Invent A Game',
-                                      style: GoogleFonts.robotoSlab(
-                                        fontSize: titleFontSize,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
+                                    Flexible(
+                                      // Wrapped with Flexible
+                                      child: Text(
+                                        'Invent A Game',
+                                        style: GoogleFonts.robotoSlab(
+                                          fontSize: titleFontSize,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                        maxLines: 2, // Added maxLines
+                                        overflow:
+                                            TextOverflow
+                                                .ellipsis, // Added overflow handling
                                       ),
                                     ),
-                                    SizedBox(height: 6),
+                                    SizedBox(height: 4), // Reduced from 6
                                   ],
                                 ),
                               ),
@@ -3463,8 +3624,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     backgroundColor: Colors.transparent,
                                     shadowColor: Colors.transparent,
                                     padding: EdgeInsets.symmetric(
-                                      horizontal: padding * 0.8,
-                                      vertical: padding * 0.5,
+                                      horizontal:
+                                          padding * 0.7, // Reduced from 0.8
+                                      vertical:
+                                          padding * 0.4, // Reduced from 0.5
                                     ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
@@ -3526,7 +3689,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ],
                           ),
                         ),
-                        SizedBox(height: padding * 0.4),
+                        SizedBox(height: padding * 0.3), // Reduced from 0.4
                         Container(
                           height: 1,
                           decoration: BoxDecoration(
@@ -3539,7 +3702,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                           ),
                         ),
-                        SizedBox(height: padding * 0.4),
+                        SizedBox(height: padding * 0.3), // Reduced from 0.4
                         Center(
                           child: TextButton(
                             onPressed: () => _showSchedulePopup(context),
@@ -3658,7 +3821,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   padding: EdgeInsets.all(padding),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Icon container
                       Container(
@@ -3670,51 +3832,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         child: Icon(icon, color: Colors.white, size: iconSize),
                       ),
 
-                      // Text section with flexible layout
+                      // Add flexible spacing
+                      SizedBox(height: padding * 0.3),
+
+                      // Text section with proper constraints
                       Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(top: padding * 0.5),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              // Title - always fits on one line
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  title,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: titleFontSize,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    height: 1.1,
-                                  ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min, // Added this
+                          children: [
+                            // Title - always fits on one line
+                            Flexible(
+                              // Changed from FittedBox to Flexible
+                              child: Text(
+                                title,
+                                style: GoogleFonts.poppins(
+                                  fontSize: titleFontSize,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.1,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
+                            ),
 
-                              SizedBox(height: padding * 0.3),
-
-                              // Subtitle - responsive with proper wrapping
-                              Flexible(
-                                child: Container(
-                                  width: double.infinity,
-                                  child: Text(
-                                    subtitle,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: subtitleFontSize,
-                                      color: Colors.white.withOpacity(0.9),
-                                      height: 1.2,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    maxLines: isSmallScreen ? 2 : 3,
-                                    overflow: TextOverflow.ellipsis,
-                                    softWrap: true,
-                                  ),
+                            SizedBox(height: padding * 0.2), // Reduced spacing
+                            // Subtitle - responsive with proper wrapping
+                            Flexible(
+                              child: Text(
+                                subtitle,
+                                style: GoogleFonts.poppins(
+                                  fontSize: subtitleFontSize,
+                                  color: Colors.white.withOpacity(0.9),
+                                  height: 1.2,
+                                  fontWeight: FontWeight.w500,
                                 ),
+                                maxLines: isSmallScreen ? 2 : 3,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: true,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

@@ -507,7 +507,7 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
                       ],
                     ),
                     child: Text(
-                      "MVP points = +250 🪙",
+                      "MVP points = +100 🪙",
                       style: GoogleFonts.poppins(
                         color: Colors.white,
                         fontSize: baseFontSize - 2,
@@ -538,53 +538,112 @@ class _MvpPageState extends State<MvpPage> with TickerProviderStateMixin {
           scale: 0.9 + (value * 0.1),
           child: Opacity(
             opacity: value,
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(basePadding),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF452152).withOpacity(0.8),
-                    const Color(0xFF3D1A4A).withOpacity(0.8),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(baseRadius),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    "Get MVP Points To Play And",
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: baseFontSize + 2,
-                      fontWeight: FontWeight.w500,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = MediaQuery.of(context).size.width;
+
+                // Calculate responsive font size based on screen width
+                double responsiveFontSize;
+                if (screenWidth <= 320) {
+                  // Very small screens (iPhone SE)
+                  responsiveFontSize = baseFontSize - 1;
+                } else if (screenWidth <= 375) {
+                  // Small screens (iPhone 8, iPhone 12 mini)
+                  responsiveFontSize = baseFontSize;
+                } else if (screenWidth <= 414) {
+                  // Medium screens (iPhone 11, iPhone 12)
+                  responsiveFontSize = baseFontSize + 1;
+                } else {
+                  // Large screens (iPhone 12 Pro Max, tablets)
+                  responsiveFontSize = baseFontSize + 2;
+                }
+
+                // Calculate line height for better text spacing
+                double lineHeight = screenWidth <= 360 ? 1.3 : 1.4;
+
+                return Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(basePadding),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF452152).withOpacity(0.8),
+                        const Color(0xFF3D1A4A).withOpacity(0.8),
+                      ],
                     ),
-                  ),
-                  Text(
-                    'Vote Teammate',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: baseFontSize + 2,
-                      fontWeight: FontWeight.w500,
+                    borderRadius: BorderRadius.circular(baseRadius),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1.5,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                  child: Column(
+                    children: [
+                      // Use RichText for better control over text layout
+                      RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: responsiveFontSize,
+                            fontWeight: FontWeight.w500,
+                            height: lineHeight,
+                          ),
+                          children: const [
+                            TextSpan(text: "Get MVP Points. Play, Vote\n"),
+                            TextSpan(text: "and Climb the Leaderboard ~ Be\n"),
+                            TextSpan(text: "the most valuable player"),
+                          ],
+                        ),
+                      ),
+
+                      // Alternative approach using Text with manual line breaks
+                      /*
+                    Text(
+                      "Get MVP Points. Play, Vote\nand Climb the Leaderboard ~ Be\nthe most valuable player",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: responsiveFontSize,
+                        fontWeight: FontWeight.w500,
+                        height: lineHeight,
+                      ),
+                    ),
+                    */
+
+                      // Alternative approach for very responsive text
+                      /*
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.9,
+                      ),
+                      child: Text(
+                        "Get MVP Points. Play, Vote and Climb the Leaderboard ~ Be the most valuable player",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: responsiveFontSize,
+                          fontWeight: FontWeight.w500,
+                          height: lineHeight,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    */
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         );

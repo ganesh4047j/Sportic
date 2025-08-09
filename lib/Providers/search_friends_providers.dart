@@ -91,50 +91,6 @@ final searchFriendsProvider = FutureProvider<List<Map<String, dynamic>>>((
   return filtered;
 });
 
-/// Send friend request (one-directional; creates both incoming & outgoing entries)
-// final sendFriendRequestProvider = Provider.family<Future<void>, String>((ref, receiverUid) async {
-//   final firebaseUser = FirebaseAuth.instance.currentUser;
-//   final senderUid = firebaseUser?.uid ?? await secureStorage.read(key: 'custom_uid');
-//   if (senderUid == null || senderUid == receiverUid) throw 'Invalid user ID';
-//
-//   final firestore = FirebaseFirestore.instance;
-//
-//   final senderData = await _getUserData(senderUid);
-//   final receiverData = await _getUserData(receiverUid);
-//
-//   final outgoingRef = firestore
-//       .collection('friend_requests')
-//       .doc(senderUid)
-//       .collection('outgoing')
-//       .doc(receiverUid);
-//
-//   final incomingRef = firestore
-//       .collection('friend_requests')
-//       .doc(receiverUid)
-//       .collection('incoming')
-//       .doc(senderUid);
-//
-//   final existing = await outgoingRef.get();
-//   if (existing.exists) {
-//     final status = existing.data()?['status'];
-//     if (status == 'pending' || status == 'accepted') {
-//       throw 'Request already sent or accepted';
-//     }
-//   }
-//
-//   final payload = {
-//     'from': senderUid,
-//     'to': receiverUid,
-//     'fromName': senderData['name'],
-//     'toName': receiverData['name'],
-//     'status': 'pending',
-//     'timestamp': FieldValue.serverTimestamp(),
-//   };
-//
-//   await outgoingRef.set(payload);
-//   await incomingRef.set(payload);
-// });
-
 final sendFriendRequestProvider = Provider.family<Future<void>, String>((
   ref,
   receiverUid,

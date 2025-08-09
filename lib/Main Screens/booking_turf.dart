@@ -35,6 +35,8 @@ class BookingPage extends StatefulWidget {
   final String turfName;
   final String location;
   final String owner_id;
+  final String managerName;
+  final String managerNumber;
 
   const BookingPage({
     super.key,
@@ -42,6 +44,8 @@ class BookingPage extends StatefulWidget {
     required this.turfName,
     required this.location,
     required this.owner_id,
+    required this.managerName,
+    required this.managerNumber,
   });
 
   @override
@@ -347,12 +351,11 @@ class _BookingPageState extends State<BookingPage> {
     final List<String> limitedImages = [widget.turfImages];
     final String phoneNumber = contactInfo?['phone_number'] ?? '';
     final String whatsappNumber =
-        phoneNumber.isNotEmpty ? '91$phoneNumber' : '';
+        phoneNumber.isNotEmpty ? '91${widget.managerNumber}' : '';
     final String message = 'Hi, I need some help regarding your turf.';
 
     _callNumber() async {
-      final number =
-          '${contactInfo!['alternative_phone_number'] ?? ''}'; //set the number here
+      final number = '${widget.managerNumber ?? ''}'; //set the number here
       // print('Alt num ==> $number');
       bool? res = await DirectCallPlus.makeCall(number);
     }
