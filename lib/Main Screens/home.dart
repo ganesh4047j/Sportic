@@ -1512,7 +1512,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Updated notification dialog - replace your existing _showSimpleNotificationDialog
+  // Updated notification dialog with offer support
   void _showCombinedNotificationDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -1595,6 +1595,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              const SizedBox(height: 8),
+                              Text(
+                                error.toString(),
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white60,
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                               const SizedBox(height: 16),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
@@ -1610,6 +1619,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                         ),
                     data: (notifications) {
+                      print(
+                        '🔔 Dialog: Received ${notifications.length} notifications',
+                      );
+
                       if (notifications.isEmpty) {
                         return Center(
                           child: Column(
@@ -1647,20 +1660,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         itemBuilder: (context, index) {
                           final notification = notifications[index];
                           final notificationType =
-                              notification['notificationType'];
+                              notification['notificationType'] ??
+                              notification['type'] ??
+                              'message';
 
-                          if (notificationType == 'friend_request') {
-                            return _buildFriendRequestNotificationItem(
-                              context,
-                              ref,
-                              notification,
-                            );
-                          } else {
-                            return _buildMessageNotificationItem(
-                              context,
-                              ref,
-                              notification,
-                            );
+                          print(
+                            '🔔 Dialog: Building notification $index - Type: $notificationType',
+                          );
+
+                          // Handle different notification types
+                          switch (notificationType) {
+                            case 'friend_request':
+                              return _buildFriendRequestNotificationItem(
+                                context,
+                                ref,
+                                notification,
+                              );
+                            case 'offer':
+                              print(
+                                '🔔 Dialog: Building offer notification: ${notification['title']}',
+                              );
+                              return _buildOfferNotificationItem(
+                                context,
+                                ref,
+                                notification,
+                              );
+                            case 'message':
+                            default:
+                              return _buildMessageNotificationItem(
+                                context,
+                                ref,
+                                notification,
+                              );
                           }
                         },
                       );
@@ -1683,6 +1714,412 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             },
           ),
     );
+  }
+
+  // Offer notification item builder
+  Widget _buildOfferNotificationItem(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> offer,
+  ) {
+    final title = offer['title']?.toString() ?? 'Special Offer';
+    final description = offer['description']?.toString() ?? '';
+    final discountPercentage = (offer['discountPercentage'] ?? 0.0);
+    final offerType = offer['offerType']?.toString() ?? 'Product';
+    final time = _formatNotificationTime(offer['timestamp']);
+
+    // Get selected turfs info if available
+    final selectedTurfs = offer['selectedTurfs'] as List<dynamic>? ?? [];
+    final turfNames =
+        selectedTurfs.isNotEmpty
+            ? selectedTurfs
+                .map((turf) => turf['name']?.toString() ?? 'Unknown')
+                .take(2)
+                .join(', ')
+            : 'All turfs';
+
+    print(
+      '🔔 Building offer notification: $title with ${discountPercentage}% discount',
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          Navigator.of(context).pop();
+          // Navigate to offers screen or show offer details
+          _showOfferDetailsDialog(context, offer);
+        },
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFFFF9800).withOpacity(0.15),
+                const Color(0xFFFF9800).withOpacity(0.05),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFFF9800).withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF9800).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.local_offer,
+                  color: Color(0xFFFF9800),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: GoogleFonts.robotoSlab(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          time,
+                          style: GoogleFonts.poppins(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF9800).withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${discountPercentage.toInt()}% OFF',
+                            style: GoogleFonts.poppins(
+                              color: const Color(0xFFFF9800),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            description.isNotEmpty
+                                ? (description.length > 30
+                                    ? '${description.substring(0, 30)}...'
+                                    : description)
+                                : 'Special offer on $offerType',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (selectedTurfs.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.sports_soccer,
+                            size: 12,
+                            color: Colors.white.withOpacity(0.6),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Available at: $turfNames${selectedTurfs.length > 2 ? ' +${selectedTurfs.length - 2} more' : ''}',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white.withOpacity(0.6),
+                                fontSize: 10,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white30,
+                size: 12,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Show offer details dialog
+  void _showOfferDetailsDialog(
+    BuildContext context,
+    Map<String, dynamic> offer,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFF452152),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF9800).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.local_offer,
+                    color: Color(0xFFFF9800),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    offer['title']?.toString() ?? 'Special Offer',
+                    style: GoogleFonts.robotoSlab(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Discount badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF9800), Color(0xFFFF6F00)],
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Text(
+                      '${(offer['discountPercentage'] ?? 0.0).toInt()}% OFF',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Description
+                  if (offer['description'] != null &&
+                      offer['description'].toString().isNotEmpty)
+                    Text(
+                      offer['description'].toString(),
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+
+                  // Offer details
+                  _buildOfferDetailRow(
+                    'Offer Type',
+                    offer['offerType']?.toString() ?? 'General',
+                  ),
+                  _buildOfferDetailRow(
+                    'Valid Until',
+                    '${_formatDate(offer['endDate'])} at ${offer['endTime'] ?? 'End of day'}',
+                  ),
+                  _buildOfferDetailRow(
+                    'Valid From',
+                    '${_formatDate(offer['startDate'])} at ${offer['startTime'] ?? 'Start of day'}',
+                  ),
+
+                  // Show selected turfs if available
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (context) {
+                      final selectedTurfs =
+                          offer['selectedTurfs'] as List<dynamic>? ?? [];
+                      if (selectedTurfs.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Available at these turfs:',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          ...selectedTurfs
+                              .map(
+                                (turf) => Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 8,
+                                    bottom: 2,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.sports_soccer,
+                                        size: 12,
+                                        color: Colors.white.withOpacity(0.6),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          '${turf['name'] ?? 'Unknown'} - ${turf['location'] ?? 'Unknown Location'}',
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white.withOpacity(
+                                              0.8,
+                                            ),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(
+                  'Close',
+                  style: GoogleFonts.poppins(
+                    color: const Color(0xFFFF9800),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF9800),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Navigate to turf booking or show more details
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Redirecting to ${offer['title']} details...',
+                      ),
+                      backgroundColor: const Color(0xFFFF9800),
+                    ),
+                  );
+                },
+                child: Text(
+                  'View Details',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // Helper method for offer details
+  Widget _buildOfferDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const Text(': ', style: TextStyle(color: Colors.white70)),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(color: Colors.white, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to format date
+  String _formatDate(dynamic date) {
+    try {
+      DateTime dateTime;
+      if (date is Timestamp) {
+        dateTime = date.toDate();
+      } else if (date is DateTime) {
+        dateTime = date;
+      } else {
+        return 'N/A';
+      }
+
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    } catch (e) {
+      return 'N/A';
+    }
   }
 
   // Friend request notification item
@@ -1957,6 +2394,115 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Message notification content builder
+  Widget _buildMessageNotificationItemContent(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> message,
+    String senderName,
+    String messageText,
+    String time,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          Navigator.of(context).pop();
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => ChatPage(
+                    chatId: message['chatId'] ?? '',
+                    peerUid: message['from'] ?? '',
+                    peerName: senderName,
+                    peerEmail: '',
+                  ),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF2196F3).withOpacity(0.15),
+                const Color(0xFF2196F3).withOpacity(0.05),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF2196F3).withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2196F3).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.message,
+                  color: Color(0xFF2196F3),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            senderName,
+                            style: GoogleFonts.robotoSlab(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          time,
+                          style: GoogleFonts.poppins(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      messageText.length > 50
+                          ? '${messageText.substring(0, 50)}...'
+                          : messageText,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white30,
+                size: 12,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2443,114 +2989,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (screenWidth < 400) return basePadding * 0.8; // Medium small screens
     if (screenWidth > 600) return basePadding * 1.2; // Large screens/tablets
     return basePadding; // Normal screens
-  }
-
-  Widget _buildMessageNotificationItemContent(
-    BuildContext context,
-    WidgetRef ref,
-    Map<String, dynamic> message,
-    String senderName,
-    String messageText,
-    String time,
-  ) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.of(context).pop();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (_) => ChatPage(
-                    chatId: message['chatId'] ?? '',
-                    peerUid: message['from'] ?? '',
-                    peerName: senderName,
-                    peerEmail: '',
-                  ),
-            ),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withOpacity(0.1),
-                Colors.white.withOpacity(0.05),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2196F3).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.message,
-                  color: Color(0xFF2196F3),
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            senderName,
-                            style: GoogleFonts.robotoSlab(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          time,
-                          style: GoogleFonts.poppins(
-                            color: Colors.white.withOpacity(0.6),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      messageText.length > 50
-                          ? '${messageText.substring(0, 50)}...'
-                          : messageText,
-                      style: GoogleFonts.poppins(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.white30,
-                size: 12,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   // Replace your existing _buildHeader method with this fixed version

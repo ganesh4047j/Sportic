@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../Main Screens/home.dart';
 import '../Main Screens/user_details_google.dart';
+import '../Main Screens/user_details_phone.dart';
 import '../Providers/secure_storage_service.dart';
 import '../Providers/validation_provider.dart';
 import '../Services/fcm_token.dart';
@@ -404,7 +405,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen>
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const HomeScreen(),
+                          builder: (context) => const CollectUserDetailsPage(),
                         ),
                       );
                     },

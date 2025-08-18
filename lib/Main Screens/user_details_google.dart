@@ -30,10 +30,32 @@ class _CollectUserDetailsPage1State
   late Animation<Offset> _slideAnimation;
   late Animation<double> _scaleAnimation;
 
-  final avatarUrls = List.generate(
-    10,
-    (index) => 'https://api.dicebear.com/7.x/micah/png?seed=avatar${index + 1}',
-  );
+  // final avatarUrls = List.generate(
+  //   10,
+  //   (index) => 'https://api.dicebear.com/7.x/micah/png?seed=avatar${index + 1}',
+  // );
+
+  final avatarUrls = [
+    // These URLs match the flat, colorful cartoon style from your images
+    'https://cdn-icons-png.flaticon.com/512/147/147133.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147144.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147135.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147140.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147142.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147134.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147131.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147139.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147132.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147136.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147137.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147141.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147143.png',
+    'https://cdn-icons-png.flaticon.com/512/147/147138.png',
+    'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+    'https://cdn-icons-png.flaticon.com/512/3135/3135789.png',
+    'https://cdn-icons-png.flaticon.com/512/3135/3135823.png',
+    'https://cdn-icons-png.flaticon.com/512/3135/3135768.png',
+  ];
 
   @override
   void initState() {

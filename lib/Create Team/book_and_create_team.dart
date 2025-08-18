@@ -88,6 +88,219 @@ class _BookingPageState extends State<BookingPage>
 
   List<int> hours = List.generate(12, (index) => index + 1);
 
+  Future<bool> _checkForBookingConflicts() async {
+    if (selectedSport == null) return false;
+
+    try {
+      // Format the selected date to match Firestore format
+      final selectedDateString =
+          '${_selectedDate.day}-${_selectedDate.month}-${_selectedDate.year}';
+
+      // Convert selected times to 24-hour format for comparison
+      final selectedStartTime24 = _convertTo24HourFormat(
+        selectedStartHour,
+        isStartAM,
+      );
+      final selectedEndTime24 = _convertTo24HourFormat(
+        selectedEndHour,
+        isEndAM,
+      );
+
+      // Check conflicts in booking_details collection
+      final bookingConflicts = await _checkBookingDetailsConflicts(
+        selectedDateString,
+        selectedStartTime24,
+        selectedEndTime24,
+      );
+
+      // Check conflicts in created_team collection
+      final teamConflicts = await _checkCreatedTeamConflicts(
+        selectedDateString,
+        selectedStartTime24,
+        selectedEndTime24,
+      );
+
+      return bookingConflicts || teamConflicts;
+    } catch (e) {
+      print('Error checking booking conflicts: $e');
+      return false; // Assume no conflict if error occurs
+    }
+  }
+
+  // Check conflicts in booking_details collection
+  Future<bool> _checkBookingDetailsConflicts(
+    String selectedDateString,
+    int selectedStartTime24,
+    int selectedEndTime24,
+  ) async {
+    try {
+      // Query all confirmed bookings for this turf on the selected date and sport
+      final QuerySnapshot existingBookings =
+          await FirebaseFirestore.instance
+              .collectionGroup(
+                'booking_details',
+              ) // Use collectionGroup to search across all user subcollections
+              .where('owner_id', isEqualTo: widget.owner_id)
+              .where('slot_date', isEqualTo: selectedDateString)
+              .where('selected_sport', isEqualTo: selectedSport)
+              .where('status', isEqualTo: 'confirmed')
+              .get();
+
+      // Check for conflicts with existing bookings
+      for (var doc in existingBookings.docs) {
+        final bookingData = doc.data() as Map<String, dynamic>;
+
+        // Extract existing booking times and convert to 24-hour format
+        final existingStartTime = bookingData['start_time'] as String;
+        final existingEndTime = bookingData['end_time'] as String;
+
+        final existingStart24 = _parseTimeString(existingStartTime);
+        final existingEnd24 = _parseTimeString(existingEndTime);
+
+        // Check for time overlap
+        if (_hasTimeOverlap(
+          selectedStartTime24,
+          selectedEndTime24,
+          existingStart24,
+          existingEnd24,
+        )) {
+          print('Conflict found in booking_details: ${doc.id}');
+          return true; // Conflict found
+        }
+      }
+
+      return false; // No conflicts in booking_details
+    } catch (e) {
+      print('Error checking booking_details conflicts: $e');
+      return false;
+    }
+  }
+
+  // Check conflicts in created_team collection
+  Future<bool> _checkCreatedTeamConflicts(
+    String selectedDateString,
+    int selectedStartTime24,
+    int selectedEndTime24,
+  ) async {
+    try {
+      // Query all active teams for this turf on the selected date and sport
+      final QuerySnapshot existingTeams =
+          await FirebaseFirestore.instance
+              .collection('created_team')
+              .where('owner_id', isEqualTo: widget.owner_id)
+              .where('slot_date', isEqualTo: selectedDateString)
+              .where('selected_sport', isEqualTo: selectedSport)
+              .where('status', isEqualTo: 'active')
+              .get();
+
+      // Check for conflicts with existing team bookings
+      for (var doc in existingTeams.docs) {
+        final teamData = doc.data() as Map<String, dynamic>;
+
+        // Extract existing team slot time and parse it
+        final existingSlotTime = teamData['slot_time'] as String;
+
+        // Parse slot_time format: "5 PM - 6 PM" or "05:00 PM - 06:00 PM"
+        final timeParts = existingSlotTime.split(' - ');
+        if (timeParts.length == 2) {
+          final existingStart24 = _parseTimeString(timeParts[0].trim());
+          final existingEnd24 = _parseTimeString(timeParts[1].trim());
+
+          // Check for time overlap
+          if (_hasTimeOverlap(
+            selectedStartTime24,
+            selectedEndTime24,
+            existingStart24,
+            existingEnd24,
+          )) {
+            print('Conflict found in created_team: ${doc.id}');
+            return true; // Conflict found
+          }
+        }
+      }
+
+      return false; // No conflicts in created_team
+    } catch (e) {
+      print('Error checking created_team conflicts: $e');
+      return false;
+    }
+  }
+
+  // Helper method to convert hour and AM/PM to 24-hour format
+  int _convertTo24HourFormat(int hour, bool isAM) {
+    if (hour == 12) {
+      return isAM ? 0 : 12;
+    } else {
+      return isAM ? hour : hour + 12;
+    }
+  }
+
+  // Helper method to parse time string (e.g., "5 PM", "05:00 PM") to 24-hour format
+  int _parseTimeString(String timeString) {
+    try {
+      // Handle different time formats
+      timeString = timeString.trim();
+
+      // Check if it contains colon (e.g., "05:00 PM")
+      if (timeString.contains(':')) {
+        final parts = timeString.split(' ');
+        final timePart = parts[0];
+        final amPm = parts.length > 1 ? parts[1] : '';
+
+        final hourMinute = timePart.split(':');
+        final hour = int.parse(hourMinute[0]);
+
+        if (amPm.toUpperCase() == 'AM') {
+          return hour == 12 ? 0 : hour;
+        } else if (amPm.toUpperCase() == 'PM') {
+          return hour == 12 ? 12 : hour + 12;
+        } else {
+          // If no AM/PM specified, assume it's 24-hour format
+          return hour;
+        }
+      } else {
+        // Handle format like "5 PM" or "5AM"
+        final parts = timeString.split(' ');
+        if (parts.length >= 2) {
+          final hour = int.parse(parts[0]);
+          final amPm = parts[1].toUpperCase();
+
+          if (amPm == 'AM') {
+            return hour == 12 ? 0 : hour;
+          } else if (amPm == 'PM') {
+            return hour == 12 ? 12 : hour + 12;
+          }
+        } else {
+          // Check if it ends with AM/PM
+          if (timeString.toUpperCase().endsWith('AM')) {
+            final hour = int.parse(
+              timeString.substring(0, timeString.length - 2),
+            );
+            return hour == 12 ? 0 : hour;
+          } else if (timeString.toUpperCase().endsWith('PM')) {
+            final hour = int.parse(
+              timeString.substring(0, timeString.length - 2),
+            );
+            return hour == 12 ? 12 : hour + 12;
+          }
+        }
+      }
+
+      // Fallback: try to parse as integer
+      return int.parse(timeString);
+    } catch (e) {
+      print('Error parsing time string: $timeString, Error: $e');
+      return 0;
+    }
+  }
+
+  // Helper method to check if two time ranges overlap
+  bool _hasTimeOverlap(int start1, int end1, int start2, int end2) {
+    // Two time ranges overlap if:
+    // start1 < end2 AND start2 < end1
+    return start1 < end2 && start2 < end1;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -339,11 +552,28 @@ class _BookingPageState extends State<BookingPage>
       return;
     }
 
-    try {
-      setState(() {
-        isLoading = true;
-      });
+    setState(() {
+      isLoading = true;
+    });
 
+    try {
+      // Check for booking conflicts first
+      final hasConflict = await _checkForBookingConflicts();
+
+      if (hasConflict) {
+        setState(() {
+          isLoading = false;
+        });
+
+        // Show conflict dialog with specific message
+        final conflictMessage =
+            'This time slot (${formatHour(selectedStartHour, isStartAM)} - ${formatHour(selectedEndHour, isEndAM)}) is already booked for ${selectedSport} on ${_selectedDate.day}-${_selectedDate.month}-${_selectedDate.year}.\n\nPlease select a different time slot to proceed with your booking.';
+
+        _showConflictDialog(conflictMessage);
+        return;
+      }
+
+      // If no conflicts, proceed with existing payment logic
       var options = {
         'key': 'rzp_test_0rwYxZvUXDUeW7',
         'amount': (bookingAmount * 100).toInt(),
@@ -921,6 +1151,277 @@ class _BookingPageState extends State<BookingPage>
                     child: Text('OK', style: TextStyle(color: Colors.white)),
                   ),
                 ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showConflictDialog(String conflictMessage) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth:
+                    MediaQuery.of(context).size.width > 600
+                        ? 500
+                        : double.infinity,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.red.withOpacity(0.3),
+                          Colors.red.withOpacity(0.2),
+                          Colors.red.withOpacity(0.1),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        width: 2,
+                        color: Colors.red.withOpacity(0.4),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          spreadRadius: 5,
+                          blurRadius: 20,
+                          offset: Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    padding: EdgeInsets.all(30),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Warning Icon with Animation
+                        TweenAnimationBuilder<double>(
+                          duration: const Duration(milliseconds: 1000),
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          curve: Curves.elasticOut,
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: value,
+                              child: Container(
+                                padding: EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.red.shade400.withOpacity(0.4),
+                                      Colors.red.shade600.withOpacity(0.4),
+                                    ],
+                                  ),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.red.withOpacity(0.6),
+                                    width: 3,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.red.withOpacity(0.5),
+                                      spreadRadius: 5,
+                                      blurRadius: 15,
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.warning_outlined,
+                                  color: Colors.white,
+                                  size: 50,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+
+                        SizedBox(height: 25),
+
+                        // Title with Gradient Text
+                        ShaderMask(
+                          shaderCallback:
+                              (bounds) => LinearGradient(
+                                colors: [Colors.white, Colors.red.shade200],
+                              ).createShader(bounds),
+                          child: Text(
+                            'Booking Conflict! ⚠️',
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+
+                        SizedBox(height: 20),
+
+                        // Conflict Message Container
+                        Container(
+                          padding: EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white.withOpacity(0.15),
+                                Colors.white.withOpacity(0.08),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            conflictMessage,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                              height: 1.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+
+                        SizedBox(height: 30),
+
+                        // Action Buttons
+                        Column(
+                          children: [
+                            // Choose Different Time Button
+                            Container(
+                              width: double.infinity,
+                              height: 55,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF452152),
+                                    Color(0xFF3D1A4A),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(25),
+                                border: Border.all(
+                                  color: Colors.purpleAccent.withOpacity(0.5),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Color(0xFF452152).withOpacity(0.4),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(25),
+                                  onTap: () {
+                                    Navigator.of(context).pop();
+                                    // Optionally scroll to time selection or add feedback
+                                    HapticFeedback.lightImpact();
+                                  },
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.schedule_outlined,
+                                          color: Colors.white,
+                                          size: 22,
+                                        ),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Choose Different Time',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            SizedBox(height: 15),
+
+                            // Close Button
+                            Container(
+                              width: double.infinity,
+                              height: 55,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white.withOpacity(0.25),
+                                    Colors.white.withOpacity(0.15),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(25),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.4),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(25),
+                                  onTap: () {
+                                    Navigator.of(context).pop();
+                                    HapticFeedback.lightImpact();
+                                  },
+                                  child: Center(
+                                    child: Text(
+                                      'Close',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

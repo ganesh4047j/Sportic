@@ -82,6 +82,98 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     {'name': 'Pickleball', 'icon': '🏓', 'color': Colors.purple},
   ];
 
+  Future<bool> _checkForBookingConflicts() async {
+    if (selectedSport == null) return false;
+
+    try {
+      // Format the selected date to match Firestore format
+      final selectedDateString =
+          '${_selectedDate.day}-${_selectedDate.month}-${_selectedDate.year}';
+
+      // Convert selected times to 24-hour format for comparison
+      final selectedStartTime24 = _convertTo24HourFormat(
+        selectedStartHour,
+        isStartAM,
+      );
+      final selectedEndTime24 = _convertTo24HourFormat(
+        selectedEndHour,
+        isEndAM,
+      );
+
+      // Query all bookings for this turf on the selected date
+      final QuerySnapshot existingBookings =
+          await FirebaseFirestore.instance
+              .collectionGroup('booking_details')
+              .where('owner_id', isEqualTo: widget.owner_id)
+              .where('date', isEqualTo: selectedDateString)
+              .where('selected_sport', isEqualTo: selectedSport)
+              .where('status', isEqualTo: 'confirmed')
+              .get();
+
+      // Check for conflicts with existing bookings
+      for (var doc in existingBookings.docs) {
+        final bookingData = doc.data() as Map<String, dynamic>;
+
+        // Extract existing booking times and convert to 24-hour format
+        final existingStartTime = bookingData['start_time'] as String;
+        final existingEndTime = bookingData['end_time'] as String;
+
+        final existingStart24 = _parseTimeString(existingStartTime);
+        final existingEnd24 = _parseTimeString(existingEndTime);
+
+        // Check for time overlap
+        if (_hasTimeOverlap(
+          selectedStartTime24,
+          selectedEndTime24,
+          existingStart24,
+          existingEnd24,
+        )) {
+          return true; // Conflict found
+        }
+      }
+
+      return false; // No conflicts
+    } catch (e) {
+      print('Error checking booking conflicts: $e');
+      return false; // Assume no conflict if error occurs
+    }
+  }
+
+  int _convertTo24HourFormat(int hour, bool isAM) {
+    if (hour == 12) {
+      return isAM ? 0 : 12;
+    } else {
+      return isAM ? hour : hour + 12;
+    }
+  }
+
+  int _parseTimeString(String timeString) {
+    try {
+      final parts = timeString.split(' ');
+      final timePart = parts[0];
+      final amPm = parts[1];
+
+      final hourMinute = timePart.split(':');
+      final hour = int.parse(hourMinute[0]);
+
+      if (amPm.toUpperCase() == 'AM') {
+        return hour == 12 ? 0 : hour;
+      } else {
+        return hour == 12 ? 12 : hour + 12;
+      }
+    } catch (e) {
+      print('Error parsing time string: $timeString, Error: $e');
+      return 0;
+    }
+  }
+
+  // Helper method to check if two time ranges overlap
+  bool _hasTimeOverlap(int start1, int end1, int start2, int end2) {
+    // Two time ranges overlap if:
+    // start1 < end2 AND start2 < end1
+    return start1 < end2 && start2 < end1;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -324,6 +416,225 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
 
   void _handleExternalWallet(ExternalWalletResponse response) {
     print('External Wallet: ${response.walletName}');
+  }
+
+  void _showConflictDialog(String conflictMessage) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth:
+                  MediaQuery.of(context).size.width > 600
+                      ? 500
+                      : double.infinity,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.red.withOpacity(0.3),
+                        Colors.red.withOpacity(0.2),
+                        Colors.red.withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      width: 1.5,
+                      color: Colors.red.withOpacity(0.4),
+                    ),
+                  ),
+                  padding: EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Warning Icon with Animation
+                      TweenAnimationBuilder<double>(
+                        duration: const Duration(milliseconds: 800),
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        curve: Curves.elasticOut,
+                        builder: (context, value, child) {
+                          return Transform.scale(
+                            scale: value,
+                            child: Container(
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.red.shade400.withOpacity(0.3),
+                                    Colors.red.shade600.withOpacity(0.3),
+                                  ],
+                                ),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.red.withOpacity(0.6),
+                                  width: 2,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.warning_outlined,
+                                color: Colors.red.shade300,
+                                size: 48,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      SizedBox(height: 20),
+
+                      // Title
+                      Text(
+                        'Booking Conflict',
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                      SizedBox(height: 16),
+
+                      // Conflict Message
+                      Container(
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Text(
+                          conflictMessage,
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            color: Colors.white,
+                            height: 1.4,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+
+                      SizedBox(height: 24),
+
+                      // Action Buttons
+                      Column(
+                        children: [
+                          // Choose Different Time Button
+                          Container(
+                            width: double.infinity,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.blue.shade400.withOpacity(0.8),
+                                  Colors.blue.shade600.withOpacity(0.8),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(
+                                color: Colors.blue.withOpacity(0.6),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.3),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(25),
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  // Optionally scroll to time selection
+                                },
+                                child: Center(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.schedule_outlined,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Choose Different Time',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(height: 12),
+
+                          // Close Button
+                          Container(
+                            width: double.infinity,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withOpacity(0.2),
+                                  Colors.white.withOpacity(0.1),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(25),
+                                onTap: () => Navigator.of(context).pop(),
+                                child: Center(
+                                  child: Text(
+                                    'Close',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _saveBookingToFirestore(String paymentId) async {
@@ -589,6 +900,23 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     });
 
     try {
+      // Check for booking conflicts first
+      final hasConflict = await _checkForBookingConflicts();
+
+      if (hasConflict) {
+        setState(() {
+          isLoading = false;
+        });
+
+        // Show conflict dialog with specific message
+        final conflictMessage =
+            'This time slot (${formatHour(selectedStartHour, isStartAM)} - ${formatHour(selectedEndHour, isEndAM)}) is already booked for ${selectedSport} on ${_selectedDate.day}-${_selectedDate.month}-${_selectedDate.year}.\n\nPlease select a different time slot.';
+
+        _showConflictDialog(conflictMessage);
+        return;
+      }
+
+      // If no conflicts, proceed with existing payment logic
       adminDetails = await getAdminDetails(widget.owner_id);
 
       if (adminDetails == null) {

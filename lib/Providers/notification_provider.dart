@@ -1,10 +1,73 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../Main Screens/home.dart';
 
+// Enhanced Offer model class with turf support
+class Offer {
+  final String id;
+  final String title;
+  final String description;
+  final String offerType;
+  final double discountPercentage;
+  final DateTime startDate;
+  final DateTime endDate;
+  final String startTime;
+  final String endTime;
+  final DateTime createdAt;
+  final String ownerId;
+  final bool isActive;
+  final List<String> selectedTurfIds;
+  final List<Map<String, dynamic>> selectedTurfs;
+  final String offerScope;
+
+  Offer({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.offerType,
+    required this.discountPercentage,
+    required this.startDate,
+    required this.endDate,
+    required this.startTime,
+    required this.endTime,
+    required this.createdAt,
+    required this.ownerId,
+    this.isActive = true,
+    this.selectedTurfIds = const [],
+    this.selectedTurfs = const [],
+    this.offerScope = "selected_turfs",
+  });
+
+  factory Offer.fromMap(Map<String, dynamic> map) {
+    return Offer(
+      id: map['id']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      offerType: map['offerType']?.toString() ?? '',
+      discountPercentage: (map['discountPercentage'] ?? 0.0).toDouble(),
+      startDate: (map['startDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      endDate: (map['endDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      startTime: map['startTime']?.toString() ?? '',
+      endTime: map['endTime']?.toString() ?? '',
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      ownerId: map['ownerId']?.toString() ?? '',
+      isActive: map['isActive'] ?? true,
+      selectedTurfIds: List<String>.from(map['selectedTurfIds'] ?? []),
+      selectedTurfs:
+          (map['selectedTurfs'] as List<dynamic>?)
+              ?.map((turf) => Map<String, dynamic>.from(turf))
+              .toList() ??
+          [],
+      offerScope: map['offerScope']?.toString() ?? 'selected_turfs',
+    );
+  }
+}
+
+// Friend request notifications provider
 final friendRequestNotificationsProvider = StreamProvider<
   List<Map<String, dynamic>>
 >((ref) async* {
@@ -64,6 +127,7 @@ final friendRequestNotificationsProvider = StreamProvider<
             'timestamp': docData['sent_at'] ?? Timestamp.now(),
             'text': 'sent you a friend request',
             'title': 'New Friend Request',
+            'notificationType': 'friend_request', // Added this
           });
         } catch (e) {
           print('Error processing friend request ${doc.id}: $e');
@@ -82,6 +146,504 @@ final friendRequestNotificationsProvider = StreamProvider<
     yield [];
   }
 });
+
+// Enhanced Active offers provider with detailed debugging
+final activeOffersProvider = StreamProvider<List<Map<String, dynamic>>>((
+  ref,
+) async* {
+  try {
+    print('🎯 Setting up active offers listener');
+
+    await for (final snapshot
+        in FirebaseFirestore.instance
+            .collection('offers')
+            .orderBy('createdAt', descending: true)
+            .snapshots()) {
+      final now = DateTime.now();
+      final currentTime = TimeOfDay.fromDateTime(now);
+      final List<Map<String, dynamic>> activeOffers = [];
+
+      print('🎯 Found ${snapshot.docs.length} total offers in collection');
+      print('🎯 Current time: ${now.toString()}');
+      print('🎯 Current TimeOfDay: ${currentTime.hour}:${currentTime.minute}');
+
+      for (final doc in snapshot.docs) {
+        try {
+          final data = doc.data();
+          print('🎯 Processing offer ${doc.id}:');
+          print('   Raw data keys: ${data.keys.join(', ')}');
+          print('   Full data: $data');
+
+          // Check if this is a valid offer document
+          if (!data.containsKey('title') ||
+              !data.containsKey('discountPercentage')) {
+            print('   ⚠️ Skipping document - missing required fields');
+            continue;
+          }
+
+          final offer = Offer.fromMap(data);
+
+          print('   Parsed offer:');
+          print('     Title: ${offer.title}');
+          print('     Start Date: ${offer.startDate}');
+          print('     End Date: ${offer.endDate}');
+          print('     Start Time: ${offer.startTime}');
+          print('     End Time: ${offer.endTime}');
+          print('     Discount: ${offer.discountPercentage}%');
+          print('     Owner ID: ${offer.ownerId}');
+          print('     Selected Turfs: ${offer.selectedTurfs.length}');
+          print('     Offer Scope: ${offer.offerScope}');
+          print('     Is Active: ${offer.isActive}');
+
+          // For testing, let's make all offers active initially
+          bool isActiveForTesting = true;
+
+          // Check if offer is currently active with detailed logging
+          final isActive = _isOfferActiveDebug(offer, now, currentTime);
+          print('   Time-based Active: $isActive');
+          print('   Using for testing: $isActiveForTesting');
+
+          // Use the test flag for now, change to isActive later
+          if (isActiveForTesting && offer.isActive) {
+            final offerData = {
+              'id': offer.id,
+              'type': 'offer',
+              'title': offer.title,
+              'description': offer.description,
+              'offerType': offer.offerType,
+              'discountPercentage': offer.discountPercentage,
+              'startDate': offer.startDate,
+              'endDate': offer.endDate,
+              'startTime': offer.startTime,
+              'endTime': offer.endTime,
+              'timestamp': Timestamp.fromDate(offer.createdAt),
+              'text':
+                  '${offer.discountPercentage.toInt()}% off on ${offer.offerType}',
+              'notificationType': 'offer',
+              'ownerId': offer.ownerId,
+              'selectedTurfIds': offer.selectedTurfIds,
+              'selectedTurfs': offer.selectedTurfs,
+              'offerScope': offer.offerScope,
+            };
+            activeOffers.add(offerData);
+            print('   ✅ Added to active offers');
+
+            // Log turf details
+            if (offer.selectedTurfs.isNotEmpty) {
+              print('   📍 Available at turfs:');
+              for (final turf in offer.selectedTurfs) {
+                print('     - ${turf['name']} (${turf['location']})');
+              }
+            }
+          } else {
+            print('   ❌ Filtered out - not active or inactive flag');
+            print('     isActive flag: ${offer.isActive}');
+            print('     Time-based active: $isActive');
+          }
+        } catch (e) {
+          print('🚨 Error processing offer ${doc.id}: $e');
+          print('🚨 Error details: ${e.toString()}');
+          continue;
+        }
+      }
+
+      print('🎯 Final active offers count: ${activeOffers.length}');
+      if (activeOffers.isNotEmpty) {
+        print('🎯 Active offers:');
+        for (final offer in activeOffers) {
+          print('   - ${offer['title']} (${offer['discountPercentage']}%)');
+          final selectedTurfs = offer['selectedTurfs'] as List<dynamic>? ?? [];
+          if (selectedTurfs.isNotEmpty) {
+            print(
+              '     Available at: ${selectedTurfs.map((t) => t['name']).join(', ')}',
+            );
+          }
+        }
+      } else {
+        print('🎯 No active offers found');
+      }
+
+      yield activeOffers;
+    }
+  } catch (e, stackTrace) {
+    print('🚨 Error in activeOffersProvider: $e');
+    print('🚨 Stack trace: $stackTrace');
+    yield [];
+  }
+});
+
+// TEST PROVIDER - Use this temporarily to test if notifications work at all
+final testActiveOffersProvider = StreamProvider<List<Map<String, dynamic>>>((
+  ref,
+) async* {
+  try {
+    print('🧪 TEST: Setting up test offers provider (all offers active)');
+
+    await for (final snapshot
+        in FirebaseFirestore.instance
+            .collection('offers')
+            .orderBy('createdAt', descending: true)
+            .snapshots()) {
+      final List<Map<String, dynamic>> allOffers = [];
+
+      print('🧪 TEST: Found ${snapshot.docs.length} offers');
+
+      for (final doc in snapshot.docs) {
+        try {
+          final data = doc.data();
+          final offer = Offer.fromMap(data);
+
+          allOffers.add({
+            'id': offer.id,
+            'type': 'offer',
+            'title': offer.title,
+            'description': offer.description,
+            'offerType': offer.offerType,
+            'discountPercentage': offer.discountPercentage,
+            'startDate': offer.startDate,
+            'endDate': offer.endDate,
+            'startTime': offer.startTime,
+            'endTime': offer.endTime,
+            'timestamp': Timestamp.fromDate(offer.createdAt),
+            'text':
+                '${offer.discountPercentage.toInt()}% off on ${offer.offerType}',
+            'notificationType': 'offer',
+            'ownerId': offer.ownerId,
+            'selectedTurfIds': offer.selectedTurfIds,
+            'selectedTurfs': offer.selectedTurfs,
+            'offerScope': offer.offerScope,
+          });
+
+          print('🧪 TEST: Added offer: ${offer.title}');
+        } catch (e) {
+          print('🧪 TEST: Error processing offer ${doc.id}: $e');
+          continue;
+        }
+      }
+
+      print(
+        '🧪 TEST: Yielding ${allOffers.length} offers (all considered active)',
+      );
+      yield allOffers;
+    }
+  } catch (e, stackTrace) {
+    print('🧪 TEST: Error in testActiveOffersProvider: $e');
+    yield [];
+  }
+});
+
+// Enhanced debug version of _isOfferActive
+bool _isOfferActiveDebug(Offer offer, DateTime now, TimeOfDay currentTime) {
+  try {
+    print('     🔍 Checking if offer is active...');
+
+    // Check if offer is marked as active
+    if (!offer.isActive) {
+      print('     ❌ Offer is marked as inactive');
+      return false;
+    }
+
+    // Check date range
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final startDate = DateTime(
+      offer.startDate.year,
+      offer.startDate.month,
+      offer.startDate.day,
+    );
+    final endDate = DateTime(
+      offer.endDate.year,
+      offer.endDate.month,
+      offer.endDate.day,
+    );
+
+    print('     📅 Date check:');
+    print('       Today: ${todayDate.toString()}');
+    print('       Start: ${startDate.toString()}');
+    print('       End: ${endDate.toString()}');
+
+    if (todayDate.isBefore(startDate)) {
+      print('     ❌ Today is before start date');
+      return false;
+    }
+
+    if (todayDate.isAfter(endDate)) {
+      print('     ❌ Today is after end date');
+      return false;
+    }
+
+    print('     ✅ Date range check passed');
+
+    // Parse time strings
+    final startTime = _parseTimeStringDebug(offer.startTime);
+    final endTime = _parseTimeStringDebug(offer.endTime);
+
+    print('     🕒 Time check:');
+    print('       Start time string: "${offer.startTime}"');
+    print('       End time string: "${offer.endTime}"');
+    print('       Parsed start time: ${startTime?.toString()}');
+    print('       Parsed end time: ${endTime?.toString()}');
+
+    if (startTime == null || endTime == null) {
+      print(
+        '     ⚠️ Time parsing failed - considering offer active for entire day',
+      );
+      return true;
+    }
+
+    // Convert TimeOfDay to minutes for easier comparison
+    final currentMinutes = currentTime.hour * 60 + currentTime.minute;
+    final startMinutes = startTime.hour * 60 + startTime.minute;
+    final endMinutes = endTime.hour * 60 + endTime.minute;
+
+    print('     ⏰ Time comparison (in minutes):');
+    print(
+      '       Current: $currentMinutes (${currentTime.hour}:${currentTime.minute})',
+    );
+    print(
+      '       Start: $startMinutes (${startTime.hour}:${startTime.minute})',
+    );
+    print('       End: $endMinutes (${endTime.hour}:${endTime.minute})');
+
+    // Handle case where end time is next day (e.g., 23:00 to 02:00)
+    if (endMinutes < startMinutes) {
+      print('     🌙 Cross-midnight offer detected');
+      final isActive =
+          currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+      print('     Result: $isActive');
+      return isActive;
+    } else {
+      print('     🌞 Same-day offer');
+      final isActive =
+          currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+      print('     Result: $isActive');
+      return isActive;
+    }
+  } catch (e) {
+    print('     🚨 Error checking if offer is active: $e');
+    return true; // Default to active if there's an error
+  }
+}
+
+// Enhanced debug version of _parseTimeString
+TimeOfDay? _parseTimeStringDebug(String timeString) {
+  try {
+    print('       Parsing time: "$timeString"');
+
+    if (timeString.trim().isEmpty) {
+      print('       ❌ Empty time string');
+      return null;
+    }
+
+    // Handle 12-hour format (e.g., "9:00 AM", "5:00 PM")
+    if (timeString.contains('AM') || timeString.contains('PM')) {
+      return _parse12HourTimeDebug(timeString);
+    }
+
+    // Handle legacy 24-hour format (e.g., "9:0", "17:0")
+    final parts = timeString.split(':');
+    print('       Split parts: $parts');
+
+    if (parts.length == 2) {
+      final hour = int.parse(parts[0].trim());
+      final minute = int.parse(parts[1].trim());
+
+      if (hour < 0 || hour > 23) {
+        print('       ❌ Invalid hour: $hour');
+        return null;
+      }
+
+      if (minute < 0 || minute > 59) {
+        print('       ❌ Invalid minute: $minute');
+        return null;
+      }
+
+      final result = TimeOfDay(hour: hour, minute: minute);
+      print(
+        '       ✅ Parsed successfully (24-hour): ${result.hour}:${result.minute}',
+      );
+      return result;
+    } else {
+      print('       ❌ Invalid format - expected HH:MM or H:MM AM/PM');
+      return null;
+    }
+  } catch (e) {
+    print('       🚨 Error parsing time string "$timeString": $e');
+    return null;
+  }
+}
+
+TimeOfDay? _parse12HourTimeDebug(String timeString) {
+  try {
+    print('       Parsing 12-hour format: "$timeString"');
+
+    // Remove extra spaces and normalize
+    String cleanedTime = timeString.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+    // Split by space to separate time and AM/PM
+    List<String> parts = cleanedTime.split(' ');
+    if (parts.length != 2) {
+      print('       ❌ Invalid 12-hour format - expected "H:MM AM/PM"');
+      return null;
+    }
+
+    String timePart = parts[0];
+    String periodPart = parts[1].toUpperCase();
+
+    if (periodPart != 'AM' && periodPart != 'PM') {
+      print('       ❌ Invalid period - expected AM or PM, got: $periodPart');
+      return null;
+    }
+
+    // Parse the time part
+    List<String> timeComponents = timePart.split(':');
+    if (timeComponents.length != 2) {
+      print('       ❌ Invalid time format - expected H:MM');
+      return null;
+    }
+
+    int hour = int.parse(timeComponents[0]);
+    int minute = int.parse(timeComponents[1]);
+
+    // Validate hour and minute
+    if (hour < 1 || hour > 12) {
+      print('       ❌ Invalid hour for 12-hour format: $hour');
+      return null;
+    }
+
+    if (minute < 0 || minute > 59) {
+      print('       ❌ Invalid minute: $minute');
+      return null;
+    }
+
+    // Convert to 24-hour format
+    if (periodPart == 'AM') {
+      if (hour == 12) {
+        hour = 0; // 12:XX AM becomes 00:XX
+      }
+    } else {
+      // PM
+      if (hour != 12) {
+        hour += 12; // 1:XX PM becomes 13:XX, but 12:XX PM stays 12:XX
+      }
+    }
+
+    final result = TimeOfDay(hour: hour, minute: minute);
+    print(
+      '       ✅ Parsed successfully (12-hour): ${result.hour}:${result.minute}',
+    );
+    return result;
+  } catch (e) {
+    print('       🚨 Error parsing 12-hour time "$timeString": $e');
+    return null;
+  }
+}
+
+// Original helper functions (for fallback if needed)
+bool _isOfferActive(Offer offer, DateTime now, TimeOfDay currentTime) {
+  try {
+    if (!offer.isActive) return false;
+
+    // Check date range
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final startDate = DateTime(
+      offer.startDate.year,
+      offer.startDate.month,
+      offer.startDate.day,
+    );
+    final endDate = DateTime(
+      offer.endDate.year,
+      offer.endDate.month,
+      offer.endDate.day,
+    );
+
+    if (todayDate.isBefore(startDate) || todayDate.isAfter(endDate)) {
+      return false;
+    }
+
+    // Parse time strings (assuming format like "09:00" or "21:30")
+    final startTime = _parseTimeString(offer.startTime);
+    final endTime = _parseTimeString(offer.endTime);
+
+    if (startTime == null || endTime == null) {
+      // If time parsing fails, consider offer active for the entire day
+      return true;
+    }
+
+    // Convert TimeOfDay to minutes for easier comparison
+    final currentMinutes = currentTime.hour * 60 + currentTime.minute;
+    final startMinutes = startTime.hour * 60 + startTime.minute;
+    final endMinutes = endTime.hour * 60 + endTime.minute;
+
+    // Handle case where end time is next day (e.g., 23:00 to 02:00)
+    if (endMinutes < startMinutes) {
+      return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+    } else {
+      return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+    }
+  } catch (e) {
+    print('Error checking if offer is active: $e');
+    return true; // Default to active if there's an error
+  }
+}
+
+TimeOfDay? _parseTimeString(String timeString) {
+  try {
+    // Handle 12-hour format (e.g., "9:00 AM", "5:00 PM")
+    if (timeString.contains('AM') || timeString.contains('PM')) {
+      return _parse12HourTime(timeString);
+    }
+
+    // Handle legacy 24-hour format (e.g., "9:0", "17:0")
+    final parts = timeString.split(':');
+    if (parts.length == 2) {
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      return TimeOfDay(hour: hour, minute: minute);
+    }
+  } catch (e) {
+    print('Error parsing time string "$timeString": $e');
+  }
+  return null;
+}
+
+TimeOfDay? _parse12HourTime(String timeString) {
+  try {
+    // Remove extra spaces and normalize
+    String cleanedTime = timeString.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+    // Split by space to separate time and AM/PM
+    List<String> parts = cleanedTime.split(' ');
+    if (parts.length != 2) return null;
+
+    String timePart = parts[0];
+    String periodPart = parts[1].toUpperCase();
+
+    if (periodPart != 'AM' && periodPart != 'PM') return null;
+
+    // Parse the time part
+    List<String> timeComponents = timePart.split(':');
+    if (timeComponents.length != 2) return null;
+
+    int hour = int.parse(timeComponents[0]);
+    int minute = int.parse(timeComponents[1]);
+
+    // Validate
+    if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
+
+    // Convert to 24-hour format
+    if (periodPart == 'AM') {
+      if (hour == 12) hour = 0; // 12:XX AM becomes 00:XX
+    } else {
+      // PM
+      if (hour != 12) hour += 12; // 1:XX PM becomes 13:XX
+    }
+
+    return TimeOfDay(hour: hour, minute: minute);
+  } catch (e) {
+    print('Error parsing 12-hour time "$timeString": $e');
+    return null;
+  }
+}
 
 // Helper function for getting user data for notifications
 Future<Map<String, dynamic>> _getUserDataForNotification(String uid) async {
@@ -141,34 +703,55 @@ Future<Map<String, dynamic>> _getUserDataForNotification(String uid) async {
   }
 }
 
-// Combined notifications provider (messages + friend requests)
+// FIXED: Enhanced Combined notifications provider with proper stream handling
 final allNotificationsProvider = StreamProvider<List<Map<String, dynamic>>>((
   ref,
 ) async* {
   try {
-    // Watch both providers
-    final messagesAsync = ref.watch(unreadMessagesProvider);
-    final friendRequestsAsync = ref.watch(friendRequestNotificationsProvider);
+    print('🔔 Setting up combined notifications listener');
 
-    await for (final _ in Stream.periodic(const Duration(milliseconds: 500))) {
+    // Combine all notification streams properly
+    await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
       final List<Map<String, dynamic>> allNotifications = [];
 
-      // Add message notifications
-      messagesAsync.whenData((messages) {
-        for (final message in messages) {
-          allNotifications.add({...message, 'notificationType': 'message'});
-        }
-      });
+      // Get all notification types
+      try {
+        // Get unread messages
+        final messagesAsync = ref.read(unreadMessagesProvider);
+        messagesAsync.whenData((messages) {
+          print('📨 Adding ${messages.length} message notifications');
+          for (final message in messages) {
+            allNotifications.add({...message, 'notificationType': 'message'});
+          }
+        });
 
-      // Add friend request notifications
-      friendRequestsAsync.whenData((friendRequests) {
-        for (final request in friendRequests) {
-          allNotifications.add({
-            ...request,
-            'notificationType': 'friend_request',
-          });
-        }
-      });
+        // Get friend requests
+        final friendRequestsAsync = ref.read(
+          friendRequestNotificationsProvider,
+        );
+        friendRequestsAsync.whenData((friendRequests) {
+          print(
+            '👥 Adding ${friendRequests.length} friend request notifications',
+          );
+          for (final request in friendRequests) {
+            allNotifications.add({
+              ...request,
+              'notificationType': 'friend_request',
+            });
+          }
+        });
+
+        // Get active offers
+        final offersAsync = ref.read(activeOffersProvider);
+        offersAsync.whenData((offers) {
+          print('🎯 Adding ${offers.length} offer notifications');
+          for (final offer in offers) {
+            allNotifications.add({...offer, 'notificationType': 'offer'});
+          }
+        });
+      } catch (e) {
+        print('Error reading notifications: $e');
+      }
 
       // Sort by timestamp (newest first)
       allNotifications.sort((a, b) {
@@ -180,36 +763,59 @@ final allNotificationsProvider = StreamProvider<List<Map<String, dynamic>>>((
         return bTime.compareTo(aTime);
       });
 
-      yield allNotifications
-          .take(15)
-          .toList(); // Limit to 15 total notifications
-      break; // Only emit once per cycle
+      print('🔔 Final combined notifications: ${allNotifications.length}');
+      for (final notif in allNotifications) {
+        print(
+          '  - ${notif['notificationType']}: ${notif['title'] ?? notif['text']}',
+        );
+      }
+
+      yield allNotifications.take(20).toList();
     }
-  } catch (e) {
+  } catch (e, stackTrace) {
     print('🚨 Error in allNotificationsProvider: $e');
+    print('🚨 Stack trace: $stackTrace');
     yield [];
   }
 });
 
-// Simple count provider for combined notifications
+// Enhanced Total notification count provider with debugging
 final totalNotificationCountProvider = StreamProvider<int>((ref) async* {
   try {
-    final messagesAsync = ref.watch(simpleUnreadCountProvider);
-    final friendRequestsAsync = ref.watch(friendRequestNotificationsProvider);
+    print('🔔 Setting up total count provider');
 
-    await for (final _ in Stream.periodic(const Duration(milliseconds: 500))) {
+    await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
       int totalCount = 0;
 
-      messagesAsync.whenData((messageCount) {
-        totalCount += messageCount;
-      });
+      try {
+        // Count messages
+        final messagesAsync = ref.read(simpleUnreadCountProvider);
+        messagesAsync.whenData((messageCount) {
+          totalCount += messageCount;
+          print('🔔 Count - Messages: $messageCount');
+        });
 
-      friendRequestsAsync.whenData((friendRequests) {
-        totalCount += friendRequests.length;
-      });
+        // Count friend requests
+        final friendRequestsAsync = ref.read(
+          friendRequestNotificationsProvider,
+        );
+        friendRequestsAsync.whenData((friendRequests) {
+          totalCount += friendRequests.length;
+          print('🔔 Count - Friend requests: ${friendRequests.length}');
+        });
 
+        // Count offers
+        final offersAsync = ref.read(activeOffersProvider);
+        offersAsync.whenData((offers) {
+          totalCount += offers.length;
+          print('🔔 Count - Offers: ${offers.length}');
+        });
+      } catch (e) {
+        print('Error counting notifications: $e');
+      }
+
+      print('🔔 Total notification count: $totalCount');
       yield totalCount;
-      break;
     }
   } catch (e) {
     print('🚨 Error in totalNotificationCountProvider: $e');
