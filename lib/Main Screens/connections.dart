@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
+import 'package:sports/Main%20Screens/profile_view.dart';
 import '../Providers/current_user_id_provider.dart';
 import '../Providers/message_preview_provider.dart';
 import '../Providers/connection_provider.dart';
@@ -192,12 +193,17 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage>
                                 color: Colors.white.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: BackButton(
-                                color: Colors.white,
-                                style: ButtonStyle(
-                                  iconSize: MaterialStateProperty.all(
-                                    isSmallScreen ? 20 : 24,
-                                  ),
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.arrow_back,
+                                  color: Colors.white,
+                                  size: isSmallScreen ? 20 : 24,
+                                ),
+                                onPressed: () => Navigator.of(context).pop(),
+                                padding: EdgeInsets.zero,
+                                constraints: BoxConstraints(
+                                  minWidth: isSmallScreen ? 32 : 40,
+                                  minHeight: isSmallScreen ? 32 : 40,
                                 ),
                               ),
                             ),
@@ -579,19 +585,30 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage>
                                                           currentUserUid,
                                                         );
 
+                                                    // Navigator.push(
+                                                    //   context,
+                                                    //   MaterialPageRoute(
+                                                    //     builder:
+                                                    //         (_) => ChatPage(
+                                                    //           chatId:
+                                                    //               resolvedChatId,
+                                                    //           peerUid: peerUid,
+                                                    //           peerName:
+                                                    //               user['name'] ??
+                                                    //               '',
+                                                    //           peerEmail: '',
+                                                    //         ),
+                                                    //   ),
+                                                    // );
                                                     Navigator.push(
                                                       context,
                                                       MaterialPageRoute(
                                                         builder:
-                                                            (_) => ChatPage(
-                                                              chatId:
-                                                                  resolvedChatId,
-                                                              peerUid: peerUid,
-                                                              peerName:
-                                                                  user['name'] ??
-                                                                  '',
-                                                              peerEmail: '',
-                                                            ),
+                                                            (context) =>
+                                                                ProfileView(
+                                                                  userId:
+                                                                      peerUid,
+                                                                ),
                                                       ),
                                                     );
                                                   } catch (e) {

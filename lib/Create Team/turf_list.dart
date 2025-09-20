@@ -14,6 +14,8 @@ class TurfModel {
   final String endTime;
   final String location;
   final String ownerId;
+  final String managerNumber;
+  final String acquisition;
 
   TurfModel({
     required this.id,
@@ -24,6 +26,8 @@ class TurfModel {
     required this.endTime,
     required this.location,
     required this.ownerId,
+    required this.managerNumber,
+    required this.acquisition,
   });
 }
 
@@ -67,6 +71,8 @@ class TurfListNotifier extends StateNotifier<List<TurfModel>> {
             endTime: data['end_time'] ?? '',
             location: data['location'] ?? 'Unknown',
             ownerId: data['ownerId'] ?? '',
+            managerNumber: data['manager_number'],
+            acquisition: data['acquisition'],
           );
           allTurfs.add(turf);
         }
@@ -178,6 +184,8 @@ class _TurfListingScreenState extends ConsumerState<TurfListingScreen>
               creatorName: widget.creatorName,
               totalPlayers: widget.totalPlayers,
               needPlayers: widget.needPlayers,
+              managerNumber: turf.managerNumber,
+              acquisition: turf.acquisition,
             ),
       ),
     );

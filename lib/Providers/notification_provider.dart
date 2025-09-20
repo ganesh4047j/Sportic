@@ -171,8 +171,6 @@ final activeOffersProvider = StreamProvider<List<Map<String, dynamic>>>((
         try {
           final data = doc.data();
           print('🎯 Processing offer ${doc.id}:');
-          print('   Raw data keys: ${data.keys.join(', ')}');
-          print('   Full data: $data');
 
           // Check if this is a valid offer document
           if (!data.containsKey('title') ||
@@ -190,21 +188,18 @@ final activeOffersProvider = StreamProvider<List<Map<String, dynamic>>>((
           print('     Start Time: ${offer.startTime}');
           print('     End Time: ${offer.endTime}');
           print('     Discount: ${offer.discountPercentage}%');
-          print('     Owner ID: ${offer.ownerId}');
-          print('     Selected Turfs: ${offer.selectedTurfs.length}');
-          print('     Offer Scope: ${offer.offerScope}');
           print('     Is Active: ${offer.isActive}');
 
-          // For testing, let's make all offers active initially
-          bool isActiveForTesting = true;
+          // FIXED: Use actual time-based validation instead of testing override
+          final isTimeBasedActive = _isOfferActiveDebug(
+            offer,
+            now,
+            currentTime,
+          );
+          print('   Time-based Active: $isTimeBasedActive');
 
-          // Check if offer is currently active with detailed logging
-          final isActive = _isOfferActiveDebug(offer, now, currentTime);
-          print('   Time-based Active: $isActive');
-          print('   Using for testing: $isActiveForTesting');
-
-          // Use the test flag for now, change to isActive later
-          if (isActiveForTesting && offer.isActive) {
+          // Only add offer if it's both marked as active AND currently within time bounds
+          if (offer.isActive && isTimeBasedActive) {
             final offerData = {
               'id': offer.id,
               'type': 'offer',
@@ -236,13 +231,19 @@ final activeOffersProvider = StreamProvider<List<Map<String, dynamic>>>((
               }
             }
           } else {
-            print('   ❌ Filtered out - not active or inactive flag');
+            print('   ❌ Filtered out - not currently active');
             print('     isActive flag: ${offer.isActive}');
-            print('     Time-based active: $isActive');
+            print('     Time-based active: $isTimeBasedActive');
+
+            // Detailed reason for filtering
+            if (!offer.isActive) {
+              print('     Reason: Offer marked as inactive');
+            } else if (!isTimeBasedActive) {
+              print('     Reason: Outside valid time/date range');
+            }
           }
         } catch (e) {
           print('🚨 Error processing offer ${doc.id}: $e');
-          print('🚨 Error details: ${e.toString()}');
           continue;
         }
       }
@@ -385,9 +386,11 @@ bool _isOfferActiveDebug(Offer offer, DateTime now, TimeOfDay currentTime) {
 
     if (startTime == null || endTime == null) {
       print(
-        '     ⚠️ Time parsing failed - considering offer active for entire day',
+        '     ⚠️ Time parsing failed - considering offer INACTIVE for safety',
       );
-      return true;
+      // CHANGED: Return false instead of true when time parsing fails
+      // This prevents expired offers from showing due to parsing errors
+      return false;
     }
 
     // Convert TimeOfDay to minutes for easier comparison
@@ -420,7 +423,9 @@ bool _isOfferActiveDebug(Offer offer, DateTime now, TimeOfDay currentTime) {
     }
   } catch (e) {
     print('     🚨 Error checking if offer is active: $e');
-    return true; // Default to active if there's an error
+    // CHANGED: Return false instead of true when there's an error
+    // This prevents potentially expired offers from showing due to errors
+    return false;
   }
 }
 
@@ -820,5 +825,84 @@ final totalNotificationCountProvider = StreamProvider<int>((ref) async* {
   } catch (e) {
     print('🚨 Error in totalNotificationCountProvider: $e');
     yield 0;
+  }
+});
+
+final turfSpecificOffersProvider = StreamProvider.family<
+  List<Map<String, dynamic>>,
+  String
+>((ref, turfId) async* {
+  try {
+    print('🎯 Setting up turf-specific offers listener for turf: $turfId');
+
+    await for (final snapshot
+        in FirebaseFirestore.instance
+            .collection('offers')
+            .orderBy('createdAt', descending: true)
+            .snapshots()) {
+      final now = DateTime.now();
+      final currentTime = TimeOfDay.fromDateTime(now);
+      final List<Map<String, dynamic>> turfOffers = [];
+
+      print(
+        '🎯 Found ${snapshot.docs.length} total offers, filtering for turf: $turfId',
+      );
+
+      for (final doc in snapshot.docs) {
+        try {
+          final data = doc.data();
+          if (!data.containsKey('title') ||
+              !data.containsKey('discountPercentage')) {
+            continue;
+          }
+
+          final offer = Offer.fromMap(data);
+
+          // Check if offer is active and applies to this turf
+          if (offer.isActive && _isOfferActiveDebug(offer, now, currentTime)) {
+            // Check if offer applies to this specific turf
+            bool appliesToThisTurf = false;
+
+            if (offer.offerScope == 'all_turfs') {
+              appliesToThisTurf = true;
+            } else if (offer.selectedTurfIds.contains(turfId)) {
+              appliesToThisTurf = true;
+            } else {
+              // Check in selectedTurfs list
+              for (final turf in offer.selectedTurfs) {
+                if (turf['id'] == turfId) {
+                  appliesToThisTurf = true;
+                  break;
+                }
+              }
+            }
+
+            if (appliesToThisTurf) {
+              turfOffers.add({
+                'id': offer.id,
+                'title': offer.title,
+                'description': offer.description,
+                'offerType': offer.offerType,
+                'discountPercentage': offer.discountPercentage,
+                'startDate': offer.startDate,
+                'endDate': offer.endDate,
+                'startTime': offer.startTime,
+                'endTime': offer.endTime,
+                'ownerId': offer.ownerId,
+              });
+            }
+          }
+        } catch (e) {
+          print('🚨 Error processing offer ${doc.id}: $e');
+          continue;
+        }
+      }
+
+      print('🎯 Found ${turfOffers.length} active offers for turf: $turfId');
+      yield turfOffers;
+    }
+  } catch (e, stackTrace) {
+    print('🚨 Error in turfSpecificOffersProvider: $e');
+    yield [];
   }
 });

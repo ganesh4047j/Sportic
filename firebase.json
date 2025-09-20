@@ -1,1 +1,42 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"sporticturfs","appId":"1:796490347198:android:eae3be2da137b691aca4ef","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"sporticturfs","configurations":{"android":"1:796490347198:android:eae3be2da137b691aca4ef","ios":"1:796490347198:ios:adad63d717462907aca4ef","macos":"1:796490347198:ios:adad63d717462907aca4ef","web":"1:796490347198:web:19a48ea7fcc64315aca4ef","windows":"1:796490347198:web:ac66049abe1d363aaca4ef"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "sporticturfs",
+          "appId": "1:796490347198:android:eae3be2da137b691aca4ef",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "sporticturfs",
+          "configurations": {
+            "android": "1:796490347198:android:eae3be2da137b691aca4ef",
+            "ios": "1:796490347198:ios:adad63d717462907aca4ef",
+            "macos": "1:796490347198:ios:adad63d717462907aca4ef",
+            "web": "1:796490347198:web:19a48ea7fcc64315aca4ef",
+            "windows": "1:796490347198:web:ac66049abe1d363aaca4ef"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ]
+}

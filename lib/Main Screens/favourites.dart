@@ -1,8 +1,10 @@
+import 'package:direct_call_plus/direct_call_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sports/Main%20Screens/booking_turf.dart';
 import 'package:sports/Main%20Screens/home.dart';
 import 'package:sports/Main%20Screens/turfscreen.dart';
 import '../Providers/following_turf_providers.dart';
@@ -733,6 +735,30 @@ class _FollowingScreenState extends ConsumerState<FollowingScreen>
                                     borderRadius: BorderRadius.circular(20),
                                     onTap: () {
                                       // Navigate to turf details or booking
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) => BookingPage(
+                                                turfImages: turf.imageUrl,
+                                                turfName: turf.name,
+                                                location: turf.location,
+                                                owner_id: turf.ownerId,
+                                                managerName: turf.managerName,
+                                                managerNumber:
+                                                    turf.managerNumber,
+                                                acquisition: 'Yes',
+                                                weekdayDayTime:
+                                                    turf.weekdayDayTime,
+                                                weekdayNightTime:
+                                                    turf.weekdayNightTime,
+                                                weekendDayTime:
+                                                    turf.weekendDayTime,
+                                                weekendNightTime:
+                                                    turf.weekendNightTime,
+                                              ),
+                                        ),
+                                      );
                                       print('Tapped on ${turf.name}');
                                     },
                                     child: Padding(
@@ -863,10 +889,65 @@ class _FollowingScreenState extends ConsumerState<FollowingScreen>
                                                     ],
                                                   ),
                                                 ),
-                                                child: const Icon(
-                                                  Icons.call,
-                                                  color: Colors.green,
-                                                  size: 18,
+                                                child: InkWell(
+                                                  onTap: () async {
+                                                    final number =
+                                                        turf.managerNumber ??
+                                                        '';
+                                                    print(
+                                                      'The Manager Number : ${turf.managerNumber}',
+                                                    );
+                                                    if (number.isNotEmpty) {
+                                                      try {
+                                                        bool? res =
+                                                            await DirectCallPlus.makeCall(
+                                                              number,
+                                                            );
+                                                        if (res != true) {
+                                                          ScaffoldMessenger.of(
+                                                            context,
+                                                          ).showSnackBar(
+                                                            SnackBar(
+                                                              content: Text(
+                                                                'Could not make call to $number',
+                                                              ),
+                                                              backgroundColor:
+                                                                  Colors.red,
+                                                            ),
+                                                          );
+                                                        }
+                                                      } catch (e) {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(
+                                                              'Error making call: $e',
+                                                            ),
+                                                            backgroundColor:
+                                                                Colors.red,
+                                                          ),
+                                                        );
+                                                      }
+                                                    } else {
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                            'Manager phone number not available',
+                                                          ),
+                                                          backgroundColor:
+                                                              Colors.orange,
+                                                        ),
+                                                      );
+                                                    }
+                                                  },
+                                                  child: const Icon(
+                                                    Icons.call,
+                                                    color: Colors.green,
+                                                    size: 18,
+                                                  ),
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
@@ -974,8 +1055,7 @@ class _FollowingScreenState extends ConsumerState<FollowingScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder:
-                                    (context) => const CenterLottieScreen(),
+                                builder: (context) => const LiveScreen(),
                               ),
                             );
                           },

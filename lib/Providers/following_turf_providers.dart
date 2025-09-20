@@ -12,7 +12,14 @@ class TurfModel {
   final String startTime;
   final String endTime;
   final String ownerId;
+  final String managerName;
+  final String managerNumber;
   final DateTime? addedAt;
+
+  final String weekdayDayTime;
+  final String weekdayNightTime;
+  final String weekendDayTime;
+  final String weekendNightTime;
 
   TurfModel({
     required this.id,
@@ -23,10 +30,21 @@ class TurfModel {
     required this.startTime,
     required this.endTime,
     required this.ownerId,
+    required this.managerName,
+    required this.managerNumber,
     this.addedAt,
+    required this.weekdayDayTime,
+    required this.weekdayNightTime,
+    required this.weekendDayTime,
+    required this.weekendNightTime,
   });
 
   factory TurfModel.fromFirestore(Map<String, dynamic> data, String docId) {
+    final weekdayAmounts =
+        data['weekday_amounts'] as Map<String, dynamic>? ?? {};
+    final weekendAmounts =
+        data['weekend_amounts'] as Map<String, dynamic>? ?? {};
+
     return TurfModel(
       id: data['id'] ?? docId,
       name: data['turf_name'] ?? 'Unknown Turf',
@@ -34,12 +52,18 @@ class TurfModel {
       sport: data['sport'] ?? 'Unknown Sport',
       location: data['location'] ?? 'Unknown Location',
       startTime: data['start_time'] ?? '09:00',
-      endTime: data['end_time'] ?? '22:00',
+      endTime: data['end_time'] ?? '10:00',
       ownerId: data['ownerId'] ?? '',
+      managerName: data['manager_name'] ?? 'Unknown',
+      managerNumber: data['manager_number'] ?? 'Unknown Number',
       addedAt:
           data['addedAt'] != null
               ? (data['addedAt'] as Timestamp).toDate()
               : null,
+      weekdayDayTime: weekdayAmounts['day_time']?.toString() ?? '0',
+      weekdayNightTime: weekdayAmounts['night_time']?.toString() ?? '0',
+      weekendDayTime: weekendAmounts['day_time']?.toString() ?? '0',
+      weekendNightTime: weekendAmounts['night_time']?.toString() ?? '0',
     );
   }
 }

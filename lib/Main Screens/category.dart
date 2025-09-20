@@ -303,7 +303,7 @@ class HomePage extends ConsumerWidget {
                     () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const CenterLottieScreen(),
+                        builder: (context) => const LiveScreen(),
                       ),
                     ),
                 icon: const Icon(Icons.live_tv),

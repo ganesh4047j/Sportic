@@ -11,6 +11,7 @@ import '../Main Screens/home.dart';
 import '../Main Screens/live_screen.dart';
 import '../Main Screens/location.dart';
 import '../Main Screens/profile.dart';
+import '../Providers/notification_provider.dart';
 import '../Providers/turfscreen_provider.dart';
 
 class TurfHomeScreen extends ConsumerStatefulWidget {
@@ -676,6 +677,11 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen>
                       owner_id: turf.ownerId,
                       managerName: turf.managerName,
                       managerNumber: turf.managerNumber,
+                      acquisition: turf.acquisition,
+                      weekdayDayTime: turf.weekdayDayTime,
+                      weekdayNightTime: turf.weekdayNightTime,
+                      weekendDayTime: turf.weekendDayTime,
+                      weekendNightTime: turf.weekendNightTime,
                     ),
               ),
             );
@@ -825,10 +831,19 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen>
                         shape: BoxShape.circle,
                         color: Colors.orange.withOpacity(0.2),
                       ),
-                      child: Icon(
-                        Icons.local_offer_outlined,
-                        color: Colors.orange,
-                        size: isSmallScreen ? 16 : 18,
+                      child: IconButton(
+                        onPressed:
+                            () => _showOffersPopup(
+                              context,
+                              turf.id,
+                              turf.name,
+                              screenSize,
+                            ),
+                        icon: Icon(
+                          Icons.local_offer_outlined,
+                          color: Colors.orange,
+                          size: isSmallScreen ? 16 : 18,
+                        ),
                       ),
                     ),
                   ],
@@ -838,6 +853,447 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen>
           ),
         ),
       ),
+    );
+  }
+
+  void _showOffersPopup(
+    BuildContext context,
+    String turfId,
+    String turfName,
+    Size screenSize,
+  ) {
+    final isSmallScreen = screenSize.width < 360;
+    final isMediumScreen = screenSize.width >= 360 && screenSize.width < 500;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "Offers",
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Container();
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return Transform.scale(
+          scale: anim1.value,
+          child: Opacity(
+            opacity: anim1.value,
+            child: AlertDialog(
+              backgroundColor: const Color(0xFF2D1B3D),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              contentPadding: EdgeInsets.zero,
+              content: Container(
+                width:
+                    screenSize.width *
+                    (isSmallScreen
+                        ? 0.9
+                        : isMediumScreen
+                        ? 0.85
+                        : 0.8),
+                constraints: BoxConstraints(
+                  maxHeight: screenSize.height * 0.7,
+                  minHeight: screenSize.height * 0.3,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Container(
+                      padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.orange.withOpacity(0.8),
+                            Colors.orange.withOpacity(0.6),
+                          ],
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.local_offer,
+                            color: Colors.white,
+                            size: isSmallScreen ? 20 : 24,
+                          ),
+                          SizedBox(width: isSmallScreen ? 8 : 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Current Offers",
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontSize: isSmallScreen ? 16 : 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  turfName,
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: isSmallScreen ? 12 : 14,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Content
+                    Flexible(
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final offersAsync = ref.watch(
+                            turfSpecificOffersProvider(turfId),
+                          );
+                          return offersAsync.when(
+                            loading:
+                                () => Container(
+                                  padding: EdgeInsets.all(
+                                    isSmallScreen ? 30 : 40,
+                                  ),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CircularProgressIndicator(
+                                          color: Colors.orange,
+                                          strokeWidth: 2,
+                                        ),
+                                        SizedBox(
+                                          height: isSmallScreen ? 12 : 16,
+                                        ),
+                                        Text(
+                                          "Loading offers...",
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white70,
+                                            fontSize: isSmallScreen ? 14 : 16,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            error:
+                                (error, stack) => Container(
+                                  padding: EdgeInsets.all(
+                                    isSmallScreen ? 20 : 30,
+                                  ),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline,
+                                          color: Colors.red,
+                                          size: isSmallScreen ? 40 : 50,
+                                        ),
+                                        SizedBox(
+                                          height: isSmallScreen ? 8 : 12,
+                                        ),
+                                        Text(
+                                          "Error loading offers",
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white,
+                                            fontSize: isSmallScreen ? 14 : 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          "Please try again later",
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white70,
+                                            fontSize: isSmallScreen ? 12 : 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            data: (offers) {
+                              if (offers.isEmpty) {
+                                return Container(
+                                  padding: EdgeInsets.all(
+                                    isSmallScreen ? 20 : 30,
+                                  ),
+                                  child: Center(
+                                    child: TweenAnimationBuilder<double>(
+                                      tween: Tween(begin: 0.0, end: 1.0),
+                                      duration: const Duration(
+                                        milliseconds: 800,
+                                      ),
+                                      builder: (context, value, child) {
+                                        return Transform.scale(
+                                          scale: 0.8 + (0.2 * value),
+                                          child: Opacity(
+                                            opacity: value,
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  padding: EdgeInsets.all(
+                                                    isSmallScreen ? 12 : 16,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: Colors.grey
+                                                        .withOpacity(0.2),
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.local_offer_outlined,
+                                                    color: Colors.grey,
+                                                    size:
+                                                        isSmallScreen ? 30 : 40,
+                                                  ),
+                                                ),
+                                                SizedBox(
+                                                  height:
+                                                      isSmallScreen ? 12 : 16,
+                                                ),
+                                                Text(
+                                                  "No Current Offers Available",
+                                                  style: GoogleFonts.poppins(
+                                                    color: Colors.white,
+                                                    fontSize:
+                                                        isSmallScreen ? 14 : 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                                SizedBox(
+                                                  height: isSmallScreen ? 4 : 8,
+                                                ),
+                                                Text(
+                                                  "Check back later for exciting deals!",
+                                                  style: GoogleFonts.poppins(
+                                                    color: Colors.white70,
+                                                    fontSize:
+                                                        isSmallScreen ? 11 : 13,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return ListView.separated(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.all(
+                                  isSmallScreen ? 12 : 16,
+                                ),
+                                itemCount: offers.length,
+                                separatorBuilder:
+                                    (context, index) => SizedBox(
+                                      height: isSmallScreen ? 8 : 12,
+                                    ),
+                                itemBuilder: (context, index) {
+                                  final offer = offers[index];
+                                  return TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0.0, end: 1.0),
+                                    duration: Duration(
+                                      milliseconds: 300 + (index * 100),
+                                    ),
+                                    builder: (context, value, child) {
+                                      return Transform.translate(
+                                        offset: Offset(0, 20 * (1 - value)),
+                                        child: Opacity(
+                                          opacity: value,
+                                          child: Container(
+                                            padding: EdgeInsets.all(
+                                              isSmallScreen ? 12 : 16,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(15),
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  Colors.orange.withOpacity(
+                                                    0.2,
+                                                  ),
+                                                  Colors.orange.withOpacity(
+                                                    0.1,
+                                                  ),
+                                                ],
+                                              ),
+                                              border: Border.all(
+                                                color: Colors.orange
+                                                    .withOpacity(0.3),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Container(
+                                                      padding:
+                                                          EdgeInsets.symmetric(
+                                                            horizontal:
+                                                                isSmallScreen
+                                                                    ? 8
+                                                                    : 10,
+                                                            vertical:
+                                                                isSmallScreen
+                                                                    ? 4
+                                                                    : 6,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              20,
+                                                            ),
+                                                        color: Colors.orange,
+                                                      ),
+                                                      child: Text(
+                                                        "${offer['discountPercentage'].toInt()}% OFF",
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                              color:
+                                                                  Colors.white,
+                                                              fontSize:
+                                                                  isSmallScreen
+                                                                      ? 10
+                                                                      : 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                    const Spacer(),
+                                                    Icon(
+                                                      Icons.access_time,
+                                                      color: Colors.white70,
+                                                      size:
+                                                          isSmallScreen
+                                                              ? 14
+                                                              : 16,
+                                                    ),
+                                                    SizedBox(width: 4),
+                                                    Text(
+                                                      "${offer['startTime']} - ${offer['endTime']}",
+                                                      style:
+                                                          GoogleFonts.poppins(
+                                                            color:
+                                                                Colors.white70,
+                                                            fontSize:
+                                                                isSmallScreen
+                                                                    ? 10
+                                                                    : 12,
+                                                          ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                SizedBox(
+                                                  height:
+                                                      isSmallScreen ? 8 : 10,
+                                                ),
+                                                Text(
+                                                  offer['title'],
+                                                  style: GoogleFonts.poppins(
+                                                    color: Colors.white,
+                                                    fontSize:
+                                                        isSmallScreen ? 14 : 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                if (offer['description'] !=
+                                                        null &&
+                                                    offer['description']
+                                                        .toString()
+                                                        .isNotEmpty) ...[
+                                                  SizedBox(
+                                                    height:
+                                                        isSmallScreen ? 4 : 6,
+                                                  ),
+                                                  Text(
+                                                    offer['description'],
+                                                    style: GoogleFonts.poppins(
+                                                      color: Colors.white70,
+                                                      fontSize:
+                                                          isSmallScreen
+                                                              ? 11
+                                                              : 13,
+                                                    ),
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                                SizedBox(
+                                                  height: isSmallScreen ? 6 : 8,
+                                                ),
+                                                Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal:
+                                                        isSmallScreen ? 6 : 8,
+                                                    vertical:
+                                                        isSmallScreen ? 2 : 4,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                    color: Colors.green
+                                                        .withOpacity(0.2),
+                                                  ),
+                                                  child: Text(
+                                                    offer['offerType'],
+                                                    style: GoogleFonts.poppins(
+                                                      color: Colors.green[300],
+                                                      fontSize:
+                                                          isSmallScreen
+                                                              ? 10
+                                                              : 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -966,9 +1422,7 @@ class _TurfHomeScreenState extends ConsumerState<TurfHomeScreen>
               onPressed:
                   () => Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const CenterLottieScreen(),
-                    ),
+                    MaterialPageRoute(builder: (context) => const LiveScreen()),
                   ),
               icon: const Icon(Icons.live_tv),
             ),

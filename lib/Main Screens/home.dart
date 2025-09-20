@@ -515,6 +515,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                               owner_id: turf.ownerId,
                                               managerName: turf.managerName,
                                               managerNumber: turf.managerNumber,
+                                              acquisition: turf.acquisition,
+                                              weekdayDayTime:
+                                                  turf.weekdayDayTime,
+                                              weekdayNightTime:
+                                                  turf.weekdayNightTime,
+                                              weekendDayTime:
+                                                  turf.weekendDayTime,
+                                              weekendNightTime:
+                                                  turf.weekendNightTime,
                                             ),
                                         transitionsBuilder: (
                                           context,
@@ -1077,6 +1086,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                         'manager_name': turf['manager_name']!,
                                         'manager_number':
                                             turf['manager_number']!,
+                                        'acquisition': turf['acquisition']!,
                                       },
                                     )
                                     .toList(),
@@ -1154,8 +1164,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder:
-                                    (context) => const CenterLottieScreen(),
+                                builder: (context) => const LiveScreen(),
                               ),
                             );
                           },
@@ -2560,6 +2569,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       owner_id: turf.ownerId,
                       managerName: turf.managerName,
                       managerNumber: turf.managerNumber,
+                      acquisition: turf.acquisition,
+                      weekdayDayTime: turf.weekdayDayTime,
+                      weekdayNightTime: turf.weekdayNightTime,
+                      weekendDayTime: turf.weekendDayTime,
+                      weekendNightTime: turf.weekendNightTime,
                     ),
                 transitionsBuilder: (
                   context,
@@ -2770,6 +2784,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       owner_id: turf['ownerId']!,
                       managerName: turf['manager_name']!,
                       managerNumber: turf['manager_number']!,
+                      acquisition: turf['acquisition']!,
+                      weekdayDayTime: turf['day_time']!,
+                      weekdayNightTime: turf['night_time']!,
+                      weekendDayTime: turf['day_time']!,
+                      weekendNightTime: turf['night_time']!,
                     ),
                 transitionsBuilder: (
                   context,
@@ -4185,6 +4204,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Gradient gradient,
     VoidCallback onTap,
   ) {
+    // Define high-definition background images for each card
+    String getBackgroundImage(String cardTitle) {
+      switch (cardTitle.toLowerCase()) {
+        case 'play':
+          return 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2670&q=80';
+        case 'book':
+          return 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2564&q=80';
+        default:
+          return 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?ixlib=rb-4.0.3&auto=format&fit=crop&w=2670&q=80';
+      }
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // Get comprehensive screen information
@@ -4207,23 +4238,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           // Small screens (iPhone SE, Galaxy S10e, etc.)
           iconSize = 20.0;
           titleFontSize = 16.0;
-          subtitleFontSize = 12.0;
+          subtitleFontSize = 11.0;
           padding = 12.0;
-          cardHeight = 140.0;
+          cardHeight = 150.0;
         } else if (isMediumScreen) {
           // Medium screens (iPhone 12, Galaxy S21, etc.)
           iconSize = 24.0;
           titleFontSize = 18.0;
-          subtitleFontSize = 13.5;
+          subtitleFontSize = 12.5;
           padding = 16.0;
-          cardHeight = 160.0;
+          cardHeight = 170.0;
         } else {
           // Large screens (iPhone 14 Pro Max, tablets, etc.)
           iconSize = 28.0;
           titleFontSize = 20.0;
-          subtitleFontSize = 15.0;
+          subtitleFontSize = 14.0;
           padding = 20.0;
-          cardHeight = 180.0;
+          cardHeight = 190.0;
         }
 
         // Fine-tune based on available card width
@@ -4244,7 +4275,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 height: cardHeight,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  gradient: gradient,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
@@ -4255,61 +4285,152 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   ],
                 ),
-                child: Padding(
-                  padding: EdgeInsets.all(padding),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      // Icon container
-                      Container(
-                        padding: EdgeInsets.all(padding * 0.4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(icon, color: Colors.white, size: iconSize),
+                      // Background Image
+                      Image.network(
+                        getBackgroundImage(title),
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            decoration: BoxDecoration(gradient: gradient),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white.withOpacity(0.7),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            decoration: BoxDecoration(gradient: gradient),
+                          );
+                        },
                       ),
 
-                      // Add flexible spacing
-                      SizedBox(height: padding * 0.3),
+                      // Enhanced gradient overlay for better text readability
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.3),
+                              Colors.black.withOpacity(0.5),
+                              Colors.black.withOpacity(0.8),
+                            ],
+                          ),
+                        ),
+                      ),
 
-                      // Text section with proper constraints
-                      Expanded(
+                      // Content
+                      Padding(
+                        padding: EdgeInsets.all(padding),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min, // Added this
                           children: [
-                            // Title - always fits on one line
-                            Flexible(
-                              // Changed from FittedBox to Flexible
-                              child: Text(
-                                title,
-                                style: GoogleFonts.poppins(
-                                  fontSize: titleFontSize,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  height: 1.1,
+                            // Icon container with enhanced background
+                            Container(
+                              padding: EdgeInsets.all(padding * 0.4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.3),
+                                  width: 1,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                icon,
+                                color: Colors.white,
+                                size: iconSize,
                               ),
                             ),
 
-                            SizedBox(height: padding * 0.2), // Reduced spacing
-                            // Subtitle - responsive with proper wrapping
-                            Flexible(
-                              child: Text(
-                                subtitle,
-                                style: GoogleFonts.poppins(
-                                  fontSize: subtitleFontSize,
-                                  color: Colors.white.withOpacity(0.9),
-                                  height: 1.2,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: isSmallScreen ? 2 : 3,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: true,
+                            // Add flexible spacing
+                            SizedBox(height: padding * 0.3),
+
+                            // Text section with proper constraints and enhanced readability
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Title with text shadow for better readability
+                                  Flexible(
+                                    child: Text(
+                                      title,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: titleFontSize,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        height: 1.1,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black.withOpacity(
+                                              0.8,
+                                            ),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+
+                                  SizedBox(height: padding * 0.15),
+
+                                  // Subtitle with enhanced background for better readability
+                                  Container(
+                                    width: double.infinity,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: padding * 0.5,
+                                      vertical: padding * 0.35,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.65),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      subtitle,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: subtitleFontSize,
+                                        color: Colors.white,
+                                        height: 1.35,
+                                        fontWeight: FontWeight.w500,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black.withOpacity(
+                                              0.9,
+                                            ),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 1),
+                                          ),
+                                        ],
+                                      ),
+                                      maxLines: isSmallScreen ? 2 : 3,
+                                      overflow: TextOverflow.visible,
+                                      softWrap: true,
+                                      textAlign: TextAlign.left,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],

@@ -22,6 +22,7 @@ class TurfModel {
   final String name;
   final String managerName;
   final String managerNumber;
+  final String acquisition;
   final String imageUrl;
   final String sport;
   final String startTime;
@@ -29,12 +30,17 @@ class TurfModel {
   final String location;
   final String ownerId;
   final bool isFavorite;
+  final String weekdayDayTime;
+  final String weekdayNightTime;
+  final String weekendDayTime;
+  final String weekendNightTime;
 
   TurfModel({
     required this.id,
     required this.name,
     required this.managerName,
     required this.managerNumber,
+    required this.acquisition,
     required this.imageUrl,
     required this.sport,
     required this.startTime,
@@ -42,6 +48,10 @@ class TurfModel {
     required this.location,
     required this.ownerId,
     this.isFavorite = false,
+    required this.weekdayDayTime,
+    required this.weekdayNightTime,
+    required this.weekendDayTime,
+    required this.weekendNightTime,
   });
 
   TurfModel copyWith({bool? isFavorite}) {
@@ -50,6 +60,7 @@ class TurfModel {
       name: name,
       managerName: managerName,
       managerNumber: managerNumber,
+      acquisition: acquisition,
       imageUrl: imageUrl,
       sport: sport,
       startTime: startTime,
@@ -57,6 +68,10 @@ class TurfModel {
       location: location,
       ownerId: ownerId,
       isFavorite: isFavorite ?? this.isFavorite,
+      weekdayDayTime: weekdayDayTime,
+      weekdayNightTime: weekdayNightTime,
+      weekendDayTime: weekendDayTime,
+      weekendNightTime: weekendNightTime,
     );
   }
 
@@ -68,12 +83,20 @@ class TurfModel {
       'imageUrl': imageUrl,
       'manager_name': managerName,
       'manager_number': managerNumber,
+      'acquisition': acquisition,
       'sport': sport,
       'start_time': startTime,
       'end_time': endTime,
       'location': location,
       'ownerId': ownerId,
-      // Remove isFavorite from stored data since it's determined by collection presence
+      'weekday_amounts': {
+        'day_time': weekdayDayTime,
+        'night_time': weekdayNightTime,
+      },
+      'weekend_amounts': {
+        'day_time': weekendDayTime,
+        'night_time': weekendNightTime,
+      },
       'addedAt': FieldValue.serverTimestamp(),
     };
   }
@@ -93,11 +116,17 @@ class TurfModel {
 
     final images = (data['images'] as List?) ?? [];
 
+    final weekdayAmounts =
+        data['weekday_amounts'] as Map<String, dynamic>? ?? {};
+    final weekendAmounts =
+        data['weekend_amounts'] as Map<String, dynamic>? ?? {};
+
     final turf = TurfModel(
       id: '${variant ?? 'single'}_$id',
       name: data['turf_name'] ?? '',
       managerName: data['manager_name'],
       managerNumber: data['manager_number'],
+      acquisition: data['acquisition'],
       imageUrl:
           images.isNotEmpty
               ? images.first
@@ -107,11 +136,23 @@ class TurfModel {
       endTime: data['end_time'] ?? '',
       location: data['location'] ?? 'Unknown',
       ownerId: data['ownerId'] ?? '',
+      weekdayDayTime: weekdayAmounts['day_time']?.toString() ?? '0',
+      weekdayNightTime: weekdayAmounts['night_time']?.toString() ?? '0',
+      weekendDayTime: weekendAmounts['day_time']?.toString() ?? '0',
+      weekendNightTime: weekendAmounts['night_time']?.toString() ?? '0',
     );
 
     print(
       '✅ Created turf: ${turf.name} - ${turf.sport} - ${turf.location}',
     ); // Debug print
+
+    print(
+      '💰 Pricing - Weekday: Day(${turf.weekdayDayTime}), Night(${turf.weekdayNightTime})',
+    );
+    print(
+      '💰 Pricing - Weekend: Day(${turf.weekendDayTime}), Night(${turf.weekendNightTime})',
+    );
+
     return turf;
   }
 }
@@ -159,23 +200,39 @@ class TurfListNotifier extends StateNotifier<List<TurfModel>> {
 
           print('🏅 Sports found: $sports'); // Debug print
 
+          final weekdayAmounts =
+              data['weekday_amounts'] as Map<String, dynamic>? ?? {};
+          final weekendAmounts =
+              data['weekend_amounts'] as Map<String, dynamic>? ?? {};
+
           for (final sport in sports) {
             final turf = TurfModel(
               id: 'multi_${doc.id}_$sport',
               name: data['turf_name'] ?? 'Unknown Turf',
               managerName: data['manager_name'],
               managerNumber: data['manager_number'],
+              acquisition: data['acquisition'],
               imageUrl:
                   (data['images'] as List?)?.first ??
                   'https://th.bing.com/th/id/OIP.QcSOTe7jIu4fP31CaetEUQHaDa?w=332&h=161&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3',
               sport: sport,
               startTime: data['start_time'] ?? '09:00',
-              endTime: data['end_time'] ?? '22:00',
+              endTime: data['end_time'] ?? '10:00',
               location: data['location'] ?? 'Unknown Location',
               ownerId: data['ownerId'] ?? '',
+              weekdayDayTime: weekdayAmounts['day_time']?.toString() ?? '0',
+              weekdayNightTime: weekdayAmounts['night_time']?.toString() ?? '0',
+              weekendDayTime: weekendAmounts['day_time']?.toString() ?? '0',
+              weekendNightTime: weekendAmounts['night_time']?.toString() ?? '0',
             );
             allTurfs.add(turf);
             print('➕ Added turf: ${turf.name}'); // Debug print
+            print(
+              '💰 Pricing - Weekday: Day(${turf.weekdayDayTime}), Night(${turf.weekdayNightTime})',
+            );
+            print(
+              '💰 Pricing - Weekend: Day(${turf.weekendDayTime}), Night(${turf.weekendNightTime})',
+            );
           }
         }
       }
@@ -392,11 +449,9 @@ final turfListProvider =
 final filteredTurfListProvider = Provider<List<TurfModel>>((ref) {
   final allTurfs = ref.watch(turfListProvider);
   final selectedFilter = ref.watch(selectedFilterProvider);
-  final selectedLocation = ref.watch(userLocationProvider);
 
   print('🔍 Filtering turfs: ${allTurfs.length} total'); // Debug print
   print('🏅 Selected filter: $selectedFilter'); // Debug print
-  print('📍 Selected location: $selectedLocation'); // Debug print
 
   final filtered =
       allTurfs.where((turf) {
@@ -404,18 +459,10 @@ final filteredTurfListProvider = Provider<List<TurfModel>>((ref) {
             selectedFilter == 'All Sports' ||
             turf.sport.toLowerCase() == selectedFilter.toLowerCase();
 
-        final matchLocation =
-            selectedLocation == null ||
-            turf.location.toLowerCase().contains(
-              selectedLocation.toLowerCase(),
-            );
+        print('🏟 Turf: ${turf.name}, Sport: ${turf.sport}');
+        print('   Sport match: $matchSport');
 
-        print(
-          '🏟 Turf: ${turf.name}, Sport: ${turf.sport}, Location: ${turf.location}',
-        );
-        print('   Sport match: $matchSport, Location match: $matchLocation');
-
-        return matchSport && matchLocation;
+        return matchSport;
       }).toList();
 
   print('✅ Filtered result: ${filtered.length} turfs'); // Debug print
@@ -457,6 +504,7 @@ final nearestTurfProvider = Provider<List<Map<String, String>>>((ref) {
               'ownerId': turf.ownerId,
               'manager_name': turf.managerName,
               'manager_number': turf.managerNumber,
+              'acquisition': turf.acquisition,
             };
           })
           .toList();
@@ -484,11 +532,18 @@ final userFavoriteTurfsProvider = StreamProvider<List<TurfModel>>((ref) async* {
         .map((snapshot) {
           return snapshot.docs.map((doc) {
             final data = doc.data();
+
+            final weekdayAmounts =
+                data['weekday_amounts'] as Map<String, dynamic>? ?? {};
+            final weekendAmounts =
+                data['weekend_amounts'] as Map<String, dynamic>? ?? {};
+
             return TurfModel(
               id: data['id'] ?? doc.id,
               name: data['turf_name'] ?? '',
               managerName: data['manager_name'] ?? '',
               managerNumber: data['manager_number'] ?? '',
+              acquisition: data['acquisition'] ?? '',
               imageUrl: data['imageUrl'] ?? '',
               sport: data['sport'] ?? '',
               startTime: data['start_time'] ?? '',
@@ -497,6 +552,10 @@ final userFavoriteTurfsProvider = StreamProvider<List<TurfModel>>((ref) async* {
               ownerId: data['ownerId'] ?? '',
               isFavorite:
                   true, // Always true since it's in favorites collection
+              weekdayDayTime: weekdayAmounts['day_time']?.toString() ?? '0',
+              weekdayNightTime: weekdayAmounts['night_time']?.toString() ?? '0',
+              weekendDayTime: weekendAmounts['day_time']?.toString() ?? '0',
+              weekendNightTime: weekendAmounts['night_time']?.toString() ?? '0',
             );
           }).toList();
         });

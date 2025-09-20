@@ -14,6 +14,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:ui';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BookingPage extends StatefulWidget {
   final String turfName;
@@ -22,6 +23,8 @@ class BookingPage extends StatefulWidget {
   final String creatorName;
   final int totalPlayers;
   final int needPlayers;
+  final String managerNumber;
+  final String acquisition;
 
   const BookingPage({
     super.key,
@@ -31,6 +34,8 @@ class BookingPage extends StatefulWidget {
     required this.creatorName,
     required this.totalPlayers,
     required this.needPlayers,
+    required this.managerNumber,
+    required this.acquisition,
   });
 
   @override
@@ -40,6 +45,7 @@ class BookingPage extends StatefulWidget {
 class _BookingPageState extends State<BookingPage>
     with TickerProviderStateMixin {
   String? selectedSport;
+  String? selectedCourtType;
   DateTime _selectedDate = DateTime.now();
   int selectedStartHour =
       TimeOfDay.now().hour % 12 == 0 ? 12 : TimeOfDay.now().hour % 12;
@@ -600,6 +606,68 @@ class _BookingPageState extends State<BookingPage>
     }
   }
 
+  Future<void> _sendWhatsAppToManager() async {
+    try {
+      // Format the phone number for WhatsApp
+      final String whatsappNumber = widget.managerNumber;
+
+      // Create the WhatsApp message with booking and team details
+      String message = '''🎉 *NEW BOOKING & TEAM CREATED* 🎉
+
+A new booking with team has been confirmed at ${widget.turfName}:
+
+📋 *Booking Details:*
+🆔 Booking ID: ${bookingId ?? 'N/A'}
+👥 Team ID: ${teamId ?? 'N/A'}
+🏟️ Turf: ${widget.turfName}
+📍 Location: ${widget.location}
+⚽ Sport: ${selectedSport ?? 'N/A'}''';
+
+      // Add court type if acquisition is enabled and court type is selected
+      if (widget.acquisition == "Yes" && selectedCourtType != null) {
+        message += '\n🏟️ Court Type: $selectedCourtType';
+      }
+
+      message += '''
+📅 Date: ${_selectedDate.day}-${_selectedDate.month}-${_selectedDate.year}
+⏰ Time: ${formatHour(selectedStartHour, isStartAM)} - ${formatHour(selectedEndHour, isEndAM)}
+💰 Amount Paid: ₹${bookingAmount.toStringAsFixed(0)}
+
+👥 *Team Details:*
+👤 Creator: ${widget.creatorName}
+🔢 Total Players: ${widget.totalPlayers}
+➕ Players Needed: ${widget.needPlayers}
+
+👤 *Customer Details:*
+📛 Name: ${userProfile?['name'] ?? 'N/A'}
+📞 Phone: ${userProfile?['phone_number'] ?? 'N/A'}
+📧 Email: ${userProfile?['email'] ?? 'N/A'}
+
+✅ Payment Status: *CONFIRMED*
+🎯 Team Status: *ACTIVE*
+
+Please prepare the turf for the scheduled time and inform about the team availability.
+
+Thank you! 🙏''';
+
+      // Create WhatsApp URL
+      final whatsappUrl = Uri.parse(
+        "https://wa.me/$whatsappNumber?text=${Uri.encodeComponent(message)}",
+      );
+
+      // Try to launch WhatsApp automatically
+      if (await canLaunchUrl(whatsappUrl)) {
+        await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+        print('WhatsApp message sent to manager successfully');
+      } else {
+        print('WhatsApp is not available on this device');
+      }
+    } catch (e) {
+      print('Error sending WhatsApp message to manager: $e');
+      // Don't show error to user, just log it as this is an automatic feature
+    }
+  }
+
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     print('Payment Success: ${response.paymentId}');
 
@@ -641,6 +709,16 @@ class _BookingPageState extends State<BookingPage>
         errorMessage = 'Failed to save team details: $e';
       } else {
         errorMessage += '\nFailed to save team details: $e';
+      }
+    }
+
+    if (bookingSaved && teamSaved) {
+      try {
+        await _sendWhatsAppToManager();
+        print('WhatsApp message sent successfully');
+      } catch (e) {
+        print('Error sending WhatsApp message: $e');
+        // Don't fail the entire process if WhatsApp fails
       }
     }
 
@@ -785,6 +863,7 @@ class _BookingPageState extends State<BookingPage>
       'total_players': widget.totalPlayers,
       'need_players': widget.needPlayers,
       'team_id': teamId,
+      if (widget.acquisition == "Yes") 'acquisition': selectedCourtType,
     };
 
     // Validate required fields
@@ -847,6 +926,7 @@ class _BookingPageState extends State<BookingPage>
         },
       ],
       'available_slots': widget.needPlayers,
+      if (widget.acquisition == "Yes") 'acquisition': selectedCourtType,
     };
 
     print('Team data to save: $teamData');
@@ -1430,6 +1510,327 @@ class _BookingPageState extends State<BookingPage>
     );
   }
 
+  Widget _buildCourtSelectionCard() {
+    return AnimatedBuilder(
+      animation: _fadeAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, (1 - _fadeAnimation.value) * 50),
+          child: Opacity(
+            opacity: _fadeAnimation.value,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = MediaQuery.of(context).size.width;
+                final isSmallScreen = screenWidth < 360;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Section Header
+                    ShaderMask(
+                      shaderCallback:
+                          (bounds) => LinearGradient(
+                            colors: [
+                              Colors.white,
+                              Colors.purple.shade200,
+                              Colors.blue.shade200,
+                            ],
+                          ).createShader(bounds),
+                      child: Text(
+                        'Select Court Type',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isSmallScreen ? 20 : 22,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 8),
+
+                    // Animated underline
+                    AnimatedContainer(
+                      duration: Duration(milliseconds: 800),
+                      width: _fadeAnimation.value * 100,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.purple, Colors.blue],
+                        ),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+
+                    SizedBox(height: isSmallScreen ? 16 : 20),
+
+                    // Animated Dropdown Container
+                    AnimatedContainer(
+                      duration: Duration(milliseconds: 600),
+                      curve: Curves.easeInOut,
+                      width: double.infinity,
+                      padding: EdgeInsets.all(25),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withOpacity(0.25),
+                            Colors.white.withOpacity(0.1),
+                            Colors.white.withOpacity(0.05),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            spreadRadius: 2,
+                            blurRadius: 20,
+                            offset: Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(23),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          child: Container(
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: selectedCourtType,
+                                hint: Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.orange.shade400,
+                                            Colors.red.shade400,
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(
+                                        Icons.sports_tennis_outlined,
+                                        color: Colors.white,
+                                        size: isSmallScreen ? 18 : 20,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'Choose Court Type',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.8),
+                                        fontSize: isSmallScreen ? 16 : 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                icon: AnimatedRotation(
+                                  turns: selectedCourtType != null ? 0.5 : 0.0,
+                                  duration: Duration(milliseconds: 300),
+                                  child: Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: Colors.white.withOpacity(0.8),
+                                    size: isSmallScreen ? 24 : 28,
+                                  ),
+                                ),
+                                isExpanded: true,
+                                dropdownColor: Colors.transparent,
+                                items:
+                                    ['Full Court', 'Half Court'].map((
+                                      String value,
+                                    ) {
+                                      return DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 15,
+                                            vertical: 12,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Color(
+                                                  0xFF452152,
+                                                ).withOpacity(0.95),
+                                                Color(
+                                                  0xFF3D1A4A,
+                                                ).withOpacity(0.9),
+                                              ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              15,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(
+                                                0.2,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                padding: EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    colors: [
+                                                      Colors.purple.withOpacity(
+                                                        0.4,
+                                                      ),
+                                                      Colors.blue.withOpacity(
+                                                        0.4,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                child: Icon(
+                                                  value == 'Full Court'
+                                                      ? Icons
+                                                          .fullscreen_outlined
+                                                      : Icons
+                                                          .crop_free_outlined,
+                                                  color: Colors.white,
+                                                  size: isSmallScreen ? 16 : 18,
+                                                ),
+                                              ),
+                                              SizedBox(width: 12),
+                                              Text(
+                                                value,
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize:
+                                                      isSmallScreen ? 16 : 18,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                onChanged: (String? newValue) {
+                                  HapticFeedback.lightImpact();
+                                  setState(() {
+                                    selectedCourtType = newValue;
+                                  });
+                                },
+                                selectedItemBuilder: (BuildContext context) {
+                                  return ['Full Court', 'Half Court'].map((
+                                    String value,
+                                  ) {
+                                    return Row(
+                                      children: [
+                                        Container(
+                                          padding: EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                Colors.purple.withOpacity(0.4),
+                                                Colors.blue.withOpacity(0.4),
+                                              ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            value == 'Full Court'
+                                                ? Icons.fullscreen_outlined
+                                                : Icons.crop_free_outlined,
+                                            color: Colors.white,
+                                            size: isSmallScreen ? 18 : 22,
+                                          ),
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text(
+                                          value,
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: isSmallScreen ? 16 : 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList();
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 15),
+
+                    // Selected Court Display
+                    if (selectedCourtType != null)
+                      AnimatedContainer(
+                        duration: Duration(milliseconds: 500),
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isSmallScreen ? 16 : 20,
+                          vertical: isSmallScreen ? 12 : 15,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.white.withOpacity(0.15),
+                              Colors.purple.withOpacity(0.1),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              selectedCourtType == 'Full Court'
+                                  ? Icons.fullscreen_outlined
+                                  : Icons.crop_free_outlined,
+                              color: Colors.white.withOpacity(0.8),
+                              size: isSmallScreen ? 16 : 18,
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'Selected: $selectedCourtType',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: isSmallScreen ? 14 : 16,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1468,6 +1869,10 @@ class _BookingPageState extends State<BookingPage>
                     _buildDateSelection(),
                     SizedBox(height: 25),
                     _buildTimeSelection(),
+                    if (widget.acquisition == "Yes") ...[
+                      SizedBox(height: 25),
+                      _buildCourtSelectionCard(),
+                    ],
                     SizedBox(height: 40),
                     _buildBookButton(),
                   ],

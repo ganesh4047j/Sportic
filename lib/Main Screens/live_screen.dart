@@ -1,109 +1,69 @@
-import 'package:animated_text_kit/animated_text_kit.dart';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:lottie/lottie.dart';
+import '../Providers/live_stream_providers.dart';
+import '../Services/live_stream_models.dart';
 
-final lottieControllerProvider = Provider.autoDispose<AnimationController?>(
-  (ref) => null,
-);
-
-class CenterLottieScreen extends ConsumerStatefulWidget {
-  const CenterLottieScreen({super.key});
+class LiveScreen extends StatefulWidget {
+  const LiveScreen({super.key});
 
   @override
-  ConsumerState<CenterLottieScreen> createState() => _CenterLottieScreenState();
+  State<LiveScreen> createState() => _LiveScreenState();
 }
 
-class _CenterLottieScreenState extends ConsumerState<CenterLottieScreen>
-    with TickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final AnimationController _fadeController;
-  late final AnimationController _scaleController;
-  late final AnimationController _rotationController;
-  late final AnimationController _slideController;
-  late final AnimationController _pulseController;
-
-  late final Animation<double> _fadeAnimation;
-  late final Animation<double> _scaleAnimation;
-  late final Animation<double> _rotationAnimation;
-  late final Animation<Offset> _slideAnimation;
-  late final Animation<double> _pulseAnimation;
+class _LiveScreenState extends State<LiveScreen> with TickerProviderStateMixin {
+  final provider = LiveStreamProvider();
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late AnimationController _pulseController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
 
-    // Lottie controller
-    _controller = AnimationController(vsync: this);
-
-    // Fade in animation
+    // Initialize animation controllers
     _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    // Scale animation
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
-      vsync: this,
-    );
-
-    // Rotation animation for background elements
-    _rotationController = AnimationController(
-      duration: const Duration(minutes: 2),
-      vsync: this,
-    );
-
-    // Slide animation
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
 
-    // Pulse animation
     _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(seconds: 2),
       vsync: this,
     );
 
+    // Initialize animations
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
-    );
-
-    _rotationAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _rotationController, curve: Curves.linear),
-    );
-
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.5),
+      begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+      CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
     );
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.elasticInOut),
     );
 
     // Start animations
     _fadeController.forward();
-    _scaleController.forward();
-    _rotationController.repeat();
     _slideController.forward();
     _pulseController.repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
     _fadeController.dispose();
-    _scaleController.dispose();
-    _rotationController.dispose();
     _slideController.dispose();
     _pulseController.dispose();
     super.dispose();
@@ -111,352 +71,63 @@ class _CenterLottieScreenState extends ConsumerState<CenterLottieScreen>
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth >= 768;
+    final isDesktop = screenWidth >= 1200;
+
+    // Responsive padding and dimensions
+    final horizontalPadding = isDesktop ? 40.0 : (isTablet ? 20.0 : 16.0);
+    final cardMargin = isDesktop ? 12.0 : (isTablet ? 10.0 : 8.0);
+    final thumbnailSize = isDesktop ? 80.0 : (isTablet ? 70.0 : 60.0);
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
             colors: [
               Color(0xFF452152),
               Color(0xFF3D1A4A),
               Color(0xFF200D28),
               Color(0xFF1B0723),
             ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
         ),
         child: SafeArea(
-          child: Stack(
+          child: Column(
             children: [
-              // Animated background particles
-              ...List.generate(20, (index) => _buildFloatingParticle(index)),
+              // Custom App Bar with animation
+              _buildAnimatedAppBar(context, horizontalPadding),
 
-              // Animated background rings
-              _buildAnimatedRings(),
+              // Main content
+              Expanded(
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: StreamBuilder<List<LiveEvent>>(
+                      stream: provider.getLiveEvents(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return _buildLoadingWidget();
+                        }
+                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return _buildEmptyState();
+                        }
 
-              // Main content with SingleChildScrollView to prevent overflow
-              SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight:
-                        MediaQuery.of(context).size.height -
-                        MediaQuery.of(context).padding.top -
-                        MediaQuery.of(context).padding.bottom,
-                  ),
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 20),
-                          // Enhanced title with multiple effects
-                          ScaleTransition(
-                            scale: _scaleAnimation,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 32,
-                                vertical: 20,
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(25),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.white.withOpacity(0.1),
-                                    Colors.white.withOpacity(0.05),
-                                  ],
-                                ),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.2),
-                                  width: 1,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.pink.withOpacity(0.3),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                  BoxShadow(
-                                    color: Colors.purple.withOpacity(0.2),
-                                    blurRadius: 30,
-                                    offset: const Offset(0, 15),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  // Animated icon
-                                  AnimatedBuilder(
-                                    animation: _pulseAnimation,
-                                    builder: (context, child) {
-                                      return Transform.scale(
-                                        scale: _pulseAnimation.value,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            gradient: RadialGradient(
-                                              colors: [
-                                                Colors.pink.withOpacity(0.3),
-                                                Colors.purple.withOpacity(0.2),
-                                                Colors.transparent,
-                                              ],
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.rocket_launch,
-                                            color: Colors.white,
-                                            size: 40,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                        final events = snapshot.data!;
 
-                                  const SizedBox(height: 20),
-
-                                  // Enhanced animated text
-                                  ShaderMask(
-                                    shaderCallback:
-                                        (bounds) => const LinearGradient(
-                                          colors: [
-                                            Colors.white,
-                                            Colors.pink,
-                                            Colors.purple,
-                                            Colors.white,
-                                          ],
-                                          stops: [0.0, 0.3, 0.7, 1.0],
-                                        ).createShader(bounds),
-                                    child: DefaultTextStyle(
-                                      style: GoogleFonts.nunito(
-                                        fontSize: 32.0,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                        letterSpacing: 2.0,
-                                      ),
-                                      child: AnimatedTextKit(
-                                        repeatForever: true,
-                                        animatedTexts: [
-                                          TypewriterAnimatedText(
-                                            'Coming Soon...',
-                                            speed: const Duration(
-                                              milliseconds: 150,
-                                            ),
-                                          ),
-                                          TypewriterAnimatedText(
-                                            'Get Ready! 🚀',
-                                            speed: const Duration(
-                                              milliseconds: 150,
-                                            ),
-                                          ),
-                                          TypewriterAnimatedText(
-                                            'Stay Tuned! ⭐',
-                                            speed: const Duration(
-                                              milliseconds: 150,
-                                            ),
-                                          ),
-                                        ],
-                                        pause: const Duration(seconds: 2),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 40),
-
-                          // Enhanced Lottie animation with container
-                          ScaleTransition(
-                            scale: _scaleAnimation,
-                            child: Container(
-                              width: MediaQuery.of(context).size.width * 0.7,
-                              height: MediaQuery.of(context).size.width * 0.7,
-                              constraints: const BoxConstraints(
-                                maxWidth: 280,
-                                maxHeight: 280,
-                                minWidth: 200,
-                                minHeight: 200,
-                              ),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: RadialGradient(
-                                  colors: [
-                                    Colors.pink.withOpacity(0.1),
-                                    Colors.purple.withOpacity(0.05),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.pink.withOpacity(0.2),
-                                    blurRadius: 40,
-                                    spreadRadius: 10,
-                                  ),
-                                ],
-                              ),
-                              child: Lottie.asset(
-                                'assets/coming_soon.json',
-                                repeat: true,
-                                controller: _controller,
-                                onLoaded: (composition) {
-                                  _controller
-                                    ..duration = composition.duration
-                                    ..repeat();
-                                },
-                              ),
-                            ),
-                          ),
-
-                          SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.05,
-                          ),
-
-                          // Additional content - subtitle and features
-                          FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: Container(
-                              width: double.infinity,
-                              margin: EdgeInsets.symmetric(
-                                horizontal:
-                                    MediaQuery.of(context).size.width * 0.08,
-                              ),
-                              padding: EdgeInsets.all(
-                                MediaQuery.of(context).size.width * 0.06,
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.white.withOpacity(0.08),
-                                    Colors.white.withOpacity(0.03),
-                                  ],
-                                ),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.1),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Something Amazing is Coming!',
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.white,
-                                      fontSize:
-                                          MediaQuery.of(context).size.width *
-                                          0.045,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  SizedBox(
-                                    height:
-                                        MediaQuery.of(context).size.height *
-                                        0.02,
-                                  ),
-                                  Text(
-                                    'We\'re working hard to bring you an incredible experience. Stay tuned for updates!',
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.white.withOpacity(0.8),
-                                      fontSize:
-                                          MediaQuery.of(context).size.width *
-                                          0.035,
-                                      height: 1.5,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  SizedBox(
-                                    height:
-                                        MediaQuery.of(context).size.height *
-                                        0.025,
-                                  ),
-
-                                  // Feature indicators with responsive layout
-                                  LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final itemWidth =
-                                          constraints.maxWidth / 4;
-                                      return Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          Flexible(
-                                            child: _buildFeatureIcon(
-                                              Icons.sports_soccer,
-                                              'Sports',
-                                              itemWidth,
-                                            ),
-                                          ),
-                                          Flexible(
-                                            child: _buildFeatureIcon(
-                                              Icons.live_tv,
-                                              'Live',
-                                              itemWidth,
-                                            ),
-                                          ),
-                                          Flexible(
-                                            child: _buildFeatureIcon(
-                                              Icons.group,
-                                              'Teams',
-                                              itemWidth,
-                                            ),
-                                          ),
-                                          Flexible(
-                                            child: _buildFeatureIcon(
-                                              Icons.emoji_events,
-                                              'Tournaments',
-                                              itemWidth,
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 30),
-
-                          // Loading indicator
-                          AnimatedBuilder(
-                            animation: _rotationAnimation,
-                            builder: (context, child) {
-                              return Transform.rotate(
-                                angle: _rotationAnimation.value * 2 * 3.14159,
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: SweepGradient(
-                                      colors: [
-                                        Colors.pink,
-                                        Colors.purple,
-                                        Colors.blue,
-                                        Colors.pink,
-                                      ],
-                                    ),
-                                  ),
-                                  child: Container(
-                                    margin: const EdgeInsets.all(3),
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Color(0xFF1B0723),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                        return _buildEventsList(
+                          events,
+                          cardMargin,
+                          thumbnailSize,
+                          horizontalPadding,
+                          isTablet,
+                          isDesktop,
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -468,137 +139,786 @@ class _CenterLottieScreenState extends ConsumerState<CenterLottieScreen>
     );
   }
 
-  Widget _buildFloatingParticle(int index) {
-    final random = (index * 1234) % 1000;
-    final size = 2.0 + (random % 8);
-    final left = (random % 100).toDouble();
-    final top = ((random * 7) % 100).toDouble();
-    final duration = 3000 + (random % 4000);
-
-    return Positioned(
-      left: MediaQuery.of(context).size.width * left / 100,
-      top: MediaQuery.of(context).size.height * top / 100,
-      child: TweenAnimationBuilder<double>(
-        duration: Duration(milliseconds: duration),
-        tween: Tween(begin: 0.0, end: 1.0),
-        curve: Curves.easeInOut,
-        builder: (context, value, child) {
-          return Transform.translate(
-            offset: Offset(0, -20 * value),
-            child: Opacity(
-              opacity: (1 - value) * 0.6,
+  Widget _buildAnimatedAppBar(BuildContext context, double horizontalPadding) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 20,
+      ),
+      child: Row(
+        children: [
+          // Back button with hover effect
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(25),
+              onTap: () => Navigator.pop(context),
               child: Container(
-                width: size,
-                height: size,
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.8),
-                      Colors.pink.withOpacity(0.4),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-        onEnd: () {
-          // Restart animation
-          setState(() {});
-        },
-      ),
-    );
-  }
-
-  Widget _buildAnimatedRings() {
-    return Positioned.fill(
-      child: AnimatedBuilder(
-        animation: _rotationAnimation,
-        builder: (context, child) {
-          return CustomPaint(painter: RingsPainter(_rotationAnimation.value));
-        },
-      ),
-    );
-  }
-
-  Widget _buildFeatureIcon(IconData icon, String label, double itemWidth) {
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return SizedBox(
-          width: itemWidth,
-          child: Column(
-            children: [
-              Container(
-                padding: EdgeInsets.all(
-                  MediaQuery.of(context).size.width * 0.03,
-                ),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.pink.withOpacity(0.2 * _pulseAnimation.value),
-                      Colors.purple.withOpacity(0.1 * _pulseAnimation.value),
-                    ],
-                  ),
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(25),
                   border: Border.all(
                     color: Colors.white.withOpacity(0.2),
                     width: 1,
                   ),
                 ),
-                child: Icon(
-                  icon,
-                  color: Colors.white.withOpacity(0.8),
-                  size: MediaQuery.of(context).size.width * 0.05,
+                child: const Icon(
+                  Icons.arrow_back_ios_new,
+                  color: Colors.white,
+                  size: 20,
                 ),
               ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-              Text(
-                label,
-                style: GoogleFonts.poppins(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: MediaQuery.of(context).size.width * 0.03,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+            ),
           ),
+          const SizedBox(width: 16),
+
+          // Animated live icon
+          AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _pulseAnimation.value,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(Icons.live_tv, color: Colors.red, size: 24),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(width: 12),
+
+          // Title
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShaderMask(
+                  shaderCallback:
+                      (bounds) => const LinearGradient(
+                        colors: [Colors.white, Colors.white70],
+                      ).createShader(bounds),
+                  child: const Text(
+                    "Live Events",
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                Text(
+                  "Join live streams now",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  strokeWidth: 3,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            "Loading live events...",
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _pulseAnimation.value * 0.8 + 0.2,
+                child: Container(
+                  padding: const EdgeInsets.all(30),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(Icons.live_tv, size: 60, color: Colors.white70),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 30),
+          Text(
+            "No Live Events",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            "Check back later for live streams",
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventsList(
+    List<LiveEvent> events,
+    double cardMargin,
+    double thumbnailSize,
+    double horizontalPadding,
+    bool isTablet,
+    bool isDesktop,
+  ) {
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 10,
+      ),
+      itemCount: events.length,
+      itemBuilder: (context, index) {
+        final event = events[index];
+        return AnimatedBuilder(
+          animation: _fadeAnimation,
+          builder: (context, child) {
+            return TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: Duration(milliseconds: 600 + (index * 100)),
+              curve: Curves.easeOutBack,
+              builder: (context, value, child) {
+                return Transform.translate(
+                  offset: Offset(0, 50 * (1 - value)),
+                  child: Opacity(
+                    opacity: value,
+                    child: _buildEventCard(
+                      event,
+                      cardMargin,
+                      thumbnailSize,
+                      isTablet,
+                      isDesktop,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );
   }
+
+  Widget _buildEventCard(
+    LiveEvent event,
+    double cardMargin,
+    double thumbnailSize,
+    bool isTablet,
+    bool isDesktop,
+  ) {
+    return Container(
+      margin: EdgeInsets.only(bottom: cardMargin),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder:
+                    (context, animation, secondaryAnimation) =>
+                        LivePlayerScreen(event: event),
+                transitionsBuilder: (
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  child,
+                ) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(1.0, 0.0),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeInOutCubic,
+                      ),
+                    ),
+                    child: child,
+                  );
+                },
+                transitionDuration: const Duration(milliseconds: 300),
+              ),
+            );
+          },
+          child: Container(
+            padding: EdgeInsets.all(isDesktop ? 20 : (isTablet ? 16 : 12)),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.1),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Thumbnail with live indicator
+                _buildThumbnail(event, thumbnailSize),
+
+                SizedBox(width: isDesktop ? 20 : (isTablet ? 16 : 12)),
+
+                // Event details
+                Expanded(child: _buildEventDetails(event, isDesktop, isTablet)),
+
+                // Join button
+                _buildJoinButton(isDesktop, isTablet),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnail(LiveEvent event, double thumbnailSize) {
+    return Stack(
+      children: [
+        Container(
+          width: thumbnailSize,
+          height: thumbnailSize,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.white.withOpacity(0.2), width: 2),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child:
+                event.thumbnail.isNotEmpty
+                    ? Image.network(
+                      event.thumbnail,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildDefaultThumbnail();
+                      },
+                    )
+                    : _buildDefaultThumbnail(),
+          ),
+        ),
+
+        // Live indicator
+        Positioned(
+          top: 4,
+          right: 4,
+          child: AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _pulseAnimation.value * 0.3 + 0.7,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.5),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    "LIVE",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDefaultThumbnail() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.red.withOpacity(0.3), Colors.purple.withOpacity(0.3)],
+        ),
+      ),
+      child: const Center(
+        child: Icon(Icons.live_tv, color: Colors.white, size: 30),
+      ),
+    );
+  }
+
+  Widget _buildEventDetails(LiveEvent event, bool isDesktop, bool isTablet) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          event.title,
+          style: TextStyle(
+            fontSize: isDesktop ? 18 : (isTablet ? 16 : 14),
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+
+        const SizedBox(height: 6),
+
+        Row(
+          children: [
+            Icon(
+              Icons.circle,
+              size: 8,
+              color:
+                  event.status.toLowerCase() == 'live'
+                      ? Colors.green
+                      : Colors.orange,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              event.status.toUpperCase(),
+              style: TextStyle(
+                fontSize: isDesktop ? 14 : (isTablet ? 12 : 11),
+                fontWeight: FontWeight.w600,
+                color:
+                    event.status.toLowerCase() == 'live'
+                        ? Colors.green
+                        : Colors.orange,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 4),
+
+        Text(
+          "Starts: ${event.startTime}",
+          style: TextStyle(
+            fontSize: isDesktop ? 13 : (isTablet ? 12 : 11),
+            color: Colors.white.withOpacity(0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildJoinButton(bool isDesktop, bool isTablet) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 20 : (isTablet ? 16 : 12),
+        vertical: isDesktop ? 12 : (isTablet ? 10 : 8),
+      ),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6A4C93), Color(0xFF9C27B0)],
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.play_arrow,
+            color: Colors.white,
+            size: isDesktop ? 20 : (isTablet ? 18 : 16),
+          ),
+          SizedBox(width: isDesktop ? 8 : 4),
+          Text(
+            "Join",
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: isDesktop ? 14 : (isTablet ? 13 : 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class RingsPainter extends CustomPainter {
-  final double animationValue;
+/// 🔴 Enhanced Player Screen
+class LivePlayerScreen extends StatefulWidget {
+  final LiveEvent event;
 
-  RingsPainter(this.animationValue);
+  const LivePlayerScreen({super.key, required this.event});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0;
+  State<LivePlayerScreen> createState() => _LivePlayerScreenState();
+}
 
-    final center = Offset(size.width / 2, size.height / 2);
-    final maxRadius = size.width * 0.7;
+class _LivePlayerScreenState extends State<LivePlayerScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _scaleController;
+  late AnimationController _rotateController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _rotateAnimation;
 
-    for (int i = 0; i < 3; i++) {
-      final radius = maxRadius * (0.3 + i * 0.2);
-      final opacity = 0.1 * (1 - animationValue + i * 0.1);
+  @override
+  void initState() {
+    super.initState();
 
-      paint.color = Colors.white.withOpacity(opacity.clamp(0.0, 0.3));
+    _scaleController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
 
-      canvas.drawCircle(center, radius, paint);
-    }
+    _rotateController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
+    );
+
+    _rotateAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _rotateController, curve: Curves.linear));
+
+    _scaleController.repeat(reverse: true);
+    _rotateController.repeat();
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  void dispose() {
+    _scaleController.dispose();
+    _rotateController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth >= 768;
+    final isDesktop = screenWidth >= 1200;
+
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF452152),
+              Color(0xFF3D1A4A),
+              Color(0xFF200D28),
+              Color(0xFF1B0723),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Custom App Bar
+              _buildPlayerAppBar(context, isDesktop, isTablet),
+
+              // Main content
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Animated streaming icon
+                      AnimatedBuilder(
+                        animation: _scaleAnimation,
+                        builder: (context, child) {
+                          return Transform.scale(
+                            scale: _scaleAnimation.value,
+                            child: Container(
+                              padding: EdgeInsets.all(isDesktop ? 40 : 30),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    Colors.red.withOpacity(0.3),
+                                    Colors.red.withOpacity(0.1),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.live_tv,
+                                size: isDesktop ? 100 : (isTablet ? 80 : 60),
+                                color: Colors.red,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      SizedBox(height: isDesktop ? 40 : 30),
+
+                      // Event details
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isDesktop ? 40 : 20,
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              "Now Streaming",
+                              style: TextStyle(
+                                fontSize: isDesktop ? 18 : 16,
+                                color: Colors.white.withOpacity(0.8),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+
+                            SizedBox(height: isDesktop ? 16 : 12),
+
+                            Text(
+                              widget.event.title,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: isDesktop ? 28 : (isTablet ? 24 : 20),
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+
+                            SizedBox(height: isDesktop ? 20 : 16),
+
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isDesktop ? 20 : 16,
+                                vertical: isDesktop ? 12 : 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(25),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Text(
+                                "Room ID: ${widget.event.roomId}",
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 16 : 14,
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: isDesktop ? 50 : 40),
+
+                      // Join button
+                      _buildJoinStreamButton(isDesktop, isTablet),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayerAppBar(
+    BuildContext context,
+    bool isDesktop,
+    bool isTablet,
+  ) {
+    return Padding(
+      padding: EdgeInsets.all(isDesktop ? 24 : 16),
+      child: Row(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(25),
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                padding: EdgeInsets.all(isDesktop ? 12 : 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                ),
+                child: Icon(
+                  Icons.arrow_back_ios_new,
+                  color: Colors.white,
+                  size: isDesktop ? 24 : 20,
+                ),
+              ),
+            ),
+          ),
+
+          const Spacer(),
+
+          // Live indicator
+          AnimatedBuilder(
+            animation: _rotateController,
+            builder: (context, child) {
+              return Transform.rotate(
+                angle: _rotateAnimation.value * 2 * 3.14159,
+                child: Container(
+                  padding: EdgeInsets.all(isDesktop ? 12 : 10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.red.withOpacity(0.5)),
+                  ),
+                  child: Icon(
+                    Icons.fiber_manual_record,
+                    color: Colors.red,
+                    size: isDesktop ? 16 : 14,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJoinStreamButton(bool isDesktop, bool isTablet) {
+    return Container(
+      width: isDesktop ? 200 : (isTablet ? 180 : 160),
+      height: isDesktop ? 60 : (isTablet ? 56 : 50),
+      child: ElevatedButton(
+        onPressed: () {
+          // TODO: Integrate VideoSDK player/join logic here
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Joining ${widget.event.title}...'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6A4C93), Color(0xFF9C27B0), Color(0xFFE91E63)],
+            ),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.purple.withOpacity(0.4),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.play_arrow,
+                  size: isDesktop ? 28 : (isTablet ? 24 : 20),
+                ),
+                SizedBox(width: isDesktop ? 12 : 8),
+                Text(
+                  "Join Stream",
+                  style: TextStyle(
+                    fontSize: isDesktop ? 18 : (isTablet ? 16 : 14),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

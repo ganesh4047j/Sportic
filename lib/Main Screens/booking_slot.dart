@@ -15,15 +15,29 @@ import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart'; // For DateFormat
 import 'dart:ui';
 
+import 'package:url_launcher/url_launcher.dart';
+
 class TimingPage extends StatefulWidget {
   final String turfName;
   final String location;
   final String owner_id;
+  final String managerNumber;
+  final String acquisition;
+  final String weekdayDayTime;
+  final String weekdayNightTime;
+  final String weekendDayTime;
+  final String weekendNightTime;
   const TimingPage({
     super.key,
     required this.owner_id,
     required this.turfName,
     required this.location,
+    required this.managerNumber,
+    required this.acquisition,
+    required this.weekdayDayTime,
+    required this.weekdayNightTime,
+    required this.weekendDayTime,
+    required this.weekendNightTime,
   });
 
   @override
@@ -33,6 +47,7 @@ class TimingPage extends StatefulWidget {
 class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
   final List<int> hours = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   String? selectedSport;
+  String? selectedCourtType;
   DateTime _selectedDate = DateTime.now();
   int selectedStartHour =
       TimeOfDay.now().hour % 12 == 0 ? 12 : TimeOfDay.now().hour % 12;
@@ -174,6 +189,67 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     return start1 < end2 && start2 < end1;
   }
 
+  // Add this method to calculate booking amount based on pricing tiers
+  void _calculateBookingAmount() {
+    if (selectedSport == null) {
+      bookingAmount = 0.0;
+      return;
+    }
+
+    // Determine if the selected date is a weekend
+    final isWeekend =
+        _selectedDate.weekday == DateTime.saturday ||
+        _selectedDate.weekday == DateTime.sunday;
+
+    // Determine if it's day time or night time
+    // Assuming day time is 6 AM to 6 PM, night time is 6 PM to 6 AM
+    final startHour24 = _convertTo24HourFormat(selectedStartHour, isStartAM);
+    final endHour24 = _convertTo24HourFormat(selectedEndHour, isEndAM);
+
+    // Calculate duration in hours
+    int duration = endHour24 - startHour24;
+    if (duration <= 0) {
+      duration = (24 - startHour24) + endHour24; // Handle overnight bookings
+    }
+
+    double hourlyRate = 0.0;
+
+    // Determine the appropriate hourly rate based on time and day
+    if (isWeekend) {
+      // Weekend pricing
+      if (startHour24 >= 6 && startHour24 < 18) {
+        // Day time (6 AM to 6 PM)
+        hourlyRate = double.tryParse(widget.weekendDayTime) ?? 0.0;
+      } else {
+        // Night time (6 PM to 6 AM)
+        hourlyRate = double.tryParse(widget.weekendNightTime) ?? 0.0;
+      }
+    } else {
+      // Weekday pricing
+      if (startHour24 >= 6 && startHour24 < 18) {
+        // Day time (6 AM to 6 PM)
+        hourlyRate = double.tryParse(widget.weekdayDayTime) ?? 0.0;
+      } else {
+        // Night time (6 PM to 6 AM)
+        hourlyRate = double.tryParse(widget.weekdayNightTime) ?? 0.0;
+      }
+    }
+
+    // Calculate total amount
+    bookingAmount = hourlyRate * duration;
+
+    // Ensure minimum amount
+    if (bookingAmount < 100) {
+      bookingAmount = 500.0; // Default minimum amount
+    }
+
+    print('💰 Calculated booking amount: ₹$bookingAmount');
+    print('   Duration: $duration hours');
+    print('   Hourly rate: ₹$hourlyRate');
+    print('   Is weekend: $isWeekend');
+    print('   Is day time: ${startHour24 >= 6 && startHour24 < 18}');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -183,6 +259,9 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _initializeUserData();
     _initializeAnimations();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _calculateBookingAmount();
+    });
   }
 
   void _initializeAnimations() {
@@ -396,6 +475,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
 
     try {
       await _saveBookingToFirestore(response.paymentId!);
+      await _sendWhatsAppToManager();
       _showBookingSuccessPopup();
     } catch (e) {
       print('Error saving booking: $e');
@@ -406,6 +486,61 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _sendWhatsAppToManager() async {
+    try {
+      // Format the phone number for WhatsApp (add 91 for India if not present)
+      final String whatsappNumber = widget.managerNumber;
+
+      // Create the WhatsApp message with booking details
+      String message = '''🎉 *NEW BOOKING CONFIRMED* 🎉
+
+A new booking has been confirmed at ${widget.turfName}:
+
+📋 *Booking Details:*
+🆔 Booking ID: ${bookingId ?? 'N/A'}
+🏟️ Turf: ${widget.turfName}
+📍 Location: ${widget.location}
+⚽ Sport: ${selectedSport ?? 'N/A'}''';
+
+      // Add court type if acquisition is enabled and court type is selected
+      if (widget.acquisition == "Yes" && selectedCourtType != null) {
+        message += '\n🏟️ Court Type: $selectedCourtType';
+      }
+
+      message += '''
+📅 Date: ${_selectedDate.day}-${_selectedDate.month}-${_selectedDate.year}
+⏰ Time: ${formatHour(selectedStartHour, isStartAM)} - ${formatHour(selectedEndHour, isEndAM)}
+💰 Amount Paid: ₹${bookingAmount.toStringAsFixed(0)}
+
+👤 *Customer Details:*
+📛 Name: ${userProfile?['name'] ?? 'N/A'}
+📞 Phone: ${userProfile?['phone_number'] ?? 'N/A'}
+📧 Email: ${userProfile?['email'] ?? 'N/A'}
+
+✅ Payment Status: *CONFIRMED*
+
+Please prepare the turf for the scheduled time.
+
+Thank you! 🙏''';
+
+      // Create WhatsApp URL
+      final whatsappUrl = Uri.parse(
+        "https://wa.me/$whatsappNumber?text=${Uri.encodeComponent(message)}",
+      );
+
+      // Try to launch WhatsApp automatically
+      if (await canLaunchUrl(whatsappUrl)) {
+        await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+        print('WhatsApp message sent to manager successfully');
+      } else {
+        print('WhatsApp is not available on this device');
+      }
+    } catch (e) {
+      print('Error sending WhatsApp message to manager: $e');
+      // Don't show error to user, just log it as this is an automatic feature
     }
   }
 
@@ -663,6 +798,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
       'booking_timestamp': FieldValue.serverTimestamp(),
       'status': 'confirmed',
       'amount': bookingAmount,
+      if (widget.acquisition == "Yes") 'acquisition': selectedCourtType,
     };
 
     await FirebaseFirestore.instance
@@ -1055,6 +1191,336 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildCourtSelectionCard() {
+    return AnimatedBuilder(
+      animation: _fadeAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, (1 - _fadeAnimation.value) * 50),
+          child: Opacity(
+            opacity: _fadeAnimation.value,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = MediaQuery.of(context).size.width;
+                final isSmallScreen = screenWidth < 360;
+
+                return _buildModernGlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Section Header
+                      ShaderMask(
+                        shaderCallback:
+                            (bounds) => LinearGradient(
+                              colors: [
+                                Colors.white,
+                                Colors.purple.shade200,
+                                Colors.blue.shade200,
+                              ],
+                            ).createShader(bounds),
+                        child: Text(
+                          'Select Court Type',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isSmallScreen ? 20 : 24,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: 8),
+
+                      // Animated underline
+                      AnimatedContainer(
+                        duration: Duration(milliseconds: 800),
+                        width: _fadeAnimation.value * 100,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.purple, Colors.blue],
+                          ),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+
+                      SizedBox(height: isSmallScreen ? 16 : 20),
+
+                      // Animated Dropdown Container
+                      AnimatedContainer(
+                        duration: Duration(milliseconds: 600),
+                        curve: Curves.easeInOut,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withOpacity(0.15),
+                              Colors.purple.withOpacity(0.1),
+                              Colors.blue.withOpacity(0.08),
+                              Colors.white.withOpacity(0.05),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            isSmallScreen ? 20 : 30,
+                          ),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.4),
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.purple.withOpacity(0.3),
+                              spreadRadius: 3,
+                              blurRadius: 20,
+                              offset: Offset(0, 8),
+                            ),
+                            BoxShadow(
+                              color: Colors.blue.withOpacity(0.2),
+                              spreadRadius: 1,
+                              blurRadius: 15,
+                              offset: Offset(0, -4),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(
+                            isSmallScreen ? 18 : 28,
+                          ),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isSmallScreen ? 16 : 20,
+                                vertical: isSmallScreen ? 12 : 16,
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: selectedCourtType,
+                                  hint: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.sports_tennis_outlined,
+                                        color: Colors.white.withOpacity(0.7),
+                                        size: isSmallScreen ? 20 : 24,
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'Choose Court Type',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white.withOpacity(0.8),
+                                          fontSize: isSmallScreen ? 16 : 18,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  icon: AnimatedRotation(
+                                    turns:
+                                        selectedCourtType != null ? 0.5 : 0.0,
+                                    duration: Duration(milliseconds: 300),
+                                    child: Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      color: Colors.white.withOpacity(0.8),
+                                      size: isSmallScreen ? 24 : 28,
+                                    ),
+                                  ),
+                                  isExpanded: true,
+                                  dropdownColor: Colors.transparent,
+                                  items:
+                                      ['Full Court', 'Half Court'].map((
+                                        String value,
+                                      ) {
+                                        return DropdownMenuItem<String>(
+                                          value: value,
+                                          child: Container(
+                                            width: double.infinity,
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                                colors: [
+                                                  Color(
+                                                    0xFF452152,
+                                                  ).withOpacity(0.95),
+                                                  Color(
+                                                    0xFF3D1A4A,
+                                                  ).withOpacity(0.9),
+                                                ],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: Colors.white.withOpacity(
+                                                  0.2,
+                                                ),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  padding: EdgeInsets.all(6),
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        Colors.purple
+                                                            .withOpacity(0.3),
+                                                        Colors.blue.withOpacity(
+                                                          0.3,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                  ),
+                                                  child: Icon(
+                                                    value == 'Full Court'
+                                                        ? Icons
+                                                            .fullscreen_outlined
+                                                        : Icons
+                                                            .crop_free_outlined,
+                                                    color: Colors.white,
+                                                    size:
+                                                        isSmallScreen ? 16 : 18,
+                                                  ),
+                                                ),
+                                                SizedBox(width: 12),
+                                                Text(
+                                                  value,
+                                                  style: GoogleFonts.poppins(
+                                                    color: Colors.white,
+                                                    fontSize:
+                                                        isSmallScreen ? 16 : 18,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                  onChanged: (String? newValue) {
+                                    HapticFeedback.lightImpact();
+                                    setState(() {
+                                      selectedCourtType = newValue;
+                                    });
+                                  },
+                                  selectedItemBuilder: (BuildContext context) {
+                                    return ['Full Court', 'Half Court'].map((
+                                      String value,
+                                    ) {
+                                      return Row(
+                                        children: [
+                                          Container(
+                                            padding: EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  Colors.purple.withOpacity(
+                                                    0.4,
+                                                  ),
+                                                  Colors.blue.withOpacity(0.4),
+                                                ],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: Icon(
+                                              value == 'Full Court'
+                                                  ? Icons.fullscreen_outlined
+                                                  : Icons.crop_free_outlined,
+                                              color: Colors.white,
+                                              size: isSmallScreen ? 18 : 22,
+                                            ),
+                                          ),
+                                          SizedBox(width: 12),
+                                          Text(
+                                            value,
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.white,
+                                              fontSize: isSmallScreen ? 16 : 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }).toList();
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: 15),
+
+                      // Selected Court Display
+                      if (selectedCourtType != null)
+                        AnimatedContainer(
+                          duration: Duration(milliseconds: 500),
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 12 : 16,
+                            vertical: isSmallScreen ? 8 : 12,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white.withOpacity(0.1),
+                                Colors.purple.withOpacity(0.05),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              isSmallScreen ? 15 : 20,
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                selectedCourtType == 'Full Court'
+                                    ? Icons.fullscreen_outlined
+                                    : Icons.crop_free_outlined,
+                                color: Colors.white.withOpacity(0.8),
+                                size: isSmallScreen ? 14 : 16,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Selected: $selectedCourtType',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: isSmallScreen ? 12 : 14,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.5,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // Enhanced Header Widget
   Widget _buildHeader() {
     return AnimatedBuilder(
@@ -1342,6 +1808,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                       HapticFeedback.lightImpact();
                                       setState(() {
                                         selectedSport = sport['name'];
+                                        _calculateBookingAmount();
                                       });
                                     },
                                     child: Container(
@@ -1818,6 +2285,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                         onDateTimeChanged: (DateTime value) {
                                           setState(() {
                                             _selectedDate = value;
+                                            _calculateBookingAmount();
                                           });
                                           // Add haptic feedback
                                           HapticFeedback.lightImpact();
@@ -2162,6 +2630,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                         } else {
                                           selectedEndHour = hours[index];
                                         }
+                                        _calculateBookingAmount();
                                       });
                                     },
                                     childDelegate:
@@ -2268,6 +2737,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                           } else {
                                             isEndAM = true;
                                           }
+                                          _calculateBookingAmount();
                                         });
                                       },
                                       amPmButtonWidth,
@@ -2293,6 +2763,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                                           } else {
                                             isEndAM = false;
                                           }
+                                          _calculateBookingAmount();
                                         });
                                       },
                                       amPmButtonWidth,
@@ -3235,6 +3706,7 @@ class _TimingPageState extends State<TimingPage> with TickerProviderStateMixin {
                 _buildHeader(),
                 _buildSportSelectionCard(filteredSportsNames),
                 _buildDateTimeCard(),
+                if (widget.acquisition == "Yes") _buildCourtSelectionCard(),
                 _buildBookingCard(),
                 SizedBox(
                   height: MediaQuery.of(context).size.width < 360 ? 24 : 32,
